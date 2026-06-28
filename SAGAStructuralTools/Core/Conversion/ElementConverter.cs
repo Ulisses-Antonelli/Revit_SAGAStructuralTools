@@ -126,11 +126,99 @@ namespace SAGAStructuralTools.Core.Conversion
             if (source.Location is LocationCurve lc)
                 return lc.Curve;
 
-            // Caso 2: DirectShape do IFC não tem LocationCurve — extrai o eixo pelo bounding box.
-            // Identifica a dimensão mais longa como direção do membro.
+            // Caso 2: DirectShape do IFC — extrai o eixo real pela geometria sólida.
+            // Para uma extrusão prismática (qualquer inclinação), as duas faces com menor
+            // área são as faces de extremidade. O centroide de cada uma dá início e fim reais.
+            var solidCurve = TryGetCurveFromSolid(source);
+            if (solidCurve != null) return solidCurve;
+
+            // Caso 3: fallback — bounding box (só correto para membros axis-aligned)
+            return GetCurveFromBoundingBox(source);
+        }
+
+        private static Curve TryGetCurveFromSolid(Element source)
+        {
+            try
+            {
+                var options = new Options
+                {
+                    ComputeReferences = false,
+                    DetailLevel       = ViewDetailLevel.Medium
+                };
+
+                Solid solid = null;
+                foreach (var obj in source.get_Geometry(options))
+                {
+                    if (obj is Solid s && s.Volume > 0)
+                    {
+                        solid = s;
+                        break;
+                    }
+                    if (obj is GeometryInstance gi)
+                    {
+                        foreach (var inner in gi.GetInstanceGeometry())
+                        {
+                            if (inner is Solid s2 && s2.Volume > 0)
+                            {
+                                solid = s2;
+                                break;
+                            }
+                        }
+                        if (solid != null) break;
+                    }
+                }
+
+                if (solid == null) return null;
+
+                // Ordena as faces por área e pega as 2 menores: são as faces de extremidade
+                var endFaces = solid.Faces
+                    .Cast<Face>()
+                    .OrderBy(f => f.Area)
+                    .Take(2)
+                    .ToList();
+
+                if (endFaces.Count < 2) return null;
+
+                var p1 = FaceCentroid(endFaces[0]);
+                var p2 = FaceCentroid(endFaces[1]);
+
+                if (p1.DistanceTo(p2) < 1e-6) return null;
+
+                return Line.CreateBound(p1, p2);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Calcula o centroide de uma face usando os pontos iniciais de cada aresta do loop externo.
+        /// Para perfis estruturais (faces planas com arestas retas), é equivalente à média dos vértices.
+        /// </summary>
+        private static XYZ FaceCentroid(Face face)
+        {
+            var loops = face.GetEdgesAsCurveLoops();
+            if (loops == null || loops.Count == 0) return XYZ.Zero;
+
+            var sum   = XYZ.Zero;
+            int count = 0;
+
+            // Usa apenas o loop externo (índice 0) — loops internos seriam furos
+            foreach (var curve in loops[0])
+            {
+                sum += curve.GetEndPoint(0);
+                count++;
+            }
+
+            return count > 0 ? sum * (1.0 / count) : XYZ.Zero;
+        }
+
+        private static Curve GetCurveFromBoundingBox(Element source)
+        {
             var bb = source.get_BoundingBox(null);
             if (bb == null)
-                throw new InvalidOperationException("Elemento sem LocationCurve nem bounding box.");
+                throw new InvalidOperationException("Elemento sem geometria válida.");
 
             var min    = bb.Min;
             var max    = bb.Max;
@@ -158,7 +246,7 @@ namespace SAGAStructuralTools.Core.Conversion
             }
 
             if (start.DistanceTo(end) < 1e-6)
-                throw new InvalidOperationException("Bounding box degenerada — elemento muito pequeno.");
+                throw new InvalidOperationException("Bounding box degenerada.");
 
             return Line.CreateBound(start, end);
         }
