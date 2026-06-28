@@ -23,13 +23,15 @@
     </Reference>
     <!-- Required for FolderBrowserDialog -->
     <Reference Include="System.Windows.Forms" />
+    <!-- Required for System.Drawing.Bitmap (icon loading) -->
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Icons are copied alongside the DLL to the build output -->
-    <None Include="Resources\Icons\*.png">
+    <!-- Content: copiado para o output e depois para o deploy folder junto com a DLL -->
+    <Content Include="Resources\Icons\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
 
   <!--
@@ -41,12 +43,19 @@
     <PropertyGroup>
       <DeployDir>C:\ProgramData\Autodesk\Revit\Addins\2023</DeployDir>
     </PropertyGroup>
-    <MakeDir Directories="$(DeployDir)" Condition="!Exists('$(DeployDir)')" />
+    <MakeDir Directories="$(DeployDir)\Resources\Icons"
+             Condition="!Exists('$(DeployDir)\Resources\Icons')" />
     <Copy SourceFiles="$(TargetPath)"
           DestinationFolder="$(DeployDir)"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\SAGAStructuralTools.addin"
           DestinationFolder="$(DeployDir)"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <IconFiles Include="$(MSBuildProjectDirectory)\Resources\Icons\*.png" />
+    </ItemGroup>
+    <Copy SourceFiles="@(IconFiles)"
+          DestinationFolder="$(DeployDir)\Resources\Icons"
           SkipUnchangedFiles="true" />
   </Target>
 

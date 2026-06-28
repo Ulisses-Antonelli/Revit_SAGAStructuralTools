@@ -2,6 +2,8 @@ using Autodesk.Revit.UI;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace SAGAStructuralTools
@@ -13,39 +15,54 @@ namespace SAGAStructuralTools
             const string tabName = "SAGA Tools";
             application.CreateRibbonTab(tabName);
 
-            var panel = application.CreateRibbonPanel(tabName, "Estrutural IFC");
+            var panel = application.CreateRibbonPanel(tabName, "Conversão IFC");
             var assemblyPath = Assembly.GetExecutingAssembly().Location;
 
             var buttonData = new PushButtonData(
                 name:          "ConvertIfc",
-                text:          "Converter IFC\nGerdau",
+                text:          "Converter IFC\npara Família",
                 assemblyName:  assemblyPath,
                 className:     "SAGAStructuralTools.Commands.ConvertIfcCommand")
             {
-                ToolTip = "Converte perfis metálicos de arquivos IFC em famílias nativas do catálogo Gerdau.",
-                LargeImage = LoadIcon("Resources\\Icons\\saga_32.png"),
-                Image      = LoadIcon("Resources\\Icons\\saga_16.png")
+                ToolTip    = "Converte perfis metálicos de arquivos IFC em famílias estruturais nativas.",
+                LargeImage = LoadIcon("saga_32.png", 32),
+                Image      = LoadIcon("saga_16.png", 16)
             };
 
             panel.AddItem(buttonData);
+
             return Result.Succeeded;
         }
 
         public Result OnShutdown(UIControlledApplication application) => Result.Succeeded;
 
-        private System.Windows.Media.ImageSource LoadIcon(string relativePath)
+        private static ImageSource LoadIcon(string fileName, int pixelSize)
         {
             try
             {
-                var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                var fullPath = Path.Combine(assemblyDir, relativePath);
+                var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
+                var fullPath    = Path.Combine(assemblyDir, "Resources", "Icons", fileName);
                 if (!File.Exists(fullPath)) return null;
 
-                var image = new BitmapImage();
-                image.BeginInit();
-                image.UriSource = new Uri(fullPath, UriKind.Absolute);
-                image.EndInit();
-                return image;
+                // Carrega o PNG original (DPI pode estar errado)
+                BitmapSource source;
+                using (var stream = File.OpenRead(fullPath))
+                {
+                    var frame = BitmapFrame.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                    source = frame;
+                }
+
+                // Renderiza para RenderTargetBitmap que SEMPRE usa 96 DPI e pixelSize exato.
+                // Isso corrige o DPI errado (~3 DPI) dos PNGs que causava exibição em 512px.
+                var rect    = new Rect(0, 0, pixelSize, pixelSize);
+                var visual  = new DrawingVisual();
+                using (var ctx = visual.RenderOpen())
+                    ctx.DrawImage(source, rect);
+
+                var result = new RenderTargetBitmap(pixelSize, pixelSize, 96, 96, PixelFormats.Pbgra32);
+                result.Render(visual);
+                result.Freeze();
+                return result;
             }
             catch
             {
