@@ -1,0 +1,19 @@
+# Build output
+SAGAStructuralTools/bin/
+SAGAStructuralTools/obj/
+
+# Logs gerados pelo plugin
+SAGA_Log_*.txt
+
+# Configuração local do plugin (caminho de famílias é por máquina)
+*.settings
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+.idea/
+
+# Arquivos de sistema
+Thumbs.db
+Desktop.ini

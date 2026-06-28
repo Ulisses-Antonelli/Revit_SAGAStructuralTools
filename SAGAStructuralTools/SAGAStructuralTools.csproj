@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>SAGAStructuralTools</AssemblyName>
+    <RootNamespace>SAGAStructuralTools</RootNamespace>
+    <OutputType>Library</OutputType>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Revit API: compile-time only, NOT copied to output (Private=false) -->
+    <Reference Include="RevitAPI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2023\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2023\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Required for FolderBrowserDialog -->
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Icons are copied alongside the DLL to the build output -->
+    <None Include="Resources\Icons\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!--
+    Post-build: copia a DLL e o .addin para a pasta de addins do Revit 2023.
+    Revit lê automaticamente qualquer .addin que estiver em:
+    C:\ProgramData\Autodesk\Revit\Addins\2023\
+  -->
+  <Target Name="DeployToRevit" AfterTargets="Build">
+    <PropertyGroup>
+      <DeployDir>C:\ProgramData\Autodesk\Revit\Addins\2023</DeployDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(DeployDir)" Condition="!Exists('$(DeployDir)')" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(DeployDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\SAGAStructuralTools.addin"
+          DestinationFolder="$(DeployDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

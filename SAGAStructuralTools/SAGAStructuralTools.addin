@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>SAGAStructuralTools</Name>
+    <Assembly>SAGAStructuralTools.dll</Assembly>
+    <FullClassName>SAGAStructuralTools.App</FullClassName>
+    <ClientId>E5BE51DA-2DD9-493F-B9CC-C28241549418</ClientId>
+    <VendorId>SAGA</VendorId>
+    <VendorDescription>SAGA Structural Tools — Conversor IFC para Famílias Gerdau</VendorDescription>
+  </AddIn>
+</RevitAddIns>
