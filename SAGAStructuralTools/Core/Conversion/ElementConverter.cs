@@ -62,6 +62,11 @@ namespace SAGAStructuralTools.Core.Conversion
                 {
                     try
                     {
+                        // Suprime avisos geométricos do Revit (ex: "viga fora da linha central")
+                        var failOpts = tx.GetFailureHandlingOptions();
+                        failOpts.SetFailuresPreprocessor(new SuppressRevitWarnings());
+                        tx.SetFailureHandlingOptions(failOpts);
+
                         tx.Start();
                         ConvertElement(element, mapping, isColumn);
                         tx.Commit();
@@ -109,8 +114,16 @@ namespace SAGAStructuralTools.Core.Conversion
             if (!symbol.IsActive)
                 symbol.Activate();
 
+            // Pilares exigem que a curva vá de base (Z menor) para topo (Z maior)
+            if (isColumn)
+            {
+                var p0 = curve.GetEndPoint(0);
+                var p1 = curve.GetEndPoint(1);
+                if (p0.Z > p1.Z)
+                    curve = Line.CreateBound(p1, p0);
+            }
+
             var level      = GetElementLevel(source);
-            // IfcColumn → StructuralType.Column | IfcMember (qualquer inclinação) → StructuralType.Beam
             var structType = isColumn ? StructuralType.Column : StructuralType.Beam;
             _hostDoc.Create.NewFamilyInstance(curve, symbol, level, structType);
 
@@ -292,6 +305,23 @@ namespace SAGAStructuralTools.Core.Conversion
                 .OrderBy(l => l.Elevation)
                 .FirstOrDefault()
                 ?? throw new InvalidOperationException("Nenhum Level encontrado no documento.");
+        }
+    }
+
+    /// <summary>
+    /// Suprime avisos do Revit durante as transações de conversão.
+    /// Ex: "viga ligeiramente fora da linha central" — aviso geométrico não-fatal.
+    /// </summary>
+    internal sealed class SuppressRevitWarnings : IFailuresPreprocessor
+    {
+        public FailureProcessingResult PreprocessFailures(FailuresAccessor failuresAccessor)
+        {
+            foreach (var msg in failuresAccessor.GetFailureMessages())
+            {
+                if (msg.GetSeverity() == FailureSeverity.Warning)
+                    failuresAccessor.DeleteWarning(msg);
+            }
+            return FailureProcessingResult.Continue;
         }
     }
 }
