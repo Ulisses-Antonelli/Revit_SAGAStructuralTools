@@ -31,6 +31,19 @@ namespace SAGAStructuralTools
 
             panel.AddItem(buttonData);
 
+            // Botão: Gerar Escada Metálica — mesma estrutura de ícone do botão existente
+            var stairData = new PushButtonData(
+                name:          "GenerateStair",
+                text:          "Gerar Escada\nMetálica",
+                assemblyName:  assemblyPath,
+                className:     "SAGAStructuralTools.Commands.GenerateStairCommand")
+            {
+                ToolTip    = "Gera automaticamente escadas metálicas com longarinas estruturais e degraus BIM.",
+                LargeImage = LoadIcon("saga_32.png", 32),  // substituir por ícone específico quando disponível
+                Image      = LoadIcon("saga_16.png", 16)
+            };
+            panel.AddItem(stairData);
+
             return Result.Succeeded;
         }
 

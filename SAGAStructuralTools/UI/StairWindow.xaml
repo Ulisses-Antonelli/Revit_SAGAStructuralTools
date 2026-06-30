@@ -1,0 +1,177 @@
+<Window x:Class="SAGAStructuralTools.UI.StairWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SAGA Structural Tools — Gerar Escada Metálica"
+        Width="680" Height="640"
+        MinWidth="560" MinHeight="520"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight"   Value="SemiBold"/>
+            <Setter Property="FontSize"     Value="12"/>
+            <Setter Property="Foreground"   Value="#0078D4"/>
+            <Setter Property="Margin"       Value="0,12,0,6"/>
+        </Style>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Width"  Value="160"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#0078D4"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="16,6"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AAAAAA"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- Seleção de vigas -->
+            <RowDefinition Height="Auto"/>  <!-- Configuração -->
+            <RowDefinition Height="*"/>     <!-- Preview -->
+            <RowDefinition Height="Auto"/>  <!-- Avisos -->
+            <RowDefinition Height="Auto"/>  <!-- Botões -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Seleção ─────────────────────────────────────────────── -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Style="{StaticResource SectionHeader}" Text="1 — Seleção de Vigas"/>
+
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="90"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Viga inferior:"/>
+                <TextBox   Grid.Column="1" Text="{Binding LowerBeamName}" IsReadOnly="True" Padding="4,2" Background="#F5F5F5"/>
+                <Button    Grid.Column="2" Content="Selecionar" Margin="8,0,0,0" Command="{Binding SelectLowerBeamCommand}"/>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="90"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Viga superior:"/>
+                <TextBox   Grid.Column="1" Text="{Binding UpperBeamName}" IsReadOnly="True" Padding="4,2" Background="#F5F5F5"/>
+                <Button    Grid.Column="2" Content="Selecionar" Margin="8,0,0,0" Command="{Binding SelectUpperBeamCommand}"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- ── Configuração ───────────────────────────────────────── -->
+        <StackPanel Grid.Row="1">
+            <TextBlock Style="{StaticResource SectionHeader}" Text="2 — Configuração"/>
+
+            <!-- Largura -->
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Largura:"/>
+                <TextBox   Grid.Column="1" Text="{Binding Width,   UpdateSourceTrigger=PropertyChanged}" Padding="4,2"/>
+                <TextBlock Grid.Column="2" Text="mm" VerticalAlignment="Center" Margin="6,0,0,0"/>
+            </Grid>
+
+            <!-- Pisada -->
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Pisada:"/>
+                <TextBox   Grid.Column="1" Text="{Binding TreadDepth, UpdateSourceTrigger=PropertyChanged}" Padding="4,2"/>
+                <TextBlock Grid.Column="2" Text="mm" VerticalAlignment="Center" Margin="6,0,0,0"/>
+            </Grid>
+
+            <!-- Longarina -->
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Perfil longarina (.rfa):"/>
+                <TextBox   Grid.Column="1" Text="{Binding StringerPath}" IsReadOnly="True" Padding="4,2" Background="#F5F5F5"/>
+                <Button    Grid.Column="2" Content="Procurar..." Margin="8,0,0,0" Command="{Binding BrowseStringerCommand}"/>
+            </Grid>
+
+            <!-- Tipo do perfil — populado automaticamente ao escolher o .rfa -->
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Perfil da longarina:"
+                           ToolTip="Selecione o tamanho do perfil. A lista é carregada automaticamente do catálogo da família escolhida."/>
+                <ComboBox  Grid.Column="1"
+                           ItemsSource="{Binding AvailableTypes}"
+                           SelectedItem="{Binding StringerType}"
+                           Padding="4,2"
+                           ToolTip="Escolha o perfil desejado. A lista vem do catálogo de tipos da família (.txt)."
+                           />
+            </Grid>
+
+            <!-- Checkboxes e ComboBox -->
+            <WrapPanel Margin="0,4,0,0">
+                <CheckBox Content="Aplicar Blondel"    IsChecked="{Binding ApplyBlondel}" Margin="0,0,24,4"/>
+                <CheckBox Content="Centralizar escada" IsChecked="{Binding CenterStair}"  Margin="0,0,24,4"/>
+            </WrapPanel>
+
+            <Grid Margin="0,4,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="180"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Patamar intermediário:"/>
+                <ComboBox  Grid.Column="1" SelectedItem="{Binding LandingMode}">
+                    <ComboBoxItem Content="Auto"/>
+                    <ComboBoxItem Content="Sempre"/>
+                    <ComboBoxItem Content="Nunca"/>
+                </ComboBox>
+            </Grid>
+        </StackPanel>
+
+        <!-- ── Preview ────────────────────────────────────────────── -->
+        <GroupBox Grid.Row="2" Header="3 — Pré-visualização" Margin="0,12,0,0">
+            <Grid Margin="8" Visibility="{Binding IsCalculated, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="{Binding Preview.StepCount,      StringFormat='Nº de degraus:     {0}'}"/>
+                    <TextBlock Text="{Binding Preview.RiserHeight,     StringFormat='Altura do espelho: {0:F1} mm'}" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding Preview.TreadDepth,      StringFormat='Pisada:            {0:F1} mm'}" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding Preview.InclinationDeg,  StringFormat='Inclinação:        {0:F1}°'}"  Margin="0,4,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding Preview.TotalRun,            StringFormat='Desenvolvimento:   {0:F0} mm'}"/>
+                    <TextBlock Text="{Binding Preview.LowerLandingDepth,   StringFormat='Patamar inferior:  {0:F0} mm'}" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding Preview.UpperLandingDepth,   StringFormat='Patamar superior:  {0:F0} mm'}" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding Preview.HasIntermediateLanding, StringFormat='Patamar interm.: {0}'}"       Margin="0,4,0,0"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- ── Avisos ─────────────────────────────────────────────── -->
+        <ListBox Grid.Row="3" ItemsSource="{Binding Warnings}"
+                 Margin="0,8,0,0" MaxHeight="80"
+                 FontFamily="Consolas" FontSize="10"
+                 Background="#FFF8E1" Foreground="#7B4400"
+                 BorderThickness="1" BorderBrush="#FFD54F"
+                 Visibility="{Binding Warnings.Count, Converter={StaticResource BoolToVis}}"/>
+
+        <!-- ── Botões ─────────────────────────────────────────────── -->
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="1" Content="Calcular Preview"
+                    Command="{Binding CalculatePreviewCommand}"
+                    Margin="0,0,8,0" Padding="12,6"/>
+            <Button Grid.Column="2" Content="Criar Escada"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding CreateStairCommand}"
+                    Margin="0,0,8,0"/>
+            <Button Grid.Column="3" Content="Cancelar"
+                    Padding="12,6" IsCancel="True"/>
+        </Grid>
+    </Grid>
+</Window>
