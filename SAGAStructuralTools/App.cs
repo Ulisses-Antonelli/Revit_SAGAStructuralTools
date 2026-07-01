@@ -39,8 +39,8 @@ namespace SAGAStructuralTools
                 className:     "SAGAStructuralTools.Commands.GenerateStairCommand")
             {
                 ToolTip    = "Gera automaticamente escadas metálicas com longarinas estruturais e degraus BIM.",
-                LargeImage = LoadIcon("saga_32.png", 32),  // substituir por ícone específico quando disponível
-                Image      = LoadIcon("saga_16.png", 16)
+                LargeImage = LoadIcon("stairs_32.png", 32),  // substituir por ícone específico quando disponível
+                Image      = LoadIcon("stairs_16.png", 16)
             };
             panel.AddItem(stairData);
 

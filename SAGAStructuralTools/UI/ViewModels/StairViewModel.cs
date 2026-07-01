@@ -39,6 +39,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _landingMode    = StairDefaults.LandingMode;
         private string _stringerPath;
         private string _stringerType;
+        private bool   _useAxis          = false;
+        private bool   _isChannelProfile = false;
 
         // Preview
         private StairDefinition _preview;
@@ -135,8 +137,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         public bool   ApplyBlondel { get => _applyBlondel; set => Set(ref _applyBlondel, value); }
         public bool   CenterStair  { get => _centerStair;  set => Set(ref _centerStair, value); }
         public string LandingMode  { get => _landingMode;  set => Set(ref _landingMode, value); }
-        public string StringerPath { get => _stringerPath; set => Set(ref _stringerPath, value); }
-        public string StringerType { get => _stringerType; set => Set(ref _stringerType, value); }
+        public string StringerPath      { get => _stringerPath;      set => Set(ref _stringerPath, value); }
+        public string StringerType      { get => _stringerType;      set => Set(ref _stringerType, value); }
+        public bool   UseAxis           { get => _useAxis;           set => Set(ref _useAxis, value); }
+        public bool   IsChannelProfile  { get => _isChannelProfile;  set => Set(ref _isChannelProfile, value); }
 
         /// <summary>Tipos disponíveis do catálogo da família selecionada.</summary>
         public ObservableCollection<string> AvailableTypes { get; } = new ObservableCollection<string>();
@@ -153,6 +157,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
                 StringerPath = dlg.FileName;
                 LoadTypesFromCatalog(dlg.FileName);
+                AutoDetectProfileBehavior(dlg.FileName);
             }
         }
 
@@ -185,6 +190,18 @@ namespace SAGAStructuralTools.UI.ViewModels
                     StringerType = AvailableTypes[0]; // pré-seleciona o primeiro
             }
             catch { /* catálogo ilegível — deixa lista vazia */ }
+        }
+
+        /// <summary>
+        /// Detecta pelo nome da família se é perfil U/Canal ou W/I e configura
+        /// IsChannelProfile (controla IsEnabled do checkbox UseAxis).
+        /// O offset geométrico é calculado automaticamente por ProfileGeometryReader.
+        /// </summary>
+        private void AutoDetectProfileBehavior(string rfaPath)
+        {
+            var familyName    = System.IO.Path.GetFileNameWithoutExtension(rfaPath);
+            IsChannelProfile  = Core.Stair.ProfileGeometryReader.IsChannel(familyName);
+            if (!IsChannelProfile) UseAxis = false; // W/I não usa "Usar eixo"
         }
 
         // ── Preview ──────────────────────────────────────────────────────────
@@ -270,7 +287,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             CenterStair             = CenterStair,
             IntermediateLanding     = ParseLandingMode(),
             StringerFamilyPath      = StringerPath,
-            StringerFamilyType      = StringerType
+            StringerFamilyType      = StringerType,
+            UseAxis                 = UseAxis
         };
 
         private Core.Models.LandingMode ParseLandingMode() => LandingMode switch

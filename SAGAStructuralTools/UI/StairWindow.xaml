@@ -111,10 +111,13 @@
                            />
             </Grid>
 
-            <!-- Checkboxes e ComboBox -->
+            <!-- Checkboxes -->
             <WrapPanel Margin="0,4,0,0">
-                <CheckBox Content="Aplicar Blondel"    IsChecked="{Binding ApplyBlondel}" Margin="0,0,24,4"/>
-                <CheckBox Content="Centralizar escada" IsChecked="{Binding CenterStair}"  Margin="0,0,24,4"/>
+                <CheckBox Content="Aplicar Blondel" IsChecked="{Binding ApplyBlondel}" Margin="0,0,24,4"/>
+                <CheckBox Content="Usar eixo (U/Canal)"
+                          IsChecked="{Binding UseAxis}"
+                          Margin="0,0,24,4"
+                          ToolTip="Desmarcado (padrão): Largura Útil = distância livre entre as almas dos dois perfis U.&#x0a;Marcado: Largura Útil = distância entre os eixos neutros (centroide-a-centroide)."/>
             </WrapPanel>
 
             <Grid Margin="0,4,0,0">

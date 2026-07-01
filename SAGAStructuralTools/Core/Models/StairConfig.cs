@@ -15,5 +15,10 @@ namespace SAGAStructuralTools.Core.Models
         public double      MaxHeightWithoutLanding { get; set; } = StairDefaults.MaxHeightWithoutLanding;
         public string      StringerFamilyPath      { get; set; }
         public string      StringerFamilyType      { get; set; }
+
+        // Só relevante para perfis U/Canal.
+        // false (padrão): Largura Útil = distância livre entre as faces externas das almas.
+        // true           : Largura Útil = distância entre os eixos neutros (centroide-a-centroide).
+        public bool        UseAxis                 { get; set; } = false;
     }
 }
