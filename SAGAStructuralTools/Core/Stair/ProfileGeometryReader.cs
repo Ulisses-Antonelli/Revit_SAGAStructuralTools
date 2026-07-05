@@ -5,33 +5,29 @@ namespace SAGAStructuralTools.Core.Stair
 {
     /// <summary>
     /// Lê metadados geométricos do FamilySymbol para calcular o offset lateral
-    /// que posiciona cada banzo respeitando a face de referência correta.
+    /// que posiciona cada banzo com a face de referência correta em ±Width/2 do centro.
     ///
-    ///   Perfil W/I (simétrico)
-    ///     → offset = bf/2  (extremidade interna da mesa)
-    ///     → a escada fica entre as duas mesas internas
+    ///   W/I (simétrico)  → offset = bf/2  (face interna do flange em Width/2)
+    ///   U/Canal          → offset = bf/2  (face das costas/alma em Width/2)
+    ///   U/Canal useAxis  → offset = 0     (eixo centroide-a-centroide)
     ///
-    ///   Perfil U/Canal (assimétrico, costas-a-costas)
-    ///     → useAxis=false: offset = e₀  (face externa da alma = "costas")
-    ///     → useAxis=true : offset = 0   (eixo neutro centroide-a-centroide)
+    /// Ambos os perfis usam bf/2 porque as famílias Revit posicionam a seção com o
+    /// origin no centro do bounding box (bf/2 da face extrema), não no centroide.
+    /// Comprovado empiricamente: com e₀=16,2mm o model mede 775mm; com bf/2=28,7mm mede 800mm.
     /// </summary>
     public static class ProfileGeometryReader
     {
         private static readonly string[] ChannelKeywords =
             { "UPN", "UPE", "UAL", "CANAL", "DOBRAD", "CALHA", "_U_", "-U_", "_U-" };
 
-        // Parâmetros comuns para largura da seção (bf para W, b para U)
+        // Parâmetros de largura total da seção (bf para W/I, b para U/Canal)
         private static readonly string[] WidthParams =
-            { "b", "bf", "B", "b1", "bf1", "Aba", "Largura", "FlangeWidth", "Width" };
-
-        // Parâmetros comuns para offset centroide→alma em perfis U (e₀)
-        private static readonly string[] WebOffsetParams =
-            { "e0", "xg", "Xg", "xG", "ecg", "cx", "e_s", "CentroideX" };
+            { "Gerdau_bf", "b", "bf", "B", "b1", "bf1", "Aba", "FlangeWidth", "Width", "Largura" };
 
         // ── API pública ───────────────────────────────────────────────────────
 
         /// <summary>
-        /// Detecta se a família é um perfil U/Canal (assimétrico) pelo nome.
+        /// Detecta se a família é um perfil U/Canal pelo nome.
         /// </summary>
         public static bool IsChannel(string familyName)
         {
@@ -40,10 +36,8 @@ namespace SAGAStructuralTools.Core.Stair
 
             if (ChannelKeywords.Any(k => up.Contains(k))) return true;
 
-            // "U" como palavra isolada separada por espaço (ex: "Viga U Gerdau")
             if (up.Contains(" U ") || up.EndsWith(" U") || up.StartsWith("U ")) return true;
 
-            // "U_", "U-" ou "U" + dígito no início (ex: "U_PerfilDobrado", "U100")
             if (up.StartsWith("U_") || up.StartsWith("U-")) return true;
             if (up.StartsWith("U") && up.Length > 1 && char.IsDigit(up[1])) return true;
 
@@ -51,10 +45,9 @@ namespace SAGAStructuralTools.Core.Stair
         }
 
         /// <summary>
-        /// Calcula o offset lateral (mm) do centroide do banzo até a face de referência.
-        /// Esse valor é somado a Width/2 para obter a posição do eixo de cada banzo.
-        ///
-        /// <paramref name="source"/> descreve como o valor foi obtido (para log).
+        /// Calcula o offset lateral (mm) a somar a Width/2 para posicionar o eixo do banzo.
+        /// Para W/I e U/Canal: retorna bf/2 (bounding-box centrado → face correta em Width/2).
+        /// Para U/Canal com useAxis=true: retorna 0 (eixo-a-eixo).
         /// </summary>
         public static double GetFaceOffset(FamilySymbol symbol, bool isChannel, bool useAxis,
                                            out string source)
@@ -65,66 +58,31 @@ namespace SAGAStructuralTools.Core.Stair
                 return 0;
             }
 
-            if (!isChannel)
-            {
-                // W/I: soma bf/2 → extremidade interna da mesa fica em Width/2
-                double? bf = TryReadWidth(symbol, out var pName);
-                source = bf.HasValue
-                    ? $"W/I: bf/2={bf.Value / 2:F1}mm (param '{pName}')"
-                    : "W/I: bf não lido, offset=0";
-                return bf.HasValue ? bf.Value / 2.0 : 0;
-            }
-            else
-            {
-                // U/Canal: soma e₀ → face externa da alma fica em Width/2
-                double? e0 = TryReadWebOffset(symbol, out var e0Name);
-                if (e0.HasValue)
-                {
-                    source = $"U: e₀={e0.Value:F1}mm (param '{e0Name}')";
-                    return e0.Value;
-                }
-
-                // e₀ não encontrado como parâmetro; estima via largura total
-                double? b = TryReadWidth(symbol, out var bName);
-                if (b.HasValue)
-                {
-                    double approx = b.Value * 0.29; // média de canais padrão: e₀ ≈ 28-31% de b
-                    source = $"U: e₀≈{approx:F1}mm (29% de b={b.Value:F0}mm, param '{bName}')";
-                    return approx;
-                }
-
-                source = "U: parâmetros não lidos, offset=0 (medida pelo eixo)";
-                return 0;
-            }
+            // W/I e U/Canal (useAxis=false): offset = bf/2.
+            // O origin da família está no centro do bounding box da seção.
+            //   W/I: centroide = bounding-box center → face interna do flange em halfFt − bf/2.
+            //   U/Canal costas-a-costas: bounding-box center em bf/2 da alma →
+            //     face das costas em halfFt − bf/2. Mesmo resultado, mesma fórmula.
+            double? bf = TryReadParam(symbol, WidthParams, out var pName);
+            var kind   = isChannel ? "U" : "W/I";
+            source = bf.HasValue
+                ? $"{kind}: bf/2={bf.Value / 2:F1}mm (param '{pName}')"
+                : $"{kind}: bf não lido, offset=0";
+            return bf.HasValue ? bf.Value / 2.0 : 0;
         }
 
-        // ── Helpers ──────────────────────────────────────────────────────────
+        // ── Helper ───────────────────────────────────────────────────────────
 
-        private static double? TryReadWidth(FamilySymbol symbol, out string paramName)
+        private static double? TryReadParam(FamilySymbol symbol, string[] names, out string matched)
         {
-            paramName = null;
-            foreach (var name in WidthParams)
+            matched = null;
+            foreach (var name in names)
             {
                 var p = symbol.LookupParameter(name);
                 if (p?.StorageType == StorageType.Double && p.AsDouble() > 1e-6)
                 {
-                    paramName = name;
+                    matched = name;
                     return p.AsDouble() * 304.8; // pés → mm
-                }
-            }
-            return null;
-        }
-
-        private static double? TryReadWebOffset(FamilySymbol symbol, out string paramName)
-        {
-            paramName = null;
-            foreach (var name in WebOffsetParams)
-            {
-                var p = symbol.LookupParameter(name);
-                if (p?.StorageType == StorageType.Double && p.AsDouble() > 1e-6)
-                {
-                    paramName = name;
-                    return p.AsDouble() * 304.8;
                 }
             }
             return null;
