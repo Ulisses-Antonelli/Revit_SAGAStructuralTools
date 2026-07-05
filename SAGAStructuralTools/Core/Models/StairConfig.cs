@@ -13,6 +13,7 @@ namespace SAGAStructuralTools.Core.Models
         public bool        CenterStair             { get; set; } = StairDefaults.CenterStair;
         public LandingMode IntermediateLanding     { get; set; } = LandingMode.Auto;
         public double      MaxHeightWithoutLanding { get; set; } = StairDefaults.MaxHeightWithoutLanding;
+        public bool        IncludeTreads           { get; set; } = StairDefaults.IncludeTreads;
         public string      StringerFamilyPath      { get; set; }
         public string      StringerFamilyType      { get; set; }
 
@@ -20,5 +21,6 @@ namespace SAGAStructuralTools.Core.Models
         // false (padrão): Largura Útil = distância livre entre as faces externas das almas.
         // true           : Largura Útil = distância entre os eixos neutros (centroide-a-centroide).
         public bool        UseAxis                 { get; set; } = false;
+        public double      IntermediateLandingLength { get; set; } = StairDefaults.IntermediateLandingLength;
     }
 }

@@ -120,6 +120,9 @@ namespace SAGAStructuralTools.Core.Stair
                     CreateBeam(stringerTop + offset, endPt + offset, symbol, upperLevel, "patamar-sup", shouldFlip);
             }
 
+            if (config.IncludeTreads)
+                new TreadBuilder(_doc).Build(def, config, stringerBottom, horizDir, lateral);
+
             Log("=== Build concluído ===");
         }
 

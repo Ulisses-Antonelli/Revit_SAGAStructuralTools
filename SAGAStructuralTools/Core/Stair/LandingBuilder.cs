@@ -40,7 +40,7 @@ namespace SAGAStructuralTools.Core.Stair
                     origin.X + (def.LowerLandingDepth + midRun) / 304.8,
                     origin.Y,
                     origin.Z + def.IntermediateLandingAt / 304.8);
-                CreateLanding(midOrigin, def.TreadDepth, config.Width, config.TreadThickness, "Patamar_Intermediario");
+                CreateLanding(midOrigin, config.IntermediateLandingLength, config.Width, config.TreadThickness, "Patamar_Intermediario");
             }
         }
 

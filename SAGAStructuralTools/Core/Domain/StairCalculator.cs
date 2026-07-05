@@ -61,6 +61,15 @@ namespace SAGAStructuralTools.Core.Domain
             result.LowerLandingDepth = lower;
             result.UpperLandingDepth = upper;
 
+            const double minLanding = 250;
+            if ((lower > 0 && lower < minLanding) || (upper > 0 && upper < minLanding))
+            {
+                result.Warnings.Add(
+                    $"Atenção: patamar(es) abaixo de {minLanding:F0}mm " +
+                    $"(inferior={lower:F0}mm, superior={upper:F0}mm). " +
+                    "Recomendado afastar as vigas.");
+            }
+
             if (result.TotalRun > beamDistance)
             {
                 result.IsValid = false;
