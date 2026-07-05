@@ -11,5 +11,7 @@ namespace SAGAStructuralTools.UI
             InitializeComponent();
             DataContext = new StairViewModel(uiApp);
         }
+
+        private void OnCancel(object sender, RoutedEventArgs e) => Close();
     }
 }

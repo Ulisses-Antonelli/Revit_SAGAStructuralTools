@@ -1,180 +1,530 @@
 <Window x:Class="SAGAStructuralTools.UI.StairWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="SAGA Structural Tools — Gerar Escada Metálica"
-        Width="680" Height="640"
-        MinWidth="560" MinHeight="520"
-        ResizeMode="CanResize"
-        WindowStartupLocation="CenterScreen">
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="SAGA — Gerar Escada Metálica"
+        Width="560" MinWidth="520"
+        SizeToContent="Height" MaxHeight="780"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8F9FB"
+        FontFamily="Segoe UI" FontSize="13">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="FontWeight"   Value="SemiBold"/>
-            <Setter Property="FontSize"     Value="12"/>
-            <Setter Property="Foreground"   Value="#0078D4"/>
-            <Setter Property="Margin"       Value="0,12,0,6"/>
+
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius"    Value="4"/>
+            <Setter Property="Padding"         Value="16"/>
         </Style>
-        <Style x:Key="Label" TargetType="TextBlock">
+
+        <!-- FontSize 12 para ficar coerente com o CheckBox "Aplicar Blondel" -->
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="Foreground" Value="#6B778C"/>
+            <Setter Property="Margin"     Value="0,0,0,4"/>
+        </Style>
+
+        <Style x:Key="CleanInput" TargetType="TextBox">
+            <Setter Property="BorderThickness"   Value="0"/>
+            <Setter Property="Background"        Value="Transparent"/>
+            <Setter Property="Padding"           Value="8,5,4,5"/>
+            <Setter Property="Foreground"        Value="#172B4D"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Width"  Value="160"/>
-            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="FontSize"          Value="13"/>
         </Style>
-        <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#0078D4"/>
+        <Style x:Key="CleanInputRO" TargetType="TextBox" BasedOn="{StaticResource CleanInput}">
+            <Setter Property="Foreground" Value="#5E6C84"/>
+        </Style>
+
+        <Style x:Key="BtnPrimary" TargetType="Button">
+            <Setter Property="Background"      Value="#0052CC"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding"         Value="16,6"/>
+            <Setter Property="Padding"         Value="16,7"/>
+            <Setter Property="FontSize"        Value="13"/>
             <Setter Property="Cursor"          Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AAAAAA"/>
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled"   Value="False"><Setter Property="Background" Value="#AABDD8"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"> <Setter Property="Background" Value="#0747A6"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
+
+        <Style x:Key="BtnSecondary" TargetType="Button">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="Foreground"      Value="#344563"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#F4F5F7"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PvLabel" TargetType="TextBlock">
+            <Setter Property="Foreground"        Value="#5E6C84"/>
+            <Setter Property="FontSize"          Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="PvValue" TargetType="TextBlock">
+            <Setter Property="Foreground"          Value="#0052CC"/>
+            <Setter Property="FontWeight"          Value="SemiBold"/>
+            <Setter Property="FontSize"            Value="13"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment"   Value="Center"/>
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground"               Value="#344563"/>
+            <Setter Property="FontSize"                 Value="12"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <!-- ComboBox com cantos arredondados (CornerRadius=4, igual aos inputs) -->
+        <Style x:Key="RoundedComboBox" TargetType="ComboBox">
+            <Setter Property="Background"        Value="White"/>
+            <Setter Property="BorderBrush"       Value="#DFE1E6"/>
+            <Setter Property="BorderThickness"   Value="1"/>
+            <Setter Property="Foreground"        Value="#172B4D"/>
+            <Setter Property="FontSize"          Value="12"/>
+            <Setter Property="Height"            Value="32"/>
+            <Setter Property="Padding"           Value="8,0,0,0"/>
+            <Setter Property="MaxDropDownHeight" Value="200"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <!-- Fundo visual com borda arredondada -->
+                            <Border x:Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="22" MinWidth="22"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter x:Name="contentPresenter"
+                                        Grid.Column="0"
+                                        Margin="{TemplateBinding Padding}"
+                                        Content="{TemplateBinding SelectionBoxItem}"
+                                        ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                        ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False"/>
+                                    <Path x:Name="arrow" Grid.Column="1"
+                                          Data="M 0 0 L 5 5 L 10 0"
+                                          Stroke="#6B778C" StrokeThickness="1.5"
+                                          Fill="Transparent" StrokeLineJoin="Round"
+                                          Width="10" Height="5"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <!-- Botão invisível que cobre toda a área para abrir/fechar -->
+                            <ToggleButton Background="Transparent" BorderThickness="0"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                                      RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Rectangle Fill="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup"
+                                   AllowsTransparency="True" Focusable="False"
+                                   IsOpen="{Binding IsDropDownOpen,
+                                            RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Bottom" PopupAnimation="Fade"
+                                   MinWidth="{Binding ActualWidth,
+                                              RelativeSource={RelativeSource TemplatedParent}}">
+                                <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1"
+                                        CornerRadius="0,0,4,4">
+                                    <ScrollViewer CanContentScroll="True"
+                                                  MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                        <ItemsPresenter
+                                            SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush"  Value="#0052CC"/>
+                                <Setter TargetName="border" Property="CornerRadius" Value="4,4,0,0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border"           Property="Background" Value="#F4F5F7"/>
+                                <Setter TargetName="contentPresenter" Property="Opacity"    Value="0.45"/>
+                                <Setter TargetName="arrow"            Property="Stroke"     Value="#BFC2C9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Padding"    Value="8,5"/>
+                        <Setter Property="FontSize"   Value="12"/>
+                        <Setter Property="Foreground" Value="#172B4D"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#F4F5F7"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#EDF3FF"/>
+                                            <Setter Property="Foreground" Value="#0052CC"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- Seleção de vigas -->
-            <RowDefinition Height="Auto"/>  <!-- Configuração -->
-            <RowDefinition Height="*"/>     <!-- Preview -->
-            <RowDefinition Height="Auto"/>  <!-- Avisos -->
-            <RowDefinition Height="Auto"/>  <!-- Botões -->
-        </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="20,16,20,20">
 
-        <!-- ── Seleção ─────────────────────────────────────────────── -->
-        <StackPanel Grid.Row="0">
-            <TextBlock Style="{StaticResource SectionHeader}" Text="1 — Seleção de Vigas"/>
+            <!-- ══ 01 — Seleção de Vigas ══════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="01" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                <TextBlock Text="Seleção de Vigas" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+            </StackPanel>
 
-            <Grid Margin="0,0,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="90"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Viga inferior:"/>
-                <TextBox   Grid.Column="1" Text="{Binding LowerBeamName}" IsReadOnly="True" Padding="4,2" Background="#F5F5F5"/>
-                <Button    Grid.Column="2" Content="Selecionar" Margin="8,0,0,0" Command="{Binding SelectLowerBeamCommand}"/>
-            </Grid>
+            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Margin="0,0,0,10">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Viga inferior"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Borda fica verde quando a viga está selecionada -->
+                            <Border Grid.Column="0" Background="#F8F9FB" BorderThickness="1" CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderBrush" Value="#DFE1E6"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding LowerBeamSelected}" Value="True">
+                                                <Setter Property="BorderBrush" Value="#36B37E"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBox Style="{StaticResource CleanInputRO}"
+                                         Text="{Binding LowerBeamName}" IsReadOnly="True"/>
+                            </Border>
+                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                    Content="Selecionar" Command="{Binding SelectLowerBeamCommand}"/>
+                        </Grid>
+                    </StackPanel>
 
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Viga superior"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Borda fica verde quando a viga está selecionada -->
+                            <Border Grid.Column="0" Background="#F8F9FB" BorderThickness="1" CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderBrush" Value="#DFE1E6"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UpperBeamSelected}" Value="True">
+                                                <Setter Property="BorderBrush" Value="#36B37E"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBox Style="{StaticResource CleanInputRO}"
+                                         Text="{Binding UpperBeamName}" IsReadOnly="True"/>
+                            </Border>
+                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                    Content="Selecionar" Command="{Binding SelectUpperBeamCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ 02 — Configuração ══════════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="02" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                <TextBlock Text="Configuração" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+            </StackPanel>
+
+            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                <StackPanel>
+
+                    <!-- Largura | Pisada | Espessura do degrau -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Largura"/>
+                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding Width, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Pisada"/>
+                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding TreadDepth, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Espessura do degrau"/>
+                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding TreadThickness, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding IncludeTreads}"/>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Escolher família (.rfa) -->
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Escolher família (.rfa)"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding StringerPath}" IsReadOnly="True"/>
+                            </Border>
+                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                    Content="Procurar..." Command="{Binding BrowseStringerCommand}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Perfil da longarina | Patamar intermediário | Comprimento do patamar -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Perfil da longarina"/>
+                            <ComboBox Style="{StaticResource RoundedComboBox}"
+                                      ItemsSource="{Binding AvailableTypes}"
+                                      SelectedItem="{Binding StringerType}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Patamar intermediário"/>
+                            <ComboBox Style="{StaticResource RoundedComboBox}"
+                                      SelectedItem="{Binding LandingMode}">
+                                <sys:String>Auto</sys:String>
+                                <sys:String>Sempre</sys:String>
+                                <sys:String>Nunca</sys:String>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Campo sempre visível; desabilitado quando Auto ou Nunca -->
+                        <StackPanel Grid.Column="4"
+                                    IsEnabled="{Binding IsIntermediateLandingLengthEnabled}">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Comprimento do patamar"/>
+                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding IntermediateLandingLength, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Checkboxes -->
+                    <WrapPanel>
+                        <CheckBox Content="Aplicar Blondel"    IsChecked="{Binding ApplyBlondel}"  Margin="0,0,20,0"/>
+                        <CheckBox Content="Incluir degraus"     IsChecked="{Binding IncludeTreads}" Margin="0,0,20,0"/>
+                        <CheckBox Content="Usar eixo do perfil" IsChecked="{Binding UseAxis}"
+                                  ToolTip="Desmarcado: Largura Útil = distância entre as almas dos perfis U.&#x0a;Marcado: distância eixo-a-eixo."/>
+                    </WrapPanel>
+
+                </StackPanel>
+            </Border>
+
+            <!-- ══ 03 — Pré-visualização ══════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="03" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                <TextBlock Text="Pré-visualização" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+            </StackPanel>
+
+            <Border BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
+                    Background="#EEF2FF" Padding="16" Margin="0,0,0,12">
+                <Grid>
+                    <!-- Placeholder -->
+                    <TextBlock Text="Calcule para visualizar os parâmetros da escada."
+                               Foreground="#6B778C" FontSize="12"
+                               HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCalculated}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- Valores calculados -->
+                    <Grid Visibility="{Binding IsCalculated, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="24"/>
+                            <RowDefinition Height="24"/>
+                            <RowDefinition Height="24"/>
+                            <RowDefinition Height="24"/>
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" Grid.Column="0">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Nº de degraus:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.StepCount}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Row="1" Grid.Column="0">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Altura do espelho:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.RiserHeight, StringFormat={}{0:F1} mm}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Row="2" Grid.Column="0">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Pisada:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.TreadDepth, StringFormat={}{0:F1} mm}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Row="3" Grid.Column="0">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Inclinação:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.InclinationDeg, StringFormat={}{0:F1}°}"/>
+                        </DockPanel>
+
+                        <DockPanel Grid.Row="0" Grid.Column="2">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Desenvolvimento:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.TotalRun, StringFormat={}{0:F0} mm}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Row="1" Grid.Column="2">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Patamar inferior:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.LowerLandingDepth, StringFormat={}{0:F0} mm}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Row="2" Grid.Column="2">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Patamar superior:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.UpperLandingDepth, StringFormat={}{0:F0} mm}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Row="3" Grid.Column="2">
+                            <TextBlock Style="{StaticResource PvLabel}" Text="Patamar interm.:"/>
+                            <TextBlock Style="{StaticResource PvValue}" Text="{Binding Preview.HasIntermediateLanding}"/>
+                        </DockPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ── Avisos ──────────────────────────────────────────── -->
+            <ListBox ItemsSource="{Binding Warnings}"
+                     Margin="0,0,0,12" MaxHeight="60"
+                     FontFamily="Consolas" FontSize="10"
+                     Background="#FFF8E1" Foreground="#7B4400"
+                     BorderThickness="1" BorderBrush="#FFD54F"
+                     Visibility="{Binding Warnings.Count, Converter={StaticResource BoolToVis}}"/>
+
+            <!-- ── Botões ──────────────────────────────────────────── -->
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Viga superior:"/>
-                <TextBox   Grid.Column="1" Text="{Binding UpperBeamName}" IsReadOnly="True" Padding="4,2" Background="#F5F5F5"/>
-                <Button    Grid.Column="2" Content="Selecionar" Margin="8,0,0,0" Command="{Binding SelectUpperBeamCommand}"/>
+                <Button Grid.Column="1" Style="{StaticResource BtnSecondary}"
+                        Content="Calcular" Command="{Binding CalculatePreviewCommand}"/>
+                <Button Grid.Column="3" Style="{StaticResource BtnPrimary}"
+                        Content="Criar Escada" Command="{Binding CreateStairCommand}"/>
+                <Button Grid.Column="5" Style="{StaticResource BtnSecondary}"
+                        Content="Cancelar" IsCancel="True" Click="OnCancel"/>
             </Grid>
+
         </StackPanel>
-
-        <!-- ── Configuração ───────────────────────────────────────── -->
-        <StackPanel Grid.Row="1">
-            <TextBlock Style="{StaticResource SectionHeader}" Text="2 — Configuração"/>
-
-            <!-- Largura -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Largura:"/>
-                <TextBox   Grid.Column="1" Text="{Binding Width,   UpdateSourceTrigger=PropertyChanged}" Padding="4,2"/>
-                <TextBlock Grid.Column="2" Text="mm" VerticalAlignment="Center" Margin="6,0,0,0"/>
-            </Grid>
-
-            <!-- Pisada -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Pisada:"/>
-                <TextBox   Grid.Column="1" Text="{Binding TreadDepth, UpdateSourceTrigger=PropertyChanged}" Padding="4,2"/>
-                <TextBlock Grid.Column="2" Text="mm" VerticalAlignment="Center" Margin="6,0,0,0"/>
-            </Grid>
-
-            <!-- Longarina -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Perfil longarina (.rfa):"/>
-                <TextBox   Grid.Column="1" Text="{Binding StringerPath}" IsReadOnly="True" Padding="4,2" Background="#F5F5F5"/>
-                <Button    Grid.Column="2" Content="Procurar..." Margin="8,0,0,0" Command="{Binding BrowseStringerCommand}"/>
-            </Grid>
-
-            <!-- Tipo do perfil — populado automaticamente ao escolher o .rfa -->
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Perfil da longarina:"
-                           ToolTip="Selecione o tamanho do perfil. A lista é carregada automaticamente do catálogo da família escolhida."/>
-                <ComboBox  Grid.Column="1"
-                           ItemsSource="{Binding AvailableTypes}"
-                           SelectedItem="{Binding StringerType}"
-                           Padding="4,2"
-                           ToolTip="Escolha o perfil desejado. A lista vem do catálogo de tipos da família (.txt)."
-                           />
-            </Grid>
-
-            <!-- Checkboxes -->
-            <WrapPanel Margin="0,4,0,0">
-                <CheckBox Content="Aplicar Blondel" IsChecked="{Binding ApplyBlondel}" Margin="0,0,24,4"/>
-                <CheckBox Content="Usar eixo (U/Canal)"
-                          IsChecked="{Binding UseAxis}"
-                          Margin="0,0,24,4"
-                          ToolTip="Desmarcado (padrão): Largura Útil = distância livre entre as almas dos dois perfis U.&#x0a;Marcado: Largura Útil = distância entre os eixos neutros (centroide-a-centroide)."/>
-            </WrapPanel>
-
-            <Grid Margin="0,4,0,0">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="180"/></Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Style="{StaticResource Label}" Text="Patamar intermediário:"/>
-                <ComboBox  Grid.Column="1" SelectedItem="{Binding LandingMode}">
-                    <ComboBoxItem Content="Auto"/>
-                    <ComboBoxItem Content="Sempre"/>
-                    <ComboBoxItem Content="Nunca"/>
-                </ComboBox>
-            </Grid>
-        </StackPanel>
-
-        <!-- ── Preview ────────────────────────────────────────────── -->
-        <GroupBox Grid.Row="2" Header="3 — Pré-visualização" Margin="0,12,0,0">
-            <Grid Margin="8" Visibility="{Binding IsCalculated, Converter={StaticResource BoolToVis}}">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="{Binding Preview.StepCount,      StringFormat='Nº de degraus:     {0}'}"/>
-                    <TextBlock Text="{Binding Preview.RiserHeight,     StringFormat='Altura do espelho: {0:F1} mm'}" Margin="0,4,0,0"/>
-                    <TextBlock Text="{Binding Preview.TreadDepth,      StringFormat='Pisada:            {0:F1} mm'}" Margin="0,4,0,0"/>
-                    <TextBlock Text="{Binding Preview.InclinationDeg,  StringFormat='Inclinação:        {0:F1}°'}"  Margin="0,4,0,0"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1">
-                    <TextBlock Text="{Binding Preview.TotalRun,            StringFormat='Desenvolvimento:   {0:F0} mm'}"/>
-                    <TextBlock Text="{Binding Preview.LowerLandingDepth,   StringFormat='Patamar inferior:  {0:F0} mm'}" Margin="0,4,0,0"/>
-                    <TextBlock Text="{Binding Preview.UpperLandingDepth,   StringFormat='Patamar superior:  {0:F0} mm'}" Margin="0,4,0,0"/>
-                    <TextBlock Text="{Binding Preview.HasIntermediateLanding, StringFormat='Patamar interm.: {0}'}"       Margin="0,4,0,0"/>
-                </StackPanel>
-            </Grid>
-        </GroupBox>
-
-        <!-- ── Avisos ─────────────────────────────────────────────── -->
-        <ListBox Grid.Row="3" ItemsSource="{Binding Warnings}"
-                 Margin="0,8,0,0" MaxHeight="80"
-                 FontFamily="Consolas" FontSize="10"
-                 Background="#FFF8E1" Foreground="#7B4400"
-                 BorderThickness="1" BorderBrush="#FFD54F"
-                 Visibility="{Binding Warnings.Count, Converter={StaticResource BoolToVis}}"/>
-
-        <!-- ── Botões ─────────────────────────────────────────────── -->
-        <Grid Grid.Row="4" Margin="0,12,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <Button Grid.Column="1" Content="Calcular Preview"
-                    Command="{Binding CalculatePreviewCommand}"
-                    Margin="0,0,8,0" Padding="12,6"/>
-            <Button Grid.Column="2" Content="Criar Escada"
-                    Style="{StaticResource PrimaryButton}"
-                    Command="{Binding CreateStairCommand}"
-                    Margin="0,0,8,0"/>
-            <Button Grid.Column="3" Content="Cancelar"
-                    Padding="12,6" IsCancel="True"/>
-        </Grid>
-    </Grid>
+    </ScrollViewer>
 </Window>

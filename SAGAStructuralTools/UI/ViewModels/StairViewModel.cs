@@ -32,11 +32,14 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string    _upperBeamName = "Não selecionada";
 
         // Configuração
-        private double _width          = StairDefaults.Width;
-        private double _treadDepth     = StairDefaults.TreadDepth;
-        private bool   _applyBlondel   = StairDefaults.ApplyBlondel;
-        private bool   _centerStair    = StairDefaults.CenterStair;
-        private string _landingMode    = StairDefaults.LandingMode;
+        private double _width           = StairDefaults.Width;
+        private double _treadDepth      = StairDefaults.TreadDepth;
+        private double _treadThickness           = StairDefaults.TreadThickness;
+        private double _intermediateLandingLength = StairDefaults.IntermediateLandingLength;
+        private bool   _applyBlondel    = StairDefaults.ApplyBlondel;
+        private bool   _centerStair     = StairDefaults.CenterStair;
+        private bool   _includeTreads   = StairDefaults.IncludeTreads;
+        private string _landingMode     = StairDefaults.LandingMode;
         private string _stringerPath;
         private string _stringerType;
         private bool   _useAxis          = false;
@@ -68,8 +71,12 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         // ── Seleção de vigas ────────────────────────────────────────────────
 
-        public string LowerBeamName { get => _lowerBeamName; set => Set(ref _lowerBeamName, value); }
-        public string UpperBeamName { get => _upperBeamName; set => Set(ref _upperBeamName, value); }
+        public string LowerBeamName    { get => _lowerBeamName; set => Set(ref _lowerBeamName, value); }
+        public string UpperBeamName    { get => _upperBeamName; set => Set(ref _upperBeamName, value); }
+
+        // Borda do input fica verde quando selecionado (DataTrigger no XAML).
+        public bool LowerBeamSelected  => _lowerBeamId != null;
+        public bool UpperBeamSelected  => _upperBeamId != null;
 
         private void StartPick(int target)
         {
@@ -86,9 +93,22 @@ namespace SAGAStructuralTools.UI.ViewModels
                     _lowerBeamId     = id;
                     _lowerClickPoint = axisPoint;
                     LowerBeamName    = name;
+                    OnPropertyChanged(nameof(LowerBeamSelected));
                 }
                 else
                 {
+                    // Valida se a "viga superior" está realmente acima da inferior.
+                    if (_lowerClickPoint != null && axisPoint.Z < _lowerClickPoint.Z - 1e-4)
+                    {
+                        System.Windows.MessageBox.Show(
+                            "A viga selecionada como \"Viga superior\" está abaixo da viga inferior.\n\n" +
+                            "Por favor, selecione a viga do nível superior.",
+                            "Seleção incorreta",
+                            System.Windows.MessageBoxButton.OK,
+                            System.Windows.MessageBoxImage.Warning);
+                        return;
+                    }
+
                     _upperBeamId     = id;
                     UpperBeamName    = name;
 
@@ -97,6 +117,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                     // Projeta o clique da viga inferior (na cota da viga superior)
                     // sobre o eixo da viga superior.
                     _upperClickPoint = AlignToUpperBeam(id, axisPoint);
+                    OnPropertyChanged(nameof(UpperBeamSelected));
                 }
             });
         }
@@ -132,11 +153,26 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         // ── Configuração ─────────────────────────────────────────────────────
 
-        public double Width        { get => _width;        set => Set(ref _width, value); }
-        public double TreadDepth   { get => _treadDepth;   set => Set(ref _treadDepth, value); }
-        public bool   ApplyBlondel { get => _applyBlondel; set => Set(ref _applyBlondel, value); }
-        public bool   CenterStair  { get => _centerStair;  set => Set(ref _centerStair, value); }
-        public string LandingMode  { get => _landingMode;  set => Set(ref _landingMode, value); }
+        public double Width           { get => _width;          set => Set(ref _width, value); }
+        public double TreadDepth      { get => _treadDepth;     set => Set(ref _treadDepth, value); }
+        public double TreadThickness  { get => _treadThickness; set => Set(ref _treadThickness, value); }
+        public bool   IncludeTreads   { get => _includeTreads;  set => Set(ref _includeTreads, value); }
+        public bool   ApplyBlondel    { get => _applyBlondel;   set => Set(ref _applyBlondel, value); }
+        public bool   CenterStair     { get => _centerStair;    set => Set(ref _centerStair, value); }
+        public double IntermediateLandingLength { get => _intermediateLandingLength; set => Set(ref _intermediateLandingLength, value); }
+
+        public string LandingMode
+        {
+            get => _landingMode;
+            set
+            {
+                if (Set(ref _landingMode, value))
+                    OnPropertyChanged(nameof(IsIntermediateLandingLengthEnabled));
+            }
+        }
+
+        // Habilitado apenas quando "Sempre"; Auto e Nunca desabilitam (mas o campo permanece visível).
+        public bool IsIntermediateLandingLengthEnabled => LandingMode == "Sempre";
         public string StringerPath      { get => _stringerPath;      set => Set(ref _stringerPath, value); }
         public string StringerType      { get => _stringerType;      set => Set(ref _stringerType, value); }
         public bool   UseAxis           { get => _useAxis;           set => Set(ref _useAxis, value); }
@@ -283,12 +319,15 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             Width                   = Width,
             TreadDepth              = TreadDepth,
+            TreadThickness          = TreadThickness,
             ApplyBlondel            = ApplyBlondel,
             CenterStair             = CenterStair,
-            IntermediateLanding     = ParseLandingMode(),
-            StringerFamilyPath      = StringerPath,
-            StringerFamilyType      = StringerType,
-            UseAxis                 = UseAxis
+            IncludeTreads           = IncludeTreads,
+            IntermediateLanding         = ParseLandingMode(),
+            IntermediateLandingLength   = IntermediateLandingLength,
+            StringerFamilyPath          = StringerPath,
+            StringerFamilyType          = StringerType,
+            UseAxis                     = UseAxis
         };
 
         private Core.Models.LandingMode ParseLandingMode() => LandingMode switch
