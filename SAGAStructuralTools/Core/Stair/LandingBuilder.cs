@@ -6,70 +6,78 @@ namespace SAGAStructuralTools.Core.Stair
 {
     /// <summary>
     /// Cria os patamares (inferior, superior e intermediário) como DirectShape.
+    /// Todos posicionados corretamente em qualquer direção da escada.
     /// </summary>
     public class LandingBuilder
     {
         private readonly Document _doc;
 
-        public LandingBuilder(Document doc)
-        {
-            _doc = doc;
-        }
+        public LandingBuilder(Document doc) => _doc = doc;
 
-        public void Build(StairDefinition def, StairConfig config, XYZ origin)
+        /// <param name="startPt">Ponto de conexão na viga inferior.</param>
+        /// <param name="horizDir">Direção horizontal unitária da escada.</param>
+        /// <param name="lateral">Direção lateral unitária (perpendicular à marcha, plano XY).</param>
+        public void Build(StairDefinition def, StairConfig config,
+                          XYZ startPt, XYZ horizDir, XYZ lateral)
         {
+            double lldFt   = def.LowerLandingDepth / 304.8;
+            double uldFt   = def.UpperLandingDepth / 304.8;
+            double illFt   = def.HasIntermediateLanding ? def.IntermediateLandingLength / 304.8 : 0;
+            double halfWFt = config.Width / 2.0 / 304.8;
+            double thickFt = config.TreadThickness / 304.8;
+            double rFt     = def.RiserHeight / 304.8;
+            double tFt     = def.TreadDepth  / 304.8;
+
+            var stringerBottom = startPt + horizDir * lldFt;
+
             // Patamar inferior
-            if (def.LowerLandingDepth > 0)
-                CreateLanding(origin, def.LowerLandingDepth, config.Width, config.TreadThickness, "Patamar_Inferior");
-
-            // Patamar superior
-            if (def.UpperLandingDepth > 0)
-            {
-                var upperOrigin = new XYZ(
-                    origin.X + (def.LowerLandingDepth + def.TotalRun) / 304.8,
-                    origin.Y,
-                    origin.Z + def.TotalRise / 304.8);
-                CreateLanding(upperOrigin, def.UpperLandingDepth, config.Width, config.TreadThickness, "Patamar_Superior");
-            }
+            if (lldFt > 0.001)
+                CreateLanding(startPt, lldFt, halfWFt, thickFt, horizDir, lateral, "Patamar_Inferior");
 
             // Patamar intermediário
-            if (def.HasIntermediateLanding && config.IntermediateLanding != LandingMode.Never)
+            if (def.HasIntermediateLanding && illFt > 0.001)
             {
-                var midRun  = (def.IntermediateLandingAt / def.TotalRise) * def.TotalRun;
+                int k = def.IntermediateLandingStep - 1;  // 0-indexed: último degrau da marcha inferior
                 var midOrigin = new XYZ(
-                    origin.X + (def.LowerLandingDepth + midRun) / 304.8,
-                    origin.Y,
-                    origin.Z + def.IntermediateLandingAt / 304.8);
-                CreateLanding(midOrigin, config.IntermediateLandingLength, config.Width, config.TreadThickness, "Patamar_Intermediario");
+                    stringerBottom.X + horizDir.X * (k + 1) * tFt,
+                    stringerBottom.Y + horizDir.Y * (k + 1) * tFt,
+                    stringerBottom.Z + (k + 1) * rFt);
+                CreateLanding(midOrigin, illFt, halfWFt, thickFt, horizDir, lateral, "Patamar_Intermediario");
+            }
+
+            // Patamar superior
+            if (uldFt > 0.001)
+            {
+                double totalRunFt = def.TotalRun / 304.8;
+                var upperOrigin = new XYZ(
+                    stringerBottom.X + horizDir.X * (totalRunFt + illFt),
+                    stringerBottom.Y + horizDir.Y * (totalRunFt + illFt),
+                    startPt.Z + def.TotalRise / 304.8);
+                CreateLanding(upperOrigin, uldFt, halfWFt, thickFt, horizDir, lateral, "Patamar_Superior");
             }
         }
 
-        private void CreateLanding(XYZ origin, double depthMm, double widthMm, double thicknessMm, string name)
+        private void CreateLanding(XYZ origin, double depthFt, double halfWidthFt,
+                                   double thicknessFt, XYZ horizDir, XYZ lateral, string name)
         {
-            var dFt = depthMm    / 304.8;
-            var wFt = widthMm   / 304.8;
-            var tFt = thicknessMm / 304.8;
+            // Loop CCW visto de +Z: →horizDir, →lateral, ←horizDir, ←lateral
+            var p0 = origin + lateral * (-halfWidthFt);
+            var p1 = p0     + horizDir * depthFt;
+            var p2 = p1     + lateral  * (2 * halfWidthFt);
+            var p3 = p0     + lateral  * (2 * halfWidthFt);
 
-            var profile = new List<CurveLoop> { RectProfile(origin, dFt, wFt) };
-            var solid   = GeometryCreationUtilities.CreateExtrusionGeometry(profile, XYZ.BasisZ, tFt);
-
-            var shape = DirectShape.CreateElement(_doc, new ElementId(BuiltInCategory.OST_GenericModel));
-            shape.SetShape(new GeometryObject[] { solid });
-            shape.SetName(name);
-        }
-
-        private static CurveLoop RectProfile(XYZ origin, double depth, double width)
-        {
-            var p0 = origin;
-            var p1 = origin + new XYZ(depth, 0,     0);
-            var p2 = origin + new XYZ(depth, width, 0);
-            var p3 = origin + new XYZ(0,     width, 0);
             var loop = new CurveLoop();
             loop.Append(Line.CreateBound(p0, p1));
             loop.Append(Line.CreateBound(p1, p2));
             loop.Append(Line.CreateBound(p2, p3));
             loop.Append(Line.CreateBound(p3, p0));
-            return loop;
+
+            var solid = GeometryCreationUtilities.CreateExtrusionGeometry(
+                new List<CurveLoop> { loop }, XYZ.BasisZ, thicknessFt);
+
+            var shape = DirectShape.CreateElement(_doc, new ElementId(BuiltInCategory.OST_GenericModel));
+            shape.SetShape(new GeometryObject[] { solid });
+            shape.SetName(name);
         }
     }
 }

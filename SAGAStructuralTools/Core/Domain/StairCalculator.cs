@@ -53,10 +53,23 @@ namespace SAGAStructuralTools.Core.Domain
             result.TotalRun      = steps * tread;
 
             // ── 2. Inclinação ────────────────────────────────────────────────
-            // Calculada pelo vértice superior da pisada (conforme spec)
             result.InclinationDeg = Math.Atan2(riser, tread) * 180.0 / Math.PI;
 
-            // ── 3. Patamares de extremidade ──────────────────────────────────
+            // ── 3. Patamar intermediário ─────────────────────────────────────
+            // Posicionado no degrau mais próximo do centro.
+            // k (0-indexed) = último degrau da marcha inferior.
+            // Minimiza a distância do patamar ao centro do vão para CenterStair=true.
+            result.HasIntermediateLanding = config.HasIntermediateLanding;
+            if (result.HasIntermediateLanding)
+            {
+                int k = Math.Max(0, Math.Min(steps / 2 - 1, steps - 2));
+                result.IntermediateLandingStep   = k + 1;             // 1-indexed
+                result.IntermediateLandingLength = config.IntermediateLandingLength;
+                result.IntermediateLandingAt     = (k + 1) * riser;   // altura em mm
+            }
+
+            // ── 4. Patamares de extremidade ──────────────────────────────────
+            // EndLandings já desconta o ILL do espaço disponível.
             var (lower, upper) = LandingCalculator.EndLandings(result.TotalRun, beamDistance, config);
             result.LowerLandingDepth = lower;
             result.UpperLandingDepth = upper;
@@ -70,22 +83,13 @@ namespace SAGAStructuralTools.Core.Domain
                     "Recomendado afastar as vigas.");
             }
 
-            if (result.TotalRun > beamDistance)
+            var totalSpan = result.TotalRun + (result.HasIntermediateLanding ? config.IntermediateLandingLength : 0);
+            if (totalSpan > beamDistance)
             {
                 result.IsValid = false;
                 result.Warnings.Add(
-                    $"Desenvolvimento ({result.TotalRun:F0} mm) excede a distância entre vigas ({beamDistance:F0} mm). " +
+                    $"Desenvolvimento ({totalSpan:F0} mm) excede a distância entre vigas ({beamDistance:F0} mm). " +
                     "Reduza a pisada ou o número de degraus.");
-            }
-
-            // ── 4. Patamar intermediário ─────────────────────────────────────
-            result.HasIntermediateLanding = LandingCalculator.NeedsIntermediate(totalRise, config);
-            if (result.HasIntermediateLanding)
-            {
-                result.IntermediateLandingAt = LandingCalculator.IntermediatePosition(steps, riser);
-                if (config.IntermediateLanding == LandingMode.Never)
-                    result.Warnings.Add($"Altura ({totalRise:F0} mm) excede o limite normativo " +
-                        $"({config.MaxHeightWithoutLanding:F0} mm) — patamar intermediário suprimido.");
             }
 
             return result;

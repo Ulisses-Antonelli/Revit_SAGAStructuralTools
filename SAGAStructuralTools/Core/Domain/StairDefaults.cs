@@ -9,8 +9,8 @@ namespace SAGAStructuralTools.Core.Domain
         public const double MaxHeightWithoutLanding  = 3700;  // mm (norma)
         public const bool   ApplyBlondel             = false;
         public const bool   CenterStair              = true;
-        public const bool   IncludeTreads            = true;
-        public const string LandingMode              = "Auto";
+        public const bool   IncludeTreads             = true;
+        public const bool   HasIntermediateLanding    = false;
         public const double IntermediateLandingLength = 1200; // mm
     }
 }

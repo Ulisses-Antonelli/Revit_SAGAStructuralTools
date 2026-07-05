@@ -80,27 +80,29 @@ namespace SAGAStructuralTools.Core.Stair
 
             Log($"isChannel={isChannel}  faceOffset={faceOffMm:F1}mm  [{offsetSource}]");
 
-            // ── Patamares em pés ──────────────────────────────────────────────
+            // ── Patamares e patamar intermediário em pés ─────────────────────
             var lldFt = def.LowerLandingDepth / 304.8;
             var uldFt = def.UpperLandingDepth / 304.8;
+            var illFt = def.HasIntermediateLanding ? def.IntermediateLandingLength / 304.8 : 0.0;
+            var tFt   = def.TreadDepth  / 304.8;
+            var rFt   = def.RiserHeight / 304.8;
 
             var stringerBottom = new XYZ(
                 startPt.X + horizDir.X * lldFt,
                 startPt.Y + horizDir.Y * lldFt,
                 startPt.Z);
 
-            // stringerTop calculado a partir do stringerBottom + totalRun
-            // (NOT de endPt - uldFt, para garantir que a longarina seja reta)
+            // stringerTop: inclui comprimento do patamar intermediário no desenvolvimento total
             var totalRunFt = def.TotalRun / 304.8;
             var stringerTop = new XYZ(
-                stringerBottom.X + horizDir.X * totalRunFt,
-                stringerBottom.Y + horizDir.Y * totalRunFt,
+                stringerBottom.X + horizDir.X * (totalRunFt + illFt),
+                stringerBottom.Y + horizDir.Y * (totalRunFt + illFt),
                 endPt.Z);
 
             var lowerLevel = GetNearestLevel(startPt.Z);
             var upperLevel = GetNearestLevel(endPt.Z);
 
-            Log($"halfFt={halfFt * 304.8:F1}mm  stringerBottom={Fmt(stringerBottom)}  stringerTop={Fmt(stringerTop)}");
+            Log($"halfFt={halfFt * 304.8:F1}mm  stringerBottom={Fmt(stringerBottom)}  stringerTop={Fmt(stringerTop)}  illFt={illFt * 304.8:F0}mm");
 
             // ── Pares esquerdo / direito ───────────────────────────────────────
             // Perfil U/Canal: banzo direito (sign=+1) recebe rotação 180° no eixo
@@ -114,11 +116,32 @@ namespace SAGAStructuralTools.Core.Stair
                 if (lldFt > 0.001)
                     CreateBeam(startPt + offset, stringerBottom + offset, symbol, lowerLevel, "patamar-inf", shouldFlip);
 
-                CreateBeam(stringerBottom + offset, stringerTop + offset, symbol, lowerLevel, "longarina", shouldFlip);
+                if (def.HasIntermediateLanding)
+                {
+                    int k = def.IntermediateLandingStep - 1;  // 0-indexed
+                    var lowerFlightEnd = new XYZ(
+                        stringerBottom.X + horizDir.X * (k + 1) * tFt,
+                        stringerBottom.Y + horizDir.Y * (k + 1) * tFt,
+                        stringerBottom.Z + (k + 1) * rFt);
+                    var upperFlightStart = new XYZ(
+                        lowerFlightEnd.X + horizDir.X * illFt,
+                        lowerFlightEnd.Y + horizDir.Y * illFt,
+                        lowerFlightEnd.Z);
+
+                    CreateBeam(stringerBottom + offset, lowerFlightEnd  + offset, symbol, lowerLevel, "longarina-inf",  shouldFlip);
+                    CreateBeam(lowerFlightEnd  + offset, upperFlightStart + offset, symbol, lowerLevel, "patamar-int", shouldFlip);
+                    CreateBeam(upperFlightStart + offset, stringerTop    + offset, symbol, upperLevel, "longarina-sup", shouldFlip);
+                }
+                else
+                {
+                    CreateBeam(stringerBottom + offset, stringerTop + offset, symbol, lowerLevel, "longarina", shouldFlip);
+                }
 
                 if (uldFt > 0.001)
                     CreateBeam(stringerTop + offset, endPt + offset, symbol, upperLevel, "patamar-sup", shouldFlip);
             }
+
+            new LandingBuilder(_doc).Build(def, config, startPt, horizDir, lateral);
 
             if (config.IncludeTreads)
                 new TreadBuilder(_doc).Build(def, config, stringerBottom, horizDir, lateral);

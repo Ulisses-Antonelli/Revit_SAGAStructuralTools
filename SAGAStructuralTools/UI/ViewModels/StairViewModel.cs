@@ -34,12 +34,12 @@ namespace SAGAStructuralTools.UI.ViewModels
         // Configuração
         private double _width           = StairDefaults.Width;
         private double _treadDepth      = StairDefaults.TreadDepth;
-        private double _treadThickness           = StairDefaults.TreadThickness;
-        private double _intermediateLandingLength = StairDefaults.IntermediateLandingLength;
-        private bool   _applyBlondel    = StairDefaults.ApplyBlondel;
-        private bool   _centerStair     = StairDefaults.CenterStair;
-        private bool   _includeTreads   = StairDefaults.IncludeTreads;
-        private string _landingMode     = StairDefaults.LandingMode;
+        private double _treadThickness              = StairDefaults.TreadThickness;
+        private double _intermediateLandingLength   = StairDefaults.IntermediateLandingLength;
+        private bool   _applyBlondel                = StairDefaults.ApplyBlondel;
+        private bool   _centerStair                 = StairDefaults.CenterStair;
+        private bool   _includeTreads               = StairDefaults.IncludeTreads;
+        private bool   _hasIntermediateLanding      = StairDefaults.HasIntermediateLanding;
         private string _stringerPath;
         private string _stringerType;
         private bool   _useAxis          = false;
@@ -161,18 +161,18 @@ namespace SAGAStructuralTools.UI.ViewModels
         public bool   CenterStair     { get => _centerStair;    set => Set(ref _centerStair, value); }
         public double IntermediateLandingLength { get => _intermediateLandingLength; set => Set(ref _intermediateLandingLength, value); }
 
-        public string LandingMode
+        public bool HasIntermediateLanding
         {
-            get => _landingMode;
+            get => _hasIntermediateLanding;
             set
             {
-                if (Set(ref _landingMode, value))
+                if (Set(ref _hasIntermediateLanding, value))
                     OnPropertyChanged(nameof(IsIntermediateLandingLengthEnabled));
             }
         }
 
-        // Habilitado apenas quando "Sempre"; Auto e Nunca desabilitam (mas o campo permanece visível).
-        public bool IsIntermediateLandingLengthEnabled => LandingMode == "Sempre";
+        // Comprimento do patamar só é editável quando o patamar intermediário está habilitado.
+        public bool IsIntermediateLandingLengthEnabled => HasIntermediateLanding;
         public string StringerPath      { get => _stringerPath;      set => Set(ref _stringerPath, value); }
         public string StringerType      { get => _stringerType;      set => Set(ref _stringerType, value); }
         public bool   UseAxis           { get => _useAxis;           set => Set(ref _useAxis, value); }
@@ -317,24 +317,17 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private StairConfig BuildConfig() => new StairConfig
         {
-            Width                   = Width,
-            TreadDepth              = TreadDepth,
-            TreadThickness          = TreadThickness,
-            ApplyBlondel            = ApplyBlondel,
-            CenterStair             = CenterStair,
-            IncludeTreads           = IncludeTreads,
-            IntermediateLanding         = ParseLandingMode(),
-            IntermediateLandingLength   = IntermediateLandingLength,
-            StringerFamilyPath          = StringerPath,
-            StringerFamilyType          = StringerType,
-            UseAxis                     = UseAxis
-        };
-
-        private Core.Models.LandingMode ParseLandingMode() => LandingMode switch
-        {
-            "Sempre" => Core.Models.LandingMode.Always,
-            "Nunca"  => Core.Models.LandingMode.Never,
-            _        => Core.Models.LandingMode.Auto
+            Width                     = Width,
+            TreadDepth                = TreadDepth,
+            TreadThickness            = TreadThickness,
+            ApplyBlondel              = ApplyBlondel,
+            CenterStair               = CenterStair,
+            IncludeTreads             = IncludeTreads,
+            HasIntermediateLanding    = HasIntermediateLanding,
+            IntermediateLandingLength = IntermediateLandingLength,
+            StringerFamilyPath        = StringerPath,
+            StringerFamilyType        = StringerType,
+            UseAxis                   = UseAxis
         };
 
         /// <summary>

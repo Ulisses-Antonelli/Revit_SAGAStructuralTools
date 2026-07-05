@@ -41,11 +41,12 @@ namespace SAGAStructuralTools.Core.Stair
                 double zSurf = stringerBottom.Z + (i + 1) * rFt;
                 double zBot  = zSurf - thickFt;
 
-                // O vértice "da frente" deve estar sobre o eixo da longarina
-                // (run=(i+1)*tFt → altura exata da superfície do degrau na reta inclinada).
-                // O vértice "de trás" avança para dentro, ficando embutido no perfil acima.
-                double runFront = (i + 1) * tFt;  // frente: alinhado com a longarina
-                double runBack  = (i + 2) * tFt;  // trás: embutido (um passo à frente)
+                // Degraus da marcha superior deslocam +illFt para além do patamar intermediário.
+                bool isUpperFlight = def.HasIntermediateLanding && i >= def.IntermediateLandingStep;
+                double illFt = isUpperFlight ? def.IntermediateLandingLength / 304.8 : 0.0;
+
+                double runFront = (i + 1) * tFt + illFt;  // frente: alinhado com a longarina
+                double runBack  = (i + 2) * tFt + illFt;  // trás: embutido (um passo à frente)
 
                 // Quatro cantos da face inferior do degrau
                 var p0 = Pt(stringerBottom, horizDir, lateral, runFront, -halfWFt, zBot);
@@ -67,7 +68,7 @@ namespace SAGAStructuralTools.Core.Stair
                 shape.SetShape(new GeometryObject[] { solid });
                 shape.SetName($"Degrau {i + 1}");
 
-                Log($"  [tread {i + 1:D2}] z={zSurf * 304.8:F0}mm  run=[frente={runFront * 304.8:F0}–trás={runBack * 304.8:F0}]mm");
+                Log($"  [tread {i + 1:D2}] z={zSurf * 304.8:F0}mm  run=[frente={runFront * 304.8:F0}–trás={runBack * 304.8:F0}]mm{(isUpperFlight ? " [marcha sup]" : "")}");
             }
         }
 
