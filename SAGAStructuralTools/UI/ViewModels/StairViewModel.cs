@@ -51,22 +51,29 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         public StairViewModel(UIApplication uiApp)
         {
+            SagaLog.Write("StairViewModel — construtor início");
             _uiApp      = uiApp;
             _dispatcher = Dispatcher.CurrentDispatcher;
 
+            SagaLog.Write("StairViewModel — criando BeamPickHandler...");
             _pickHandler = new BeamPickHandler();
             _pickHandler.BeamPicked += OnBeamPicked;
+            SagaLog.Write("StairViewModel — ExternalEvent.Create(pick)...");
             _pickEvent = ExternalEvent.Create(_pickHandler);
 
+            SagaLog.Write("StairViewModel — criando StairCreationHandler...");
             _createHandler = new StairCreationHandler();
             _createHandler.Completed += OnCreationCompleted;
+            SagaLog.Write("StairViewModel — ExternalEvent.Create(create)...");
             _createEvent = ExternalEvent.Create(_createHandler);
 
+            SagaLog.Write("StairViewModel — criando comandos...");
             SelectLowerBeamCommand   = new RelayCommand(_ => StartPick(1));
             SelectUpperBeamCommand   = new RelayCommand(_ => StartPick(2));
             BrowseStringerCommand    = new RelayCommand(_ => BrowseStringer());
             CalculatePreviewCommand  = new RelayCommand(_ => CalculatePreview(), _ => CanCalculate());
             CreateStairCommand       = new RelayCommand(_ => CreateStair(),      _ => CanCreate());
+            SagaLog.Write("StairViewModel — construtor OK");
         }
 
         // ── Seleção de vigas ────────────────────────────────────────────────

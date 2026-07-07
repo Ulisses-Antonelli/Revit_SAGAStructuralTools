@@ -1,18 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
     <AssemblyName>SAGAStructuralTools</AssemblyName>
     <RootNamespace>SAGAStructuralTools</RootNamespace>
     <OutputType>Library</OutputType>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms Condition="'$(TargetFramework)'=='net8.0-windows'">true</UseWindowsForms>
     <PlatformTarget>x64</PlatformTarget>
     <LangVersion>8.0</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Revit API: compile-time only, NOT copied to output (Private=false) -->
+  <!-- Revit 2023 / .NET 4.8 -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit 2023\RevitAPI.dll</HintPath>
       <Private>false</Private>
@@ -21,10 +22,20 @@
       <HintPath>C:\Program Files\Autodesk\Revit 2023\RevitAPIUI.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- Required for FolderBrowserDialog -->
     <Reference Include="System.Windows.Forms" />
-    <!-- Required for System.Drawing.Bitmap (icon loading) -->
     <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <!-- Revit 2026 / .NET 8 -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
+    <Reference Include="RevitAPI">
+      <HintPath>C:\Users\Ulisses\Desktop\dll_REVIT_2026\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>C:\Users\Ulisses\Desktop\dll_REVIT_2026\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -39,9 +50,10 @@
     Revit lê automaticamente qualquer .addin que estiver em:
     C:\ProgramData\Autodesk\Revit\Addins\2023\
   -->
-  <Target Name="DeployToRevit" AfterTargets="Build">
+  <Target Name="DeployToRevit" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
     <PropertyGroup>
-      <DeployDir>C:\ProgramData\Autodesk\Revit\Addins\2023</DeployDir>
+      <DeployDir Condition="'$(TargetFramework)'=='net48'">C:\ProgramData\Autodesk\Revit\Addins\2023</DeployDir>
+      <DeployDir Condition="'$(TargetFramework)'=='net8.0-windows'">C:\ProgramData\Autodesk\Revit\Addins\2026</DeployDir>
     </PropertyGroup>
     <MakeDir Directories="$(DeployDir)\Resources\Icons"
              Condition="!Exists('$(DeployDir)\Resources\Icons')" />

@@ -17,3 +17,11 @@ SAGA_Log_*.txt
 # Arquivos de sistema
 Thumbs.db
 Desktop.ini
+
+# Arquivos Revit/IFC (binários gerados, não fazem parte do código-fonte)
+*.rvt
+*.rfa
+*.ifc
+*.RVT
+*.log.html
+*.sharedparameters.txt

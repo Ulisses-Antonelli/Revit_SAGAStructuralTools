@@ -12,39 +12,77 @@ namespace SAGAStructuralTools
     {
         public Result OnStartup(UIControlledApplication application)
         {
-            const string tabName = "SAGA Tools";
-            application.CreateRibbonTab(tabName);
-
-            var panel = application.CreateRibbonPanel(tabName, "Conversão IFC");
-            var assemblyPath = Assembly.GetExecutingAssembly().Location;
-
-            var buttonData = new PushButtonData(
-                name:          "ConvertIfc",
-                text:          "Converter IFC\npara Família",
-                assemblyName:  assemblyPath,
-                className:     "SAGAStructuralTools.Commands.ConvertIfcCommand")
+            SagaLog.Write("=== App.OnStartup iniciado ===");
+            try
             {
-                ToolTip    = "Converte perfis metálicos de arquivos IFC em famílias estruturais nativas.",
-                LargeImage = LoadIcon("saga_32.png", 32),
-                Image      = LoadIcon("saga_16.png", 16)
-            };
+                const string tabName = "SAGA Tools";
 
-            panel.AddItem(buttonData);
+                // CreateRibbonTab lança ArgumentException se a aba já existir na sessão
+                try { application.CreateRibbonTab(tabName); }
+                catch (Exception ex) { SagaLog.Write($"CreateRibbonTab: aba pode já existir ({ex.Message})"); }
 
-            // Botão: Gerar Escada Metálica — mesma estrutura de ícone do botão existente
-            var stairData = new PushButtonData(
-                name:          "GenerateStair",
-                text:          "Gerar Escada\nMetálica",
-                assemblyName:  assemblyPath,
-                className:     "SAGAStructuralTools.Commands.GenerateStairCommand")
+                RibbonPanel panel;
+                try { panel = application.CreateRibbonPanel(tabName, "Conversão IFC"); }
+                catch (Exception ex)
+                {
+                    SagaLog.Exception("CreateRibbonPanel", ex);
+                    return Result.Failed;
+                }
+
+                var assemblyPath = Assembly.GetExecutingAssembly().Location;
+                SagaLog.Write($"Assembly: {assemblyPath}");
+
+                TryAddButton(panel, new PushButtonData(
+                    name:         "ConvertIfc",
+                    text:         "Converter IFC\npara Família",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.ConvertIfcCommand")
+                {
+                    ToolTip    = "Converte perfis metálicos de arquivos IFC em famílias estruturais nativas.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(panel, new PushButtonData(
+                    name:         "GenerateStair",
+                    text:         "Gerar Escada\nMetálica",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateStairCommand")
+                {
+                    ToolTip    = "Gera automaticamente escadas metálicas com longarinas estruturais e degraus BIM.",
+                    LargeImage = LoadIcon("stairs_32.png", 32),
+                    Image      = LoadIcon("stairs_16.png", 16)
+                });
+
+                TryAddButton(panel, new PushButtonData(
+                    name:         "GenerateRail",
+                    text:         "Gerar Guarda-Corpo\nMetálico",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateRailCommand")
+                {
+                    ToolTip    = "Gera automaticamente guarda-corpos metálicos com montantes e corrimão estruturais.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
+                SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
             {
-                ToolTip    = "Gera automaticamente escadas metálicas com longarinas estruturais e degraus BIM.",
-                LargeImage = LoadIcon("stairs_32.png", 32),  // substituir por ícone específico quando disponível
-                Image      = LoadIcon("stairs_16.png", 16)
-            };
-            panel.AddItem(stairData);
+                SagaLog.Exception("App.OnStartup", ex);
+                return Result.Failed;
+            }
+        }
 
-            return Result.Succeeded;
+        private static void TryAddButton(RibbonPanel panel, PushButtonData data)
+        {
+            try
+            {
+                panel.AddItem(data);
+                SagaLog.Write($"Botão OK: {data.Name}");
+            }
+            catch (Exception ex) { SagaLog.Exception($"AddItem({data.Name})", ex); }
         }
 
         public Result OnShutdown(UIControlledApplication application) => Result.Succeeded;

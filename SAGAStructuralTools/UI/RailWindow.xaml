@@ -1,0 +1,1027 @@
+<Window x:Class="SAGAStructuralTools.UI.RailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:SAGAStructuralTools.Core.Models"
+        xmlns:converters="clr-namespace:SAGAStructuralTools.UI.Converters"
+        Title="SAGA — Gerar Guarda-Corpo Metálico"
+        Width="560" MinWidth="520" Height="780"
+        ResizeMode="CanResizeWithGrip" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8F9FB"
+        FontFamily="Segoe UI" FontSize="13">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <converters:EnumToBoolConverter x:Key="EnumToBool"/>
+
+        <!-- ── Reutilizados da escada ─────────────────────────────────── -->
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius"    Value="4"/>
+            <Setter Property="Padding"         Value="16"/>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="Foreground" Value="#6B778C"/>
+            <Setter Property="Margin"     Value="0,0,0,4"/>
+        </Style>
+
+        <Style x:Key="CleanInput" TargetType="TextBox">
+            <Setter Property="BorderThickness"   Value="0"/>
+            <Setter Property="Background"        Value="Transparent"/>
+            <Setter Property="Padding"           Value="8,5,4,5"/>
+            <Setter Property="Foreground"        Value="#172B4D"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize"          Value="13"/>
+        </Style>
+        <Style x:Key="CleanInputRO" TargetType="TextBox" BasedOn="{StaticResource CleanInput}">
+            <Setter Property="Foreground" Value="#5E6C84"/>
+        </Style>
+
+        <Style x:Key="BtnPrimary" TargetType="Button">
+            <Setter Property="Background"      Value="#0052CC"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="16,7"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled"   Value="False"><Setter Property="Background" Value="#AABDD8"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"> <Setter Property="Background" Value="#0747A6"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="BtnSecondary" TargetType="Button">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="Foreground"      Value="#344563"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#F4F5F7"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PvLabel" TargetType="TextBlock">
+            <Setter Property="Foreground"        Value="#5E6C84"/>
+            <Setter Property="FontSize"          Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="PvValue" TargetType="TextBlock">
+            <Setter Property="Foreground"          Value="#0052CC"/>
+            <Setter Property="FontWeight"          Value="SemiBold"/>
+            <Setter Property="FontSize"            Value="13"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment"   Value="Center"/>
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground"               Value="#344563"/>
+            <Setter Property="FontSize"                 Value="12"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground"               Value="#344563"/>
+            <Setter Property="FontSize"                 Value="12"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="RoundedComboBox" TargetType="ComboBox">
+            <Setter Property="Background"        Value="White"/>
+            <Setter Property="BorderBrush"       Value="#DFE1E6"/>
+            <Setter Property="BorderThickness"   Value="1"/>
+            <Setter Property="Foreground"        Value="#172B4D"/>
+            <Setter Property="FontSize"          Value="12"/>
+            <Setter Property="Height"            Value="32"/>
+            <Setter Property="Padding"           Value="8,0,0,0"/>
+            <Setter Property="MaxDropDownHeight" Value="200"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="border" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="22" MinWidth="22"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter x:Name="contentPresenter" Grid.Column="0"
+                                        Margin="{TemplateBinding Padding}"
+                                        Content="{TemplateBinding SelectionBoxItem}"
+                                        ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                    <Path x:Name="arrow" Grid.Column="1"
+                                          Data="M 0 0 L 5 5 L 10 0" Stroke="#6B778C" StrokeThickness="1.5"
+                                          Fill="Transparent" StrokeLineJoin="Round"
+                                          Width="10" Height="5"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <ToggleButton Background="Transparent" BorderThickness="0"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Rectangle Fill="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" AllowsTransparency="False" Focusable="False"
+                                   IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Bottom"
+                                   MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                                <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="0,0,4,4">
+                                    <ScrollViewer CanContentScroll="True" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                        <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush"  Value="#0052CC"/>
+                                <Setter TargetName="border" Property="CornerRadius" Value="4,4,0,0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border"           Property="Background" Value="#F4F5F7"/>
+                                <Setter TargetName="contentPresenter" Property="Opacity"    Value="0.45"/>
+                                <Setter TargetName="arrow"            Property="Stroke"     Value="#BFC2C9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Padding"    Value="8,5"/>
+                        <Setter Property="FontSize"   Value="12"/>
+                        <Setter Property="Foreground" Value="#172B4D"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"> <Setter Property="Background" Value="#F4F5F7"/></Trigger>
+                                        <Trigger Property="IsSelected"  Value="True"> <Setter Property="Background" Value="#EDF3FF"/><Setter Property="Foreground" Value="#0052CC"/></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Novos — TabControl ────────────────────────────────────── -->
+        <Style x:Key="RailTabControl" TargetType="TabControl">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Top" Background="White"
+                                    BorderBrush="#DFE1E6" BorderThickness="0,0,0,1" Margin="20,14,20,0">
+                                <TabPanel IsItemsHost="True" Background="Transparent"/>
+                            </Border>
+                            <ContentPresenter ContentSource="SelectedContent" Margin="0"/>
+                        </DockPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RailTabItem" TargetType="TabItem">
+            <Setter Property="Background"   Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"      Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="tabBorder" Background="Transparent" Margin="0,0,4,0"
+                                BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="12,10,12,9">
+                            <TextBlock x:Name="tabText" Text="{TemplateBinding Header}"
+                                       FontSize="13" FontWeight="SemiBold" Foreground="#6B778C"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="#0052CC"/>
+                                <Setter TargetName="tabText"   Property="Foreground"  Value="#0052CC"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabText" Property="Foreground" Value="#172B4D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Segmented control (modo Fechamento / FrameType) ───────── -->
+        <Style x:Key="SegBtn" TargetType="RadioButton">
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Foreground"      Value="#6B778C"/>
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin"          Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="12,6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#0052CC"/>
+                                <Setter TargetName="bg" Property="BorderBrush" Value="#0052CC"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#F4F5F7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Botão + adicionar (borda pontilhada) ──────────────────── -->
+        <Style x:Key="BtnDashed" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#6B778C"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                BorderBrush="#BFC2C9" BorderThickness="1" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#F4F5F7"/>
+                                <Setter TargetName="bg" Property="BorderBrush" Value="#6B778C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" MinHeight="440"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── TabControl ────────────────────────────────────────────── -->
+        <TabControl Grid.Row="0" Style="{StaticResource RailTabControl}">
+
+            <!-- ╔══════════════════════════════════════╗ -->
+            <!-- ║  ABA ENTRADA                         ║ -->
+            <!-- ╚══════════════════════════════════════╝ -->
+            <TabItem Header="Entrada" Style="{StaticResource RailTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,16,20,8">
+
+                        <!-- 01 — Perímetro -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="01" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Seleção do perímetro" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource FieldLabel}"
+                                           Text="Cada linha selecionada vira um guarda-corpo independente"
+                                           Margin="0,0,0,8"/>
+                                <ListBox ItemsSource="{Binding SegmentItems}"
+                                         MinHeight="48" MaxHeight="80"
+                                         FontSize="12" Foreground="#172B4D"
+                                         Background="#F8F9FB"
+                                         BorderBrush="#DFE1E6" BorderThickness="1">
+                                    <ListBox.Style>
+                                        <Style TargetType="ListBox">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasSegments}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ListBox.Style>
+                                </ListBox>
+                                <TextBlock Text="Nenhuma linha selecionada." FontSize="12" Foreground="#6B778C"
+                                           Margin="0,4,0,4">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasSegments}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Button Style="{StaticResource BtnSecondary}" HorizontalAlignment="Left"
+                                        Content="+ Selecionar Perímetro" Margin="0,10,0,0"
+                                        Command="{Binding SelectPerimeterCommand}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 02 — Distribuição -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="02" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Regras de distribuição" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="36"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="32"/>
+                                    <RowDefinition Height="8"/>
+                                    <RowDefinition Height="32"/>
+                                    <RowDefinition Height="8"/>
+                                    <RowDefinition Height="32"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- ByCount -->
+                                <RadioButton Grid.Row="0" Grid.Column="0" Content="Equidistante (quantidade)"
+                                             IsChecked="{Binding DistMode, Converter={StaticResource EnumToBool}, ConverterParameter=ByCount}"
+                                             VerticalAlignment="Center"/>
+                                <Border Grid.Row="0" Grid.Column="2"
+                                        Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
+                                        IsEnabled="{Binding IsPostCountEnabled}">
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding PostCount, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Border>
+                                <TextBlock Grid.Row="0" Grid.Column="3" Text="un"
+                                           Foreground="#6B778C" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"
+                                           IsEnabled="{Binding IsPostCountEnabled}"/>
+
+                                <!-- MaxSpan -->
+                                <RadioButton Grid.Row="2" Grid.Column="0" Content="Equidistante (vão máximo)"
+                                             IsChecked="{Binding DistMode, Converter={StaticResource EnumToBool}, ConverterParameter=MaxSpan}"
+                                             VerticalAlignment="Center"/>
+                                <Border Grid.Row="2" Grid.Column="2"
+                                        Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
+                                        IsEnabled="{Binding IsMaxPostSpanEnabled}">
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding MaxPostSpan, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Border>
+                                <TextBlock Grid.Row="2" Grid.Column="3" Text="mm"
+                                           Foreground="#6B778C" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"
+                                           IsEnabled="{Binding IsMaxPostSpanEnabled}"/>
+
+                                <!-- FixedAxis -->
+                                <RadioButton Grid.Row="4" Grid.Column="0" Content="Vão fixo (eixo a eixo)"
+                                             IsChecked="{Binding DistMode, Converter={StaticResource EnumToBool}, ConverterParameter=FixedAxis}"
+                                             VerticalAlignment="Center"/>
+                                <Border Grid.Row="4" Grid.Column="2"
+                                        Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
+                                        IsEnabled="{Binding IsFixedAxisEnabled}">
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding FixedAxisSpacing, UpdateSourceTrigger=PropertyChanged}"/>
+                                </Border>
+                                <TextBlock Grid.Row="4" Grid.Column="3" Text="mm"
+                                           Foreground="#6B778C" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"
+                                           IsEnabled="{Binding IsFixedAxisEnabled}"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- 03 — Perfis -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="03" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Configuração dos perfis" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <!-- Card Montante -->
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="Montante" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#42526E" Margin="0,0,0,10"/>
+
+                                <!-- Família -->
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Família (.rfa)"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding PostFamilyDisplay}" IsReadOnly="True"/>
+                                        </Border>
+                                        <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                Content="Procurar..." Command="{Binding BrowsePostCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Tipo + 4 campos -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding PostAvailableTypes}"
+                                                  SelectedItem="{Binding PostFamilyType}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Rotação"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="°" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding PostRotation, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Offset topo"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding PostTopOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Offset base"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding PostBaseOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Offset eixo"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding PostAxisOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card Corrimão -->
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Text="Corrimão" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#42526E" Margin="0,0,0,10"/>
+
+                                <!-- Família -->
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Família (.rfa)"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding HandrailFamilyDisplay}" IsReadOnly="True"/>
+                                        </Border>
+                                        <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                Content="Procurar..." Command="{Binding BrowseHandrailCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Tipo + 4 campos -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding HandrailAvailableTypes}"
+                                                  SelectedItem="{Binding HandrailFamilyType}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Rotação"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="°" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding HandrailRotation, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Offset eixo"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding HandrailAxisOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Justificativa"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  SelectedIndex="1">
+                                            <ComboBoxItem Content="Esquerda"/>
+                                            <ComboBoxItem Content="Centro"/>
+                                            <ComboBoxItem Content="Direita"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Altura"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding HandrailHeight, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 04 — Preview -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="04" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Pré-visualização" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
+                                Background="#EEF2FF" Padding="16" Margin="0,0,0,12">
+                            <Grid>
+                                <TextBlock Text="Selecione as linhas e clique em Calcular."
+                                           Foreground="#6B778C" FontSize="12"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCalculated}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Grid Visibility="{Binding IsCalculated, Converter={StaticResource BoolToVis}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="24"/>
+                                        <RowDefinition Height="24"/>
+                                    </Grid.RowDefinitions>
+                                    <DockPanel Grid.Row="0" Grid.Column="0">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Comprimento total:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewTotalLength, StringFormat={}{0:F0} mm}"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Row="1" Grid.Column="0">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Nº de montantes:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewTotalPosts, StringFormat={}{0} un}"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Row="0" Grid.Column="2">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Distância entre eixos:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewSpacing, StringFormat={}{0:F1} mm}"/>
+                                    </DockPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ╔══════════════════════════════════════╗ -->
+            <!-- ║  ABA FECHAMENTO                      ║ -->
+            <!-- ╚══════════════════════════════════════╝ -->
+            <TabItem Header="Fechamento" Style="{StaticResource RailTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,16,20,8">
+
+                        <!-- 01 — Modo -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="01" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Modo de fechamento" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel Orientation="Horizontal">
+                                <Border BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource SegBtn}" Content="Barras Horizontais"
+                                                     IsChecked="{Binding InfillMode, Converter={StaticResource EnumToBool}, ConverterParameter=HorizontalBars}"/>
+                                        <Border Width="1" Background="#DFE1E6"/>
+                                        <RadioButton Style="{StaticResource SegBtn}" Content="Fechamento em Quadro"
+                                                     IsChecked="{Binding InfillMode, Converter={StaticResource EnumToBool}, ConverterParameter=FramePanel}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 02 — Conteúdo dinâmico -->
+                        <!-- Barras Horizontais -->
+                        <StackPanel Visibility="{Binding IsHorizontalBarsMode, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="02" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                                <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                                <TextBlock Text="Barras de fechamento" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                            </StackPanel>
+
+                            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <WrapPanel Margin="0,0,0,10">
+                                        <CheckBox Content="Mesmo perfil p/ todas" IsChecked="{Binding SameProfileAll}" Margin="0,0,16,0"/>
+                                        <CheckBox Content="Equidistante"          IsChecked="{Binding EquidistantBars}"/>
+                                    </WrapPanel>
+
+                                    <!-- Tabela de travessas -->
+                                    <Border BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                                        <StackPanel>
+                                            <!-- Cabeçalho -->
+                                            <Grid Background="#EBECF0" Margin="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="32"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="110"/>
+                                                    <ColumnDefinition Width="110"/>
+                                                    <ColumnDefinition Width="36"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="#"  FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
+                                                <TextBlock Grid.Column="1" Text="Perfil" FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
+                                                <TextBlock Grid.Column="2" Text="Offset horiz." FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
+                                                <TextBlock Grid.Column="3" Text="Distância (mm)" FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
+                                                <TextBlock Grid.Column="4" Text="" Padding="0,6"/>
+                                            </Grid>
+                                            <!-- Linhas -->
+                                            <ItemsControl ItemsSource="{Binding HorizontalBars}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="32"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="110"/>
+                                                                <ColumnDefinition Width="110"/>
+                                                                <ColumnDefinition Width="36"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.ColumnSpan="5" BorderBrush="#DFE1E6" BorderThickness="0,1,0,0"/>
+                                                            <TextBlock Grid.Column="0" Text="{Binding RowIndex}" FontSize="12" Foreground="#6B778C"
+                                                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding FamilyDisplay}" FontSize="12" Foreground="#172B4D"
+                                                                       VerticalAlignment="Center" Padding="8,6"/>
+                                                            <ComboBox Grid.Column="2" Style="{StaticResource RoundedComboBox}"
+                                                                      SelectedIndex="0" Margin="4,3">
+                                                                <ComboBoxItem Content="Eixo"/>
+                                                                <ComboBoxItem Content="Face interna"/>
+                                                                <ComboBoxItem Content="Face externa"/>
+                                                            </ComboBox>
+                                                            <Border Grid.Column="3" Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
+                                                                    IsEnabled="{Binding DataContext.IsDistanceColumnEnabled, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Margin="4,3">
+                                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding Distance, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </Border>
+                                                            <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                                                    Content="×" FontSize="14" Padding="6,4"
+                                                                    Command="{Binding DataContext.RemoveBarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Margin="4,3"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Text="Distância habilitada apenas se 'Equidistante' estiver desmarcado."
+                                               FontSize="11" Foreground="#6B778C" Margin="0,6,0,0"/>
+
+                                    <Button Style="{StaticResource BtnDashed}" Content="+ adicionar travessa"
+                                            HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                            Command="{Binding AddBarCommand}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Rodapé -->
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
+                                <TextBlock Text="03" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                                <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                                <TextBlock Text="Rodapé" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                            </StackPanel>
+
+                            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="90"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Perfil (.rfa)"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding RodapeFamilyDisplay}" IsReadOnly="True"/>
+                                            </Border>
+                                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                    Content="Procurar..." Command="{Binding BrowseRodapeCommand}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Alinhamento"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}" SelectedIndex="0">
+                                            <ComboBoxItem Content="Eixo"/>
+                                            <ComboBoxItem Content="Face interna"/>
+                                            <ComboBoxItem Content="Face externa"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Offset vert."/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding RodapeOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Fechamento em Quadro -->
+                        <StackPanel Visibility="{Binding IsFramePanelMode, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="02" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                                <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                                <TextBlock Text="Tipo de quadro" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                            </StackPanel>
+
+                            <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <Border BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Style="{StaticResource SegBtn}" Content="Fechado em Cantoneira"
+                                                             IsChecked="{Binding FrameType, Converter={StaticResource EnumToBool}, ConverterParameter=AngleIron}"/>
+                                                <Border Width="1" Background="#DFE1E6"/>
+                                                <RadioButton Style="{StaticResource SegBtn}" Content="Apenas Horizontal"
+                                                             IsChecked="{Binding FrameType, Converter={StaticResource EnumToBool}, ConverterParameter=HorizontalOnly}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <TextBlock FontSize="11" Foreground="#6B778C" Margin="0,0,0,12">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="Mesmo perfil nas 4 laterais de cada quadro (topo, base e verticais)."/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsHorizontalOnlyType}" Value="True">
+                                                        <Setter Property="Text" Value="Os montantes fazem a lateral do quadro — nenhum perfil vertical adicional."/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- Família do quadro -->
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Família do perfil (.rfa)"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding FrameFamilyDisplay}" IsReadOnly="True"/>
+                                            </Border>
+                                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                    Content="Procurar..." Command="{Binding BrowseFrameCommand}"/>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Tipo + campos -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
+                                            <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                      ItemsSource="{Binding FrameAvailableTypes}"
+                                                      SelectedItem="{Binding FrameFamilyType}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Alinhamento"/>
+                                            <ComboBox Style="{StaticResource RoundedComboBox}" SelectedIndex="0">
+                                                <ComboBoxItem Content="Face ext."/>
+                                                <ComboBoxItem Content="Face int."/>
+                                                <ComboBoxItem Content="Centro"/>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Offset horiz."/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}" Text="{Binding FrameOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Altura do quadro"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}" Text="{Binding FrameHeight, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ╔══════════════════════════════════════╗ -->
+            <!-- ║  ABA TERMINAIS                       ║ -->
+            <!-- ╚══════════════════════════════════════╝ -->
+            <TabItem Header="Terminais" Style="{StaticResource RailTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,16,20,8">
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="01" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Cantos e extremidades" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <RadioButton Content="Canto vivo"
+                                                 IsChecked="{Binding TerminalType, Converter={StaticResource EnumToBool}, ConverterParameter=Sharp}"
+                                                 Margin="0,0,20,0"/>
+                                    <RadioButton Content="Arredondado"
+                                                 IsChecked="{Binding TerminalType, Converter={StaticResource EnumToBool}, ConverterParameter=Rounded}"/>
+                                </StackPanel>
+
+                                <Grid IsEnabled="{Binding IsTerminalRadiusEnabled}" MaxWidth="200" HorizontalAlignment="Left">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="90"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}"
+                                               Text="Raio de curvatura" VerticalAlignment="Center" Margin="0"/>
+                                    <Border Grid.Column="2" Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Style="{StaticResource CleanInput}" Text="{Binding TerminalRadius, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </DockPanel>
+                                    </Border>
+                                </Grid>
+
+                                <TextBlock Text="Aplica-se ao 1º e último montante de cada trecho selecionado."
+                                           FontSize="11" Foreground="#6B778C" Margin="0,12,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+        </TabControl>
+
+        <!-- ── Avisos ───────────────────────────────────────────────── -->
+        <ListBox Grid.Row="1" ItemsSource="{Binding Warnings}"
+                 Margin="20,0,20,0" MaxHeight="60"
+                 FontFamily="Consolas" FontSize="10"
+                 Background="#FFF8E1" Foreground="#7B4400"
+                 BorderThickness="1" BorderBrush="#FFD54F">
+            <ListBox.Style>
+                <Style TargetType="ListBox">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <Trigger Property="HasItems" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.Style>
+        </ListBox>
+
+        <!-- ── Footer ───────────────────────────────────────────────── -->
+        <Grid Grid.Row="2" Margin="20,10,20,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="1" Style="{StaticResource BtnSecondary}"
+                    Content="Cancelar" IsCancel="True" Click="OnCancel"/>
+            <Button Grid.Column="3" Style="{StaticResource BtnSecondary}"
+                    Content="Calcular Preview" Command="{Binding CalculatePreviewCommand}"/>
+            <Button Grid.Column="5" Style="{StaticResource BtnPrimary}"
+                    Content="Criar" Command="{Binding CreateCommand}"/>
+        </Grid>
+
+    </Grid>
+</Window>

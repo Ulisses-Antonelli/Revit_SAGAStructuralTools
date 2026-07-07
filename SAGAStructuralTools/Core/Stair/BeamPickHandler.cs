@@ -1,6 +1,7 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using SAGAStructuralTools.Core;
 using System;
 
 namespace SAGAStructuralTools.Core.Stair
@@ -67,7 +68,7 @@ namespace SAGAStructuralTools.Core.Stair
     internal class StructuralFramingFilter : ISelectionFilter
     {
         public bool AllowElement(Element elem)
-            => elem?.Category?.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralFraming;
+            => elem?.Category?.Id.GetId() == (int)BuiltInCategory.OST_StructuralFraming;
 
         public bool AllowReference(Reference reference, XYZ position) => false;
     }

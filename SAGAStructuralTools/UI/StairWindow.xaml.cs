@@ -8,8 +8,11 @@ namespace SAGAStructuralTools.UI
     {
         public StairWindow(UIApplication uiApp)
         {
+            SagaLog.Write("StairWindow — InitializeComponent...");
             InitializeComponent();
+            SagaLog.Write("StairWindow — criando ViewModel...");
             DataContext = new StairViewModel(uiApp);
+            SagaLog.Write("StairWindow — construtor OK");
         }
 
         private void OnCancel(object sender, RoutedEventArgs e) => Close();

@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
+using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Models;
 using System;
 using System.IO;
@@ -47,7 +48,7 @@ namespace SAGAStructuralTools.Core.Stair
             // Longarinas são vigas inclinadas → família DEVE ser OST_StructuralFraming.
             // Usar símbolo de OST_StructuralColumns com StructuralType.Beam causa
             // crash fatal no Revit (erro irrecuperável, sem exceção gerenciável).
-            var famCatId = symbol.Family.FamilyCategory?.Id.IntegerValue;
+            var famCatId = symbol.Family.FamilyCategory?.Id.GetId();
             Log($"Família: '{symbol.Family.Name}' | Tipo: '{symbol.Name}' | Categoria ID: {famCatId}");
 
             if (famCatId != (int)BuiltInCategory.OST_StructuralFraming)

@@ -2,6 +2,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using SAGAStructuralTools.UI;
+using System;
 using System.Diagnostics;
 using System.Windows.Interop;
 
@@ -13,16 +14,24 @@ namespace SAGAStructuralTools.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var window = new StairWindow(commandData.Application);
-
-            // Janela não-modal (Show, não ShowDialog) para que o thread do Revit
-            // continue rodando e o ExternalEvent de seleção de vigas possa ser executado.
-            // WindowInteropHelper define o Revit como janela pai.
-            new WindowInteropHelper(window).Owner =
-                Process.GetCurrentProcess().MainWindowHandle;
-
-            window.Show();
-            return Result.Succeeded;
+            SagaLog.Write("=== GenerateStairCommand.Execute iniciado ===");
+            try
+            {
+                SagaLog.Write("Criando StairWindow...");
+                var window = new StairWindow(commandData.Application);
+                SagaLog.Write("StairWindow criada — definindo owner...");
+                new WindowInteropHelper(window).Owner =
+                    Process.GetCurrentProcess().MainWindowHandle;
+                window.Show();
+                SagaLog.Write("StairWindow exibida — Execute retornando Succeeded");
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                SagaLog.Exception("GenerateStairCommand.Execute", ex);
+                message = $"Erro interno ao abrir janela de escada: {ex.Message}";
+                return Result.Failed;
+            }
         }
     }
 }

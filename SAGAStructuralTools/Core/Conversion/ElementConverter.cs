@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
+using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Models;
 using System;
 using System.Collections.Generic;
@@ -38,7 +39,7 @@ namespace SAGAStructuralTools.Core.Conversion
                 if (element == null) continue;
 
                 var ifcName = element.Name;
-                var catId   = element.Category?.Id.IntegerValue;
+                var catId   = element.Category?.Id.GetId();
                 // OST_Columns = "Colunas" (como IfcColumn aparece em IFC vinculado no Revit)
                 // OST_StructuralColumns = pilares estruturais nativos
                 var isColumn = catId == (int)BuiltInCategory.OST_StructuralColumns
@@ -49,7 +50,7 @@ namespace SAGAStructuralTools.Core.Conversion
                 {
                     results.Add(new ConversionResult
                     {
-                        ElementId    = id.IntegerValue,
+                        ElementId    = id.GetId(),
                         OriginalName = ifcName,
                         Status       = ConversionStatus.NotFound,
                         Message      = $"Perfil '{ifcName}' não encontrado no catálogo Gerdau."
@@ -73,7 +74,7 @@ namespace SAGAStructuralTools.Core.Conversion
 
                         results.Add(new ConversionResult
                         {
-                            ElementId    = id.IntegerValue,
+                            ElementId    = id.GetId(),
                             OriginalName = ifcName,
                             Status       = ConversionStatus.Success,
                             Message      = $"Convertido → '{mapping.GerdauName}'"
@@ -87,7 +88,7 @@ namespace SAGAStructuralTools.Core.Conversion
 
                         results.Add(new ConversionResult
                         {
-                            ElementId    = id.IntegerValue,
+                            ElementId    = id.GetId(),
                             OriginalName = ifcName,
                             Status       = ConversionStatus.GeometryError,
                             Message      = ex.Message
