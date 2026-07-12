@@ -82,7 +82,12 @@ namespace SAGAStructuralTools.Core.Rail
             // Mede a largura REAL da seção pela BoundingBox (independe de parâmetro) e move
             // cada montante do offset bruto para o final, alinhando as faces externas.
             double W = 0;
-            if (created.Count > 0) { _doc.Regenerate(); W = MeasureHorizontalWidthMm(created[0]); }
+            if (created.Count > 0)
+            {
+                _doc.Regenerate();
+                // Largura na DIREÇÃO da linha (projetada) — exata em diagonais e sob rotação.
+                W = GeometryMeasure.ExtentAlongMm(_doc, created[0], dir);
+            }
 
             double L = seg.Length;
             var axisOffsets = new List<double>(seg.PostOffsets);
@@ -99,6 +104,7 @@ namespace SAGAStructuralTools.Core.Rail
                 }
             }
             seg.AxisOffsets = axisOffsets;   // InfillBuilder alinha travessas/quadros por estes eixos
+            seg.PostWidthMm = W;             // largura na direção da linha (para faces das cantoneiras)
 
             Log($"PostBuilder: {created.Count} montantes | W={W:F1}mm | topZ={(topZ - lineStart.Z) * 304.8:F0}mm | família={Path.GetFileNameWithoutExtension(config.PostFamilyPath)}");
         }
@@ -124,16 +130,6 @@ namespace SAGAStructuralTools.Core.Rail
                         ?? inst.LookupParameter("Rotação do corte transversal");
                 if (p != null && !p.IsReadOnly) p.Set(rad);
             }
-        }
-
-        /// <summary>Largura horizontal (mm) da seção, medida pela BoundingBox. Tubo: dx=dy=Ø.</summary>
-        private double MeasureHorizontalWidthMm(ElementId id)
-        {
-            var bb = _doc.GetElement(id)?.get_BoundingBox(null);
-            if (bb == null) return 0;
-            double dx = (bb.Max.X - bb.Min.X) * 304.8;
-            double dy = (bb.Max.Y - bb.Min.Y) * 304.8;
-            return Math.Min(dx, dy);   // menor extensão horizontal ≈ seção (evita superestimar em linha diagonal)
         }
 
         /// <summary>Meia-altura (mm) da seção do corrimão (fallback por parâmetro). 0 se indisponível.</summary>

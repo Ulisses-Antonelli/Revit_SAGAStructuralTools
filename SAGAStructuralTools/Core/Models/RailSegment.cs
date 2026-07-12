@@ -18,6 +18,10 @@ namespace SAGAStructuralTools.Core.Models
         // (L_eixos = L − W). InfillBuilder usa estes para alinhar travessas/quadros aos montantes.
         public List<double> AxisOffsets   { get; set; }
 
+        // Preenchido por PostBuilder: largura do montante na direção da linha (mm), medida pela
+        // geometria real. InfillBuilder usa a metade para posicionar cantoneiras nas faces.
+        public double       PostWidthMm   { get; set; }
+
         public string DisplayText => $"{Index + 1}  —  comprimento: {Length:F0} mm";
     }
 }

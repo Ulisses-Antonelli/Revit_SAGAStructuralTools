@@ -914,19 +914,19 @@
                                     <TextBlock FontSize="11" Foreground="#6B778C" Margin="0,0,0,12">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Mesmo perfil nas 4 laterais de cada quadro (topo, base e verticais)."/>
+                                                <Setter Property="Text" Value="Perfil horizontal no topo/base e perfil vertical nas laterais (encostado no montante). Cada quadro fica entre dois montantes."/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsHorizontalOnlyType}" Value="True">
-                                                        <Setter Property="Text" Value="Os montantes fazem a lateral do quadro — nenhum perfil vertical adicional."/>
+                                                        <Setter Property="Text" Value="Só topo e base (perfil horizontal). Os montantes fazem a lateral do quadro — sem perfil vertical."/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
 
-                                    <!-- Família do quadro -->
+                                    <!-- Perfil HORIZONTAL (topo/base) -->
                                     <StackPanel Margin="0,0,0,10">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Família do perfil (.rfa)"/>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Perfil horizontal — topo/base (.rfa)"/>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
@@ -939,9 +939,35 @@
                                             <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
                                                     Content="Procurar..." Command="{Binding BrowseFrameCommand}"/>
                                         </Grid>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo" Margin="0,8,0,4"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding FrameAvailableTypes}"
+                                                  SelectedItem="{Binding FrameFamilyType}"/>
                                     </StackPanel>
 
-                                    <!-- Tipo + campos -->
+                                    <!-- Perfil VERTICAL (laterais) — só na cantoneira fechada -->
+                                    <StackPanel Margin="0,0,0,10"
+                                                Visibility="{Binding IsAngleIronType, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Perfil vertical — laterais / pilar ou viga (.rfa)"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding FrameVertFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                            </Border>
+                                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                    Content="Procurar..." Command="{Binding BrowseFrameVertCommand}"/>
+                                        </Grid>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo" Margin="0,8,0,4"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding FrameVertAvailableTypes}"
+                                                  SelectedItem="{Binding FrameVertFamilyType}"/>
+                                    </StackPanel>
+
+                                    <!-- Offset lateral + Desloc. base + Altura -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -949,25 +975,9 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="8"/>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
-                                            <ComboBox Style="{StaticResource RoundedComboBox}"
-                                                      ItemsSource="{Binding FrameAvailableTypes}"
-                                                      SelectedItem="{Binding FrameFamilyType}"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Alinhamento"/>
-                                            <ComboBox Style="{StaticResource RoundedComboBox}" SelectedIndex="0">
-                                                <ComboBoxItem Content="Face ext."/>
-                                                <ComboBoxItem Content="Face int."/>
-                                                <ComboBoxItem Content="Centro"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="4">
-                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Offset horiz."/>
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Offset lateral (+ fora / − dentro)"/>
                                             <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                                 <DockPanel>
                                                     <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -975,7 +985,16 @@
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="6">
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Desloc. da base"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}" Text="{Binding FrameBaseOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
                                             <TextBlock Style="{StaticResource FieldLabel}" Text="Altura do quadro"/>
                                             <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                                 <DockPanel>
@@ -984,6 +1003,40 @@
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
+                                    </Grid>
+
+                                    <!-- Calibração da cantoneira: rotação base + desloc. eixo→cantoneira -->
+                                    <Grid Margin="0,10,0,0" Visibility="{Binding IsAngleIronType, Converter={StaticResource BoolToVis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Rotação base da cantoneira"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="°" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}" Text="{Binding FrameRotation, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Desloc. eixo montante → cantoneira"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}" Text="{Binding FrameFaceOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                                                   Text="0 = automático (meia-largura medida do montante). Lados opostos do vão e a base do quadro são ESPELHADOS automaticamente — calibre só a rotação da cantoneira de referência (topo / lado direito do vão)."
+                                                   FontSize="11" Foreground="#6B778C" TextWrapping="Wrap"/>
                                     </Grid>
                                 </StackPanel>
                             </Border>

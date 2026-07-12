@@ -42,11 +42,16 @@ namespace SAGAStructuralTools.Core.Models
         public bool             EquidistantBars  { get; set; } = true;
         public BarConfig        Rodape           { get; set; } = new BarConfig();
         public FrameType        FrameType        { get; set; } = FrameType.AngleIron;
-        public string           FrameFamilyPath  { get; set; }
+        public string           FrameFamilyPath  { get; set; }   // perfil HORIZONTAL (topo/base)
         public string           FrameFamilyType  { get; set; }
+        public string           FrameVertFamilyPath { get; set; } // perfil VERTICAL (laterais, só AngleIron)
+        public string           FrameVertFamilyType { get; set; }
         public FrameAlignment   FrameAlignment   { get; set; } = FrameAlignment.ExternalFace;
-        public double           FrameOffset      { get; set; } = RailDefaults.FrameOffset;
+        public double           FrameOffset      { get; set; } = RailDefaults.FrameOffset;   // lateral (+ fora / − dentro)
+        public double           FrameBaseOffset  { get; set; } = 0.0;                        // desloc. vertical da base
         public double           FrameHeight      { get; set; } = RailDefaults.FrameHeight;
+        public double           FrameRotation    { get; set; } = 0.0;                        // rotação base da cantoneira (graus)
+        public double           FrameFaceOffset  { get; set; } = 0.0;                        // eixo montante → cantoneira (mm; 0 = auto W/2 medida)
 
         // ── Terminais ─────────────────────────────────────────────────────
         public TerminalType TerminalType         { get; set; } = TerminalType.Sharp;

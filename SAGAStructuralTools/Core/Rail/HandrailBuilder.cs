@@ -56,39 +56,46 @@ namespace SAGAStructuralTools.Core.Rail
             var line  = Line.CreateBound(start, end);
             var inst  = _doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
 
-            SetJustification(inst, config.Justification);
+            // Estabilidade sob rotação: justificação travada no CENTRO (imune a flip de
+            // perfil assimétrico) + posicionamento 100% por vetor global (MoveElement).
+            LockCenterJustification(inst);
             SetCrossSectionRotation(inst, config.HandrailRotation);
-
-            // Mede o eixo central real (Z médio da BoundingBox) após justificar/regenerar.
             _doc.Regenerate();
-            double? axisZ = null;
-            var bb = inst.get_BoundingBox(null);
-            if (bb != null) axisZ = (bb.Min.Z + bb.Max.Z) / 2.0;
 
-            Log($"HandrailBuilder: segmento {seg.Index + 1} | z_topo={heightFt * 304.8:F0}mm | " +
-                $"z_eixo={(axisZ.HasValue ? (axisZ.Value - lineStart.Z) * 304.8 : 0):F0}mm | axisOff={axisOffFt * 304.8:F1}mm");
+            // Mede a seção REAL (projetada) já rotacionada: altura (vertical) e largura (lateral).
+            double hMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, XYZ.BasisZ);
+            double wMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, lateral);
+            double rFt = (hMm / 2.0) / 304.8;
+
+            // Z: com Z=Centro o eixo está em heightFt (topo em heightFt+R). Descemos R para
+            //    o TOPO ficar em heightFt (HandrailHeight) e o eixo em heightFt−R.
+            // Y: justificativa por movimento lateral ±W/2 (Esquerda/Direita), 0 no Centro.
+            double lateralJustFt = config.Justification == HandrailJustification.Left  ? -(wMm / 2.0) / 304.8
+                                 : config.Justification == HandrailJustification.Right ? +(wMm / 2.0) / 304.8
+                                 :                                                        0.0;
+            var move = new XYZ(lateral.X * lateralJustFt, lateral.Y * lateralJustFt, -rFt);
+            if (move.GetLength() > 1e-9) ElementTransformUtils.MoveElement(_doc, inst.Id, move);
+
+            double axisZ = heightFt - rFt;   // eixo central após o deslocamento (exato por construção)
+
+            Log($"HandrailBuilder: segmento {seg.Index + 1} | h={hMm:F1}mm w={wMm:F1}mm | " +
+                $"z_topo={heightFt * 304.8:F0}mm | z_eixo={(axisZ - lineStart.Z) * 304.8:F0}mm | just={config.Justification}");
             return axisZ;
         }
 
-        /// <summary>
-        /// Justificação do corrimão: Y = escolha do usuário (Esquerda/Centro/Direita),
-        /// Z = Topo (perfil pendura abaixo do eixo). YZ = Uniforme para valer nas duas pontas.
-        /// </summary>
-        private static void SetJustification(FamilyInstance inst, HandrailJustification just)
+        /// <summary>Trava a justificação no Centro (Y e Z, YZ Uniforme) — estável sob rotação/flip.</summary>
+        private static void LockCenterJustification(FamilyInstance inst)
         {
             if (inst == null) return;
 
             var yz = inst.get_Parameter(BuiltInParameter.YZ_JUSTIFICATION);
             if (yz != null && !yz.IsReadOnly) yz.Set(0); // 0 = Uniforme
 
-            var yVal = just == HandrailJustification.Left  ? YJustification.Left
-                     : just == HandrailJustification.Right ? YJustification.Right
-                     :                                       YJustification.Center;
             var y = inst.get_Parameter(BuiltInParameter.Y_JUSTIFICATION);
-            if (y != null && !y.IsReadOnly) y.Set((int)yVal);
+            if (y != null && !y.IsReadOnly) y.Set((int)YJustification.Center);
 
             var z = inst.get_Parameter(BuiltInParameter.Z_JUSTIFICATION);
-            if (z != null && !z.IsReadOnly) z.Set((int)ZJustification.Top);
+            if (z != null && !z.IsReadOnly) z.Set((int)ZJustification.Center);
         }
 
         /// <summary>Rotação do corte transversal (graus → radianos) via STRUCTURAL_BEND_DIR_ANGLE.</summary>

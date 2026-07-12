@@ -42,6 +42,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             BrowsePostCommand         = new RelayCommand(_ => BrowseFamily(ref _postFamilyPath,  ref _postFamilyType,  nameof(PostFamilyDisplay),  nameof(PostAvailableTypes),  PostAvailableTypes));
             BrowseHandrailCommand     = new RelayCommand(_ => BrowseFamily(ref _handrailFamilyPath, ref _handrailFamilyType, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), HandrailAvailableTypes));
             BrowseFrameCommand        = new RelayCommand(_ => BrowseFamily(ref _frameFamilyPath, ref _frameFamilyType, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), FrameAvailableTypes));
+            BrowseFrameVertCommand    = new RelayCommand(_ => BrowseFamily(ref _frameVertFamilyPath, ref _frameVertFamilyType, nameof(FrameVertFamilyDisplay), nameof(FrameVertAvailableTypes), FrameVertAvailableTypes));
             BrowseRodapeCommand       = new RelayCommand(_ => BrowseFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), RodapeAvailableTypes));
             BrowseBarCommonCommand    = new RelayCommand(_ => BrowseFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), BarCommonAvailableTypes));
             BrowseBarRowCommand       = new RelayCommand(o => BrowseBarRow(o as BarConfigVm));
@@ -249,18 +250,33 @@ namespace SAGAStructuralTools.UI.ViewModels
         public bool IsAngleIronType      => FrameType == FrameType.AngleIron;
         public bool IsHorizontalOnlyType => FrameType == FrameType.HorizontalOnly;
 
+        // Perfil HORIZONTAL do quadro (topo/base)
         private string _frameFamilyPath;
         private string _frameFamilyType;
+        // Perfil VERTICAL do quadro (laterais, só AngleIron)
+        private string _frameVertFamilyPath;
+        private string _frameVertFamilyType;
         private FrameAlignment _frameAlignment = FrameAlignment.ExternalFace;
-        private double _frameOffset  = RailDefaults.FrameOffset;
+        private double _frameOffset     = RailDefaults.FrameOffset;
+        private double _frameBaseOffset = 0.0;
+        private double _frameRotation   = 0.0;
+        private double _frameFaceOffset = 0.0;
         private double _frameHeight  = RailDefaults.FrameHeight;
 
         public string FrameFamilyDisplay  => FamilyDisplay(_frameFamilyPath, _frameFamilyType);
         public string FrameFamilyType     { get => _frameFamilyType;  set { if (Set(ref _frameFamilyType, value)) OnPropertyChanged(nameof(FrameFamilyDisplay)); } }
+        public ObservableCollection<string> FrameAvailableTypes { get; } = new ObservableCollection<string>();
+
+        public string FrameVertFamilyDisplay => FamilyDisplay(_frameVertFamilyPath, _frameVertFamilyType);
+        public string FrameVertFamilyType    { get => _frameVertFamilyType; set { if (Set(ref _frameVertFamilyType, value)) OnPropertyChanged(nameof(FrameVertFamilyDisplay)); } }
+        public ObservableCollection<string> FrameVertAvailableTypes { get; } = new ObservableCollection<string>();
+
         public FrameAlignment FrameAlignment { get => _frameAlignment; set => Set(ref _frameAlignment, value); }
         public double FrameOffset         { get => _frameOffset;      set => Set(ref _frameOffset,      value); }
+        public double FrameBaseOffset     { get => _frameBaseOffset;  set => Set(ref _frameBaseOffset,  value); }
+        public double FrameRotation       { get => _frameRotation;    set => Set(ref _frameRotation,    value); }
+        public double FrameFaceOffset     { get => _frameFaceOffset;  set => Set(ref _frameFaceOffset,  value); }
         public double FrameHeight         { get => _frameHeight;      set => Set(ref _frameHeight,      value); }
-        public ObservableCollection<string> FrameAvailableTypes { get; } = new ObservableCollection<string>();
 
         // ── Aba Terminais ──────────────────────────────────────────────────
 
@@ -434,9 +450,14 @@ namespace SAGAStructuralTools.UI.ViewModels
             FrameType = c.FrameType;
             SetFamily(ref _frameFamilyPath, ref _frameFamilyType, c.FrameFamilyPath, c.FrameFamilyType,
                       FrameAvailableTypes, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), nameof(FrameFamilyType));
-            FrameAlignment = c.FrameAlignment;
-            FrameOffset    = c.FrameOffset;
-            FrameHeight    = c.FrameHeight;
+            SetFamily(ref _frameVertFamilyPath, ref _frameVertFamilyType, c.FrameVertFamilyPath, c.FrameVertFamilyType,
+                      FrameVertAvailableTypes, nameof(FrameVertFamilyDisplay), nameof(FrameVertAvailableTypes), nameof(FrameVertFamilyType));
+            FrameAlignment  = c.FrameAlignment;
+            FrameOffset     = c.FrameOffset;
+            FrameBaseOffset = c.FrameBaseOffset;
+            FrameRotation   = c.FrameRotation;
+            FrameFaceOffset = c.FrameFaceOffset;
+            FrameHeight     = c.FrameHeight;
 
             TerminalType   = c.TerminalType;
             TerminalRadius = c.TerminalRadius;
@@ -507,12 +528,17 @@ namespace SAGAStructuralTools.UI.ViewModels
             EquidistantBars    = EquidistantBars,
             Rodape             = new BarConfig { FamilyPath = _rodapeFamilyPath, FamilyType = _rodapeFamilyType, Alignment = RodapeAlignment, Distance = RodapeOffset },
 
-            FrameType          = FrameType,
-            FrameFamilyPath    = _frameFamilyPath,
-            FrameFamilyType    = _frameFamilyType,
-            FrameAlignment     = FrameAlignment,
-            FrameOffset        = FrameOffset,
-            FrameHeight        = FrameHeight,
+            FrameType           = FrameType,
+            FrameFamilyPath     = _frameFamilyPath,
+            FrameFamilyType     = _frameFamilyType,
+            FrameVertFamilyPath = _frameVertFamilyPath,
+            FrameVertFamilyType = _frameVertFamilyType,
+            FrameAlignment      = FrameAlignment,
+            FrameOffset         = FrameOffset,
+            FrameBaseOffset     = FrameBaseOffset,
+            FrameRotation       = FrameRotation,
+            FrameFaceOffset     = FrameFaceOffset,
+            FrameHeight         = FrameHeight,
 
             TerminalType       = TerminalType,
             TerminalRadius     = TerminalRadius
@@ -610,6 +636,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         public RelayCommand BrowsePostCommand       { get; }
         public RelayCommand BrowseHandrailCommand   { get; }
         public RelayCommand BrowseFrameCommand      { get; }
+        public RelayCommand BrowseFrameVertCommand  { get; }
         public RelayCommand BrowseRodapeCommand     { get; }
         public RelayCommand BrowseBarCommonCommand  { get; }
         public RelayCommand BrowseBarRowCommand     { get; }

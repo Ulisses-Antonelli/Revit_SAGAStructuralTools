@@ -102,3 +102,25 @@ algoritmo **degrada com segurança** (sem recuo / topo no eixo nominal `H`).
 Diagnóstico: a linha `PostBuilder: ... W=..mm | railR=..mm | topZ=..mm` em
 `SAGA_RailLog.txt` mostra o que foi lido. `W=0` ou `railR=0` ⇒ nome de parâmetro não
 reconhecido — adicionar à lista em `SectionSize`, ou medir pela bounding box da instância.
+
+---
+
+## Trabalho futuro — estabilidade sob rotação (perfil assimétrico)
+
+**Status: adiado** (só necessário quando se usar perfil assimétrico, ex.: cantoneira, com
+giro/flip de aba). Para tubo simétrico não há problema — Centro = tudo.
+
+**Problema:** justificação nativa Y/Z é relativa ao sistema local da instância; giro de 180°
+em perfil assimétrico inverte esse sistema (Top↔Bottom, Esq↔Dir), bagunçando a posição.
+
+**Já resiliente hoje:** offsets laterais (vetor global), recuo W/2 (`MoveElement`), topo do
+montante (coordenada Z medida), rotação da coluna (`RotateElement`), travessas (Centro —
+estável sob flip). O único ponto com justificação instável é o **corrimão** (Z=Topo, Y=usuário).
+
+**Plano acordado quando for implementar (escopo = só o corrimão):**
+1. Trocar `Z=Topo` por `Z=Centro` + posicionar a linha de eixo em `HandrailHeight − R`
+   (mover globalmente por `MoveElement`), replicando o "topo" sem justificação.
+2. Trocar `Y=justificativa` por `Y=Centro` + mover lateralmente `±W/2` para Esquerda/Direita.
+3. Flip de aba (futuro) via `RotateElement` global, nunca por justificação.
+4. **Medição de seção projetada na direção da linha** (não BoundingBox alinhada ao mundo),
+   para ser exata também em tramos diagonais.

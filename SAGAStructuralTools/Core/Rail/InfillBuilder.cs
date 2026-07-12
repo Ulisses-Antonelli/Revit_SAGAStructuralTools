@@ -109,10 +109,6 @@ namespace SAGAStructuralTools.Core.Rail
         // ── Quadro (frame) entre montantes ───────────────────────────────
         private void BuildFramePanel(RailSegment seg, RailConfig config, XYZ lineStart, XYZ dir, XYZ lateral)
         {
-            if (string.IsNullOrWhiteSpace(config.FrameFamilyPath)) return;
-            var sym = GetSymbol(config.FrameFamilyPath, config.FrameFamilyType);
-            if (sym == null) return;
-
             var offsets = (seg.AxisOffsets != null && seg.AxisOffsets.Count > 0) ? seg.AxisOffsets : seg.PostOffsets;
             if (offsets == null || offsets.Count < 2)
             {
@@ -120,30 +116,148 @@ namespace SAGAStructuralTools.Core.Rail
                 return;
             }
 
-            double lateralOffFt = config.FrameOffset / 304.8;
-            double bottomZ      = lineStart.Z;
-            double topZ         = lineStart.Z + config.FrameHeight / 304.8;
+            // Perfil HORIZONTAL (topo/base) — obrigatório.
+            if (string.IsNullOrWhiteSpace(config.FrameFamilyPath)) return;
+            var horizSym = GetSymbol(config.FrameFamilyPath, config.FrameFamilyType);
+            if (horizSym == null) return;
+
+            // Perfil VERTICAL (laterais) — só na cantoneira fechada; pode ser família de
+            // PILAR ou de VIGA (diferente do horizontal).
+            FamilySymbol vertSym = null;
+            bool vertIsColumn = false;
+            if (config.FrameType == FrameType.AngleIron && !string.IsNullOrWhiteSpace(config.FrameVertFamilyPath))
+                vertSym = GetSymbolVertical(config.FrameVertFamilyPath, config.FrameVertFamilyType, out vertIsColumn);
+
+            double lateralOffFt = config.FrameOffset / 304.8;                     // + fora / − dentro
+            double bottomZ      = lineStart.Z + config.FrameBaseOffset / 304.8;   // desloc. da base
+            double topZ         = bottomZ + config.FrameHeight / 304.8;           // altura do quadro
 
             XYZ At(double offMm, double z) => new XYZ(
                 lineStart.X + dir.X * (offMm / 304.8) + lateral.X * lateralOffFt,
                 lineStart.Y + dir.Y * (offMm / 304.8) + lateral.Y * lateralOffFt,
                 z);
 
-            // Topo e base de cada quadro (entre montantes consecutivos)
+            // Distância do eixo do montante até a cantoneira: input do usuário ou, se 0,
+            // meia-largura MEDIDA do montante (face física — tubo, chato ou quadrado).
+            double montHalfMm   = config.FrameFaceOffset > 1e-6
+                                ? config.FrameFaceOffset
+                                : (seg.PostWidthMm > 1e-6 ? seg.PostWidthMm : 0) / 2.0;
+            double lineAngleDeg = Math.Atan2(dir.Y, dir.X) * 180.0 / Math.PI;   // ângulo da linha (p/ colunas)
+            double baseRot      = config.FrameRotation;                          // calibração da cantoneira de referência
+
+            // ── Horizontais (topo/base) — entre as FACES dos montantes. A base é o
+            //    ESPELHO do topo (plano horizontal pelo próprio eixo). Espelho ≠ girar
+            //    180°: girar produz o "S"; espelhar mantém a aba de encosto do mesmo
+            //    lado e vira a aba livre para o interior do quadro. ─────────────────
             for (int k = 0; k < offsets.Count - 1; k++)
             {
-                CreateBeam(sym, At(offsets[k], topZ),    At(offsets[k + 1], topZ),    $"quadro {k + 1} topo");
-                CreateBeam(sym, At(offsets[k], bottomZ), At(offsets[k + 1], bottomZ), $"quadro {k + 1} base");
+                double aMm = offsets[k]     + montHalfMm;   // face do montante esquerdo
+                double bMm = offsets[k + 1] - montHalfMm;   // face do montante direito
+                CreateFrameBeam(horizSym, At(aMm, topZ), At(bMm, topZ), baseRot, $"quadro {k + 1} topo");
+                var baseBar = CreateFrameBeam(horizSym, At(aMm, bottomZ), At(bMm, bottomZ), baseRot, $"quadro {k + 1} base");
+                MirrorInPlace(baseBar, XYZ.BasisZ, At(aMm, bottomZ), $"quadro {k + 1} base");
             }
 
-            // Verticais apenas na cantoneira fechada — uma por montante (evita duplicar
-            // arestas compartilhadas entre quadros adjacentes). No modo "Apenas Horizontal"
-            // os próprios montantes fazem a lateral do quadro.
-            if (config.FrameType == FrameType.AngleIron)
+            // ── Verticais (cantoneiras face a face) — regra dos vãos ─────────────
+            //    Inicial: 1 (abre p/ +dir) | Intermediários: 2 costas-com-costas |
+            //    Final: 1 (abre p/ −dir). O lado −dir é o ESPELHO exato do lado +dir
+            //    (plano ⊥ linha pelo próprio eixo): aba de encosto tangente à face do
+            //    montante, aba livre para o interior do vão — sem "S".
+            if (vertSym != null)
             {
-                for (int k = 0; k < offsets.Count; k++)
-                    CreateBeam(sym, At(offsets[k], bottomZ), At(offsets[k], topZ), $"vertical {k + 1}");
+                FamilyInstance PlaceVert(double alongMm, string tag)
+                {
+                    var basePt = At(alongMm, bottomZ);
+                    return vertIsColumn
+                        ? CreateFrameColumn(vertSym, basePt, topZ, baseRot + lineAngleDeg, tag)
+                        : CreateFrameBeam(vertSym, basePt, new XYZ(basePt.X, basePt.Y, topZ), baseRot, tag);
+                }
+                void PlaceVertMirrored(double alongMm, string tag)
+                {
+                    var inst = PlaceVert(alongMm, tag);
+                    MirrorInPlace(inst, dir, At(alongMm, bottomZ), tag);
+                }
+
+                int n = offsets.Count;
+                PlaceVert(offsets[0] + montHalfMm, "vert ini");                       // abre p/ +dir
+                for (int i = 1; i < n - 1; i++)
+                {
+                    PlaceVertMirrored(offsets[i] - montHalfMm, $"vert {i} esq");      // espelho: abre p/ −dir
+                    PlaceVert(offsets[i] + montHalfMm, $"vert {i} dir");              // abre p/ +dir
+                }
+                PlaceVertMirrored(offsets[n - 1] - montHalfMm, "vert fim");           // espelho: abre p/ −dir
             }
+        }
+
+        /// <summary>
+        /// Espelha a instância no próprio lugar: o plano de espelho contém o eixo do
+        /// elemento, então a posição não muda — só a geometria vira (flip exato, válido
+        /// para qualquer família, com ou sem abas iguais).
+        /// </summary>
+        private void MirrorInPlace(FamilyInstance inst, XYZ normal, XYZ origin, string tag)
+        {
+            if (inst == null) return;
+            try
+            {
+                var plane = Plane.CreateByNormalAndOrigin(normal, origin);
+                ElementTransformUtils.MirrorElements(_doc, new List<ElementId> { inst.Id }, plane, false);
+                Log($"  [{tag}] espelhada OK");
+            }
+            catch (Exception ex)
+            {
+                Log($"  [{tag}] espelhamento falhou: {ex.Message}");
+            }
+        }
+
+        /// <summary>Cria uma barra do quadro como VIGA: centro no eixo, rotação do corte, sem cutback.</summary>
+        private FamilyInstance CreateFrameBeam(FamilySymbol sym, XYZ a, XYZ b, double rotDeg, string tag)
+        {
+            if (a.DistanceTo(b) < 0.001) { Log($"  [{tag}] segmento degenerado ignorado"); return null; }
+            var level = GetNearestLevel((a.Z + b.Z) / 2.0);
+            var inst  = _doc.Create.NewFamilyInstance(Line.CreateBound(a, b), sym, level, StructuralType.Beam);
+            CenterJustify(inst);   // eixo no centro da seção → o espelho preserva a posição
+            SetCrossSectionRotation(inst, rotDeg);
+            try { StructuralFramingUtils.DisallowJoinAtEnd(inst, 0); StructuralFramingUtils.DisallowJoinAtEnd(inst, 1); }
+            catch { /* nem toda família suporta join */ }
+            Log($"  [{tag}] {Fmt(a)} → {Fmt(b)} rot={rotDeg:F0}°");
+            return inst;
+        }
+
+        /// <summary>Cria uma vertical do quadro como COLUNA (pilar), girada em torno da vertical.</summary>
+        private FamilyInstance CreateFrameColumn(FamilySymbol sym, XYZ basePt, double topZFt, double rotDegWorld, string tag)
+        {
+            var level = GetNearestLevel((basePt.Z + topZFt) / 2.0);
+            var inst  = _doc.Create.NewFamilyInstance(basePt, sym, level, StructuralType.Column);
+            SetColumnExtents(inst, level, basePt.Z, topZFt);
+            if (Math.Abs(rotDegWorld) > 1e-9)
+            {
+                var axis = Line.CreateBound(basePt, basePt + XYZ.BasisZ);
+                ElementTransformUtils.RotateElement(_doc, inst.Id, axis, rotDegWorld * Math.PI / 180.0);
+            }
+            Log($"  [{tag}] coluna {Fmt(basePt)} rot={rotDegWorld:F0}°");
+            return inst;
+        }
+
+        /// <summary>Rotação do corte transversal (graus → rad) via STRUCTURAL_BEND_DIR_ANGLE.</summary>
+        private static void SetCrossSectionRotation(FamilyInstance inst, double degrees)
+        {
+            if (inst == null || Math.Abs(degrees) < 1e-9) return;
+            var p = inst.get_Parameter(BuiltInParameter.STRUCTURAL_BEND_DIR_ANGLE)
+                    ?? inst.LookupParameter("Rotação do corte transversal");
+            if (p != null && !p.IsReadOnly) p.Set(degrees * Math.PI / 180.0);
+        }
+
+        /// <summary>Ancora topo e base da coluna no mesmo nível (topo não sobe para o nível acima).</summary>
+        private static void SetColumnExtents(FamilyInstance inst, Level level, double baseZFt, double topZFt)
+        {
+            var topLevel = inst.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+            if (topLevel != null && !topLevel.IsReadOnly) topLevel.Set(level.Id);
+
+            var baseOff = inst.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM);
+            if (baseOff != null && !baseOff.IsReadOnly) baseOff.Set(baseZFt - level.Elevation);
+
+            var topOff = inst.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
+            if (topOff != null && !topOff.IsReadOnly) topOff.Set(topZFt - level.Elevation);
         }
 
         // ── Helpers de criação ───────────────────────────────────────────
@@ -225,6 +339,49 @@ namespace SAGAStructuralTools.Core.Rail
                 throw new InvalidOperationException(
                     $"Família de fechamento '{symbol.Family.Name}' deve ser de Quadro Estrutural (Viga).\n" +
                     $"Categoria atual: {symbol.Family.FamilyCategory?.Name}");
+
+            if (!symbol.IsActive) symbol.Activate();
+            _symbolCache[key] = symbol;
+            return symbol;
+        }
+
+        /// <summary>
+        /// Símbolo do perfil VERTICAL do quadro — aceita Quadro Estrutural (viga) OU
+        /// Pilar Estrutural (coluna). Retorna se é coluna para a criação correta.
+        /// </summary>
+        private FamilySymbol GetSymbolVertical(string path, string typeName, out bool isColumn)
+        {
+            var familyName = Path.GetFileNameWithoutExtension(path);
+            typeName = typeName ?? "";
+            string key = "V|" + familyName + "|" + typeName;
+
+            if (_symbolCache.TryGetValue(key, out var cached))
+            {
+                isColumn = cached.Family.FamilyCategory?.Id.GetId() == (int)BuiltInCategory.OST_StructuralColumns;
+                return cached;
+            }
+
+            var symbol = new FilteredElementCollector(_doc)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>()
+                .FirstOrDefault(s =>
+                    s.Family.Name.Equals(familyName, StringComparison.OrdinalIgnoreCase) &&
+                    s.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
+
+            if (symbol == null)
+            {
+                if (!_doc.LoadFamilySymbol(path, typeName, out symbol) || symbol == null)
+                    throw new InvalidOperationException(
+                        $"Não foi possível carregar '{familyName}' tipo '{typeName}'.");
+            }
+
+            var catId  = symbol.Family.FamilyCategory?.Id.GetId();
+            bool framing = catId == (int)BuiltInCategory.OST_StructuralFraming;
+            isColumn     = catId == (int)BuiltInCategory.OST_StructuralColumns;
+            if (!framing && !isColumn)
+                throw new InvalidOperationException(
+                    $"Perfil vertical '{symbol.Family.Name}' (categoria '{symbol.Family.FamilyCategory?.Name}') não suportado.\n" +
+                    "Use uma família de Quadro Estrutural (viga) ou Pilar Estrutural.");
 
             if (!symbol.IsActive) symbol.Activate();
             _symbolCache[key] = symbol;
