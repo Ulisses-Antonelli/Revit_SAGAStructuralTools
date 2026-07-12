@@ -25,3 +25,7 @@ Desktop.ini
 *.RVT
 *.log.html
 *.sharedparameters.txt
+
+# Notas/orientações de desenvolvimento (uso local, não fazem parte do produto)
+docs/
+Instruções_API_REVIT.md
