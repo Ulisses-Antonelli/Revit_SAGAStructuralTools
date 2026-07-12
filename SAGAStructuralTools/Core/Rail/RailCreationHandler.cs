@@ -48,9 +48,12 @@ namespace SAGAStructuralTools.Core.Rail
                             var start = line.GetEndPoint(0);
                             var end   = line.GetEndPoint(1);
 
-                            postBuilder.Build(seg, Config, start, end);
-                            handrailBuilder.Build(seg, Config, start, end);
-                            infillBuilder.Build(seg, Config, start, end);
+                            // Corrimão primeiro: mede o eixo central real e repassa aos
+                            // montantes (topo) e travessas (distribuição), evitando o chute
+                            // de dimensão por nome de parâmetro.
+                            double? railAxisZ = handrailBuilder.Build(seg, Config, start, end);
+                            postBuilder.Build(seg, Config, start, end, railAxisZ);
+                            infillBuilder.Build(seg, Config, start, end, railAxisZ);
                         }
 
                         tx.Commit();

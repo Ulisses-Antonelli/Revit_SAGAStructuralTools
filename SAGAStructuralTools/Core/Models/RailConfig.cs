@@ -37,6 +37,7 @@ namespace SAGAStructuralTools.Core.Models
         // ── Fechamento ────────────────────────────────────────────────────
         public InfillMode       InfillMode       { get; set; } = InfillMode.HorizontalBars;
         public List<BarConfig>  HorizontalBars   { get; set; } = new List<BarConfig>();
+        public BarConfig        HorizontalBarCommon { get; set; } = new BarConfig();  // usado quando SameProfileAll
         public bool             SameProfileAll   { get; set; } = true;
         public bool             EquidistantBars  { get; set; } = true;
         public BarConfig        Rodape           { get; set; } = new BarConfig();

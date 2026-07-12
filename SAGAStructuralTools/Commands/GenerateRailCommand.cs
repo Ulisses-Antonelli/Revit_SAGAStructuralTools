@@ -5,9 +5,7 @@ using SAGAStructuralTools.Core.Rail;
 using SAGAStructuralTools.UI;
 using System;
 using System.Diagnostics;
-using System.Threading;
 using System.Windows.Interop;
-using System.Windows.Threading;
 
 namespace SAGAStructuralTools.Commands
 {
@@ -20,46 +18,20 @@ namespace SAGAStructuralTools.Commands
             SagaLog.Write("=== GenerateRailCommand.Execute iniciado ===");
             try
             {
-                var ownerHandle = Process.GetCurrentProcess().MainWindowHandle;
-
-                // ExternalEvent.Create() deve ser chamado no thread da API do Revit.
-                // Criamos aqui e passamos para o STA thread via closure.
-                SagaLog.Write("Criando handlers e ExternalEvents no thread Revit...");
+                // Seleção via PickObject único (uma linha por clique) e criação via
+                // ExternalEvent — ambos rodam no contexto de API do Revit. Criados aqui,
+                // no thread da API, e passados para a janela.
                 var pickHandler   = new LinePickHandler();
                 var pickEvent     = ExternalEvent.Create(pickHandler);
                 var createHandler = new RailCreationHandler();
                 var createEvent   = ExternalEvent.Create(createHandler);
-                SagaLog.Write("ExternalEvents criados OK");
 
-                // A janela corre em STA thread dedicado para isolar seu contexto
-                // de composição WPF/D3D do pipeline de rendering do Revit, que
-                // causa crash 0xe0434352 quando compartilhado no mesmo thread.
-                SagaLog.Write("Iniciando STA thread para RailWindow...");
-                var thread = new Thread(() =>
-                {
-                    SagaLog.Write("STA thread iniciado — criando RailWindow...");
-                    try
-                    {
-                        var window = new RailWindow(pickEvent, pickHandler, createEvent, createHandler);
-                        new WindowInteropHelper(window).Owner = ownerHandle;
-                        window.Closed += (s, e) => Dispatcher.CurrentDispatcher.InvokeShutdown();
-                        SagaLog.Write("STA thread — chamando window.Show()...");
-                        window.Show();
-                        SagaLog.Write("STA thread — window.Show() OK, iniciando Dispatcher.Run()");
-                        Dispatcher.Run();
-                        SagaLog.Write("STA thread — encerrado");
-                    }
-                    catch (Exception ex)
-                    {
-                        SagaLog.Exception("STA thread RailWindow", ex);
-                    }
-                });
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.IsBackground = true;
-                thread.Name = "SAGA-RailWindow";
-                thread.Start();
+                var window = new RailWindow(pickEvent, pickHandler, createEvent, createHandler);
+                new WindowInteropHelper(window).Owner =
+                    Process.GetCurrentProcess().MainWindowHandle;
+                window.Show();
 
-                SagaLog.Write("Execute retornando Succeeded (STA thread iniciado)");
+                SagaLog.Write("RailWindow exibida — Execute retornando Succeeded");
                 return Result.Succeeded;
             }
             catch (Exception ex)

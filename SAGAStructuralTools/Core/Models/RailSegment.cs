@@ -14,6 +14,10 @@ namespace SAGAStructuralTools.Core.Models
         public double       ActualSpacing { get; set; }  // mm entre eixos
         public int          PostCount     => PostOffsets?.Count ?? 0;
 
+        // Preenchido por PostBuilder: posições reais dos eixos após o recuo de W/2 nas pontas
+        // (L_eixos = L − W). InfillBuilder usa estes para alinhar travessas/quadros aos montantes.
+        public List<double> AxisOffsets   { get; set; }
+
         public string DisplayText => $"{Index + 1}  —  comprimento: {Length:F0} mm";
     }
 }

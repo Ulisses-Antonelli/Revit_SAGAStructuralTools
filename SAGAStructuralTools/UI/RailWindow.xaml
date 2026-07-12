@@ -13,6 +13,7 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <converters:EnumToBoolConverter x:Key="EnumToBool"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
 
         <!-- ── Reutilizados da escada ─────────────────────────────────── -->
         <Style x:Key="SectionCard" TargetType="Border">
@@ -315,13 +316,33 @@
     <!-- ══════════════════════════════════════════════════════════════════ -->
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*" MinHeight="440"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- ── Faixa de presets (salvar/carregar configurações) ──────── -->
+        <Border Grid.Row="0" Background="White" BorderBrush="#DFE1E6" BorderThickness="0,0,0,1" Padding="20,10">
+            <DockPanel>
+                <TextBlock Text="Configuração:" VerticalAlignment="Center"
+                           Foreground="#42526E" FontSize="12" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                <Button DockPanel.Dock="Right" Style="{StaticResource BtnSecondary}"
+                        Content="Excluir" Margin="6,0,0,0" Command="{Binding DeletePresetCommand}"/>
+                <Button DockPanel.Dock="Right" Style="{StaticResource BtnSecondary}"
+                        Content="Salvar" Margin="6,0,0,0" Command="{Binding SavePresetCommand}"/>
+                <Button DockPanel.Dock="Right" Style="{StaticResource BtnPrimary}"
+                        Content="Carregar" Margin="6,0,0,0" Command="{Binding LoadPresetCommand}"/>
+                <ComboBox IsEditable="True" Height="30" VerticalContentAlignment="Center"
+                          IsTextSearchEnabled="True"
+                          ItemsSource="{Binding Presets}"
+                          Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}"
+                          ToolTip="Digite um nome e clique em Salvar, ou escolha um salvo e clique em Carregar."/>
+            </DockPanel>
+        </Border>
+
         <!-- ── TabControl ────────────────────────────────────────────── -->
-        <TabControl Grid.Row="0" Style="{StaticResource RailTabControl}">
+        <TabControl Grid.Row="1" Style="{StaticResource RailTabControl}">
 
             <!-- ╔══════════════════════════════════════╗ -->
             <!-- ║  ABA ENTRADA                         ║ -->
@@ -340,40 +361,33 @@
                         <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource FieldLabel}"
-                                           Text="Cada linha selecionada vira um guarda-corpo independente"
-                                           Margin="0,0,0,8"/>
+                                           Text="Clique em &quot;Adicionar linha&quot; e selecione uma linha no desenho. Repita para cada trecho — cada linha vira um guarda-corpo independente."
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Style="{StaticResource BtnSecondary}"
+                                            Content="+ Adicionar linha"
+                                            Command="{Binding AddLineCommand}"/>
+                                    <Button Style="{StaticResource BtnSecondary}" Margin="8,0,0,0"
+                                            Content="Limpar"
+                                            Command="{Binding ClearSelectionCommand}"/>
+                                </StackPanel>
+
+                                <!-- Linhas adicionadas -->
                                 <ListBox ItemsSource="{Binding SegmentItems}"
-                                         MinHeight="48" MaxHeight="80"
+                                         MinHeight="48" MaxHeight="80" Margin="0,10,0,0"
                                          FontSize="12" Foreground="#172B4D"
                                          Background="#F8F9FB"
-                                         BorderBrush="#DFE1E6" BorderThickness="1">
-                                    <ListBox.Style>
-                                        <Style TargetType="ListBox">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasSegments}" Value="False">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ListBox.Style>
-                                </ListBox>
-                                <TextBlock Text="Nenhuma linha selecionada." FontSize="12" Foreground="#6B778C"
-                                           Margin="0,4,0,4">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasSegments}" Value="False">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <Button Style="{StaticResource BtnSecondary}" HorizontalAlignment="Left"
-                                        Content="+ Selecionar Perímetro" Margin="0,10,0,0"
-                                        Command="{Binding SelectPerimeterCommand}"/>
+                                         BorderBrush="#DFE1E6" BorderThickness="1"
+                                         Visibility="{Binding HasSegments, Converter={StaticResource BoolToVis}}"/>
+
+                                <!-- Resumo: contagem + soma total -->
+                                <Border Background="#EEF2FF" BorderBrush="#DFE1E6" BorderThickness="1"
+                                        CornerRadius="4" Padding="10,7" Margin="0,8,0,0">
+                                    <TextBlock Text="{Binding SelectionSummary, Mode=OneWay}"
+                                               FontSize="12" FontWeight="SemiBold" Foreground="#172B4D"
+                                               TextWrapping="Wrap"/>
+                                </Border>
                             </StackPanel>
                         </Border>
 
@@ -467,34 +481,35 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding PostFamilyDisplay}" IsReadOnly="True"/>
+                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding PostFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
                                         </Border>
                                         <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
                                                 Content="Procurar..." Command="{Binding BrowsePostCommand}"/>
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- Tipo + 4 campos -->
+                                <!-- Tipo (linha própria, largura total) -->
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                                              ItemsSource="{Binding PostAvailableTypes}"
+                                              SelectedItem="{Binding PostFamilyType}"/>
+                                </StackPanel>
+
+                                <!-- 4 campos em 2×2 -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="16"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="10"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
-                                        <ComboBox Style="{StaticResource RoundedComboBox}"
-                                                  ItemsSource="{Binding PostAvailableTypes}"
-                                                  SelectedItem="{Binding PostFamilyType}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
+                                    <StackPanel Grid.Row="0" Grid.Column="0">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Rotação"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
@@ -503,7 +518,7 @@
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="4">
+                                    <StackPanel Grid.Row="0" Grid.Column="2">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Offset topo"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
@@ -512,7 +527,7 @@
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="6">
+                                    <StackPanel Grid.Row="2" Grid.Column="0">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Offset base"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
@@ -521,7 +536,7 @@
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="8">
+                                    <StackPanel Grid.Row="2" Grid.Column="2">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Offset eixo"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
@@ -550,34 +565,35 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding HandrailFamilyDisplay}" IsReadOnly="True"/>
+                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding HandrailFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
                                         </Border>
                                         <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
                                                 Content="Procurar..." Command="{Binding BrowseHandrailCommand}"/>
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- Tipo + 4 campos -->
+                                <!-- Tipo (linha própria, largura total) -->
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                                              ItemsSource="{Binding HandrailAvailableTypes}"
+                                              SelectedItem="{Binding HandrailFamilyType}"/>
+                                </StackPanel>
+
+                                <!-- 4 campos em 2×2 -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="16"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="10"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
-                                        <ComboBox Style="{StaticResource RoundedComboBox}"
-                                                  ItemsSource="{Binding HandrailAvailableTypes}"
-                                                  SelectedItem="{Binding HandrailFamilyType}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
+                                    <StackPanel Grid.Row="0" Grid.Column="0">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Rotação"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
@@ -586,7 +602,7 @@
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="4">
+                                    <StackPanel Grid.Row="0" Grid.Column="2">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Offset eixo"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
@@ -595,16 +611,16 @@
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="6">
+                                    <StackPanel Grid.Row="2" Grid.Column="0">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Justificativa"/>
                                         <ComboBox Style="{StaticResource RoundedComboBox}"
-                                                  SelectedIndex="1">
+                                                  SelectedIndex="{Binding JustificationIndex, Mode=TwoWay}">
                                             <ComboBoxItem Content="Esquerda"/>
                                             <ComboBoxItem Content="Centro"/>
                                             <ComboBoxItem Content="Direita"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="8">
+                                    <StackPanel Grid.Row="2" Grid.Column="2">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Altura"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
@@ -714,22 +730,44 @@
                                         <CheckBox Content="Equidistante"          IsChecked="{Binding EquidistantBars}"/>
                                     </WrapPanel>
 
+                                    <!-- Perfil comum (visível quando 'Mesmo perfil p/ todas') -->
+                                    <StackPanel Margin="0,0,0,12"
+                                                Visibility="{Binding SameProfileAll, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Perfil comum das travessas (.rfa)"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding BarCommonFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                            </Border>
+                                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                    Content="Procurar..." Command="{Binding BrowseBarCommonCommand}"/>
+                                        </Grid>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo" Margin="0,8,0,4"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding BarCommonAvailableTypes}"
+                                                  SelectedItem="{Binding BarCommonFamilyType}"/>
+                                    </StackPanel>
+
                                     <!-- Tabela de travessas -->
                                     <Border BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
                                         <StackPanel>
                                             <!-- Cabeçalho -->
                                             <Grid Background="#EBECF0" Margin="0">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="32"/>
+                                                    <ColumnDefinition Width="30"/>
                                                     <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="110"/>
-                                                    <ColumnDefinition Width="110"/>
-                                                    <ColumnDefinition Width="36"/>
+                                                    <ColumnDefinition Width="130"/>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="34"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="#"  FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
                                                 <TextBlock Grid.Column="1" Text="Perfil" FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
-                                                <TextBlock Grid.Column="2" Text="Offset horiz." FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
-                                                <TextBlock Grid.Column="3" Text="Distância (mm)" FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
+                                                <TextBlock Grid.Column="2" Text="Tipo" FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
+                                                <TextBlock Grid.Column="3" Text="Dist. (mm)" FontSize="11" FontWeight="SemiBold" Foreground="#6B778C" Padding="8,6"/>
                                                 <TextBlock Grid.Column="4" Text="" Padding="0,6"/>
                                             </Grid>
                                             <!-- Linhas -->
@@ -738,23 +776,41 @@
                                                     <DataTemplate>
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="32"/>
+                                                                <ColumnDefinition Width="30"/>
                                                                 <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="110"/>
-                                                                <ColumnDefinition Width="110"/>
-                                                                <ColumnDefinition Width="36"/>
+                                                                <ColumnDefinition Width="130"/>
+                                                                <ColumnDefinition Width="80"/>
+                                                                <ColumnDefinition Width="34"/>
                                                             </Grid.ColumnDefinitions>
                                                             <Border Grid.ColumnSpan="5" BorderBrush="#DFE1E6" BorderThickness="0,1,0,0"/>
                                                             <TextBlock Grid.Column="0" Text="{Binding RowIndex}" FontSize="12" Foreground="#6B778C"
                                                                        VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding FamilyDisplay}" FontSize="12" Foreground="#172B4D"
-                                                                       VerticalAlignment="Center" Padding="8,6"/>
-                                                            <ComboBox Grid.Column="2" Style="{StaticResource RoundedComboBox}"
-                                                                      SelectedIndex="0" Margin="4,3">
-                                                                <ComboBoxItem Content="Eixo"/>
-                                                                <ComboBoxItem Content="Face interna"/>
-                                                                <ComboBoxItem Content="Face externa"/>
-                                                            </ComboBox>
+
+                                                            <!-- Perfil: por linha (Procurar+display) ou nota de perfil comum -->
+                                                            <Grid Grid.Column="1" Margin="4,3">
+                                                                <DockPanel Visibility="{Binding DataContext.SameProfileAll, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InvBoolToVis}}">
+                                                                    <Button DockPanel.Dock="Left" Style="{StaticResource BtnSecondary}"
+                                                                            Content="Procurar..." Padding="8,3" FontSize="11"
+                                                                            Command="{Binding DataContext.BrowseBarRowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"/>
+                                                                    <TextBlock Text="{Binding FamilyDisplay}" FontSize="11" Foreground="#172B4D"
+                                                                               VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
+                                                                </DockPanel>
+                                                                <TextBlock Text="(perfil comum)" FontSize="11" Foreground="#8993A4" FontStyle="Italic"
+                                                                           VerticalAlignment="Center" Padding="8,6"
+                                                                           Visibility="{Binding DataContext.SameProfileAll, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
+                                                            </Grid>
+
+                                                            <!-- Tipo: combo por linha (só no modo perfil por linha) -->
+                                                            <Grid Grid.Column="2" Margin="4,3">
+                                                                <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                                          ItemsSource="{Binding AvailableTypes}" SelectedItem="{Binding FamilyType}"
+                                                                          Visibility="{Binding DataContext.SameProfileAll, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InvBoolToVis}}"/>
+                                                                <TextBlock Text="—" FontSize="12" Foreground="#8993A4"
+                                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                           Visibility="{Binding DataContext.SameProfileAll, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
+                                                            </Grid>
+
                                                             <Border Grid.Column="3" Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
                                                                     IsEnabled="{Binding DataContext.IsDistanceColumnEnabled, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                     Margin="4,3">
@@ -772,8 +828,8 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <TextBlock Text="Distância habilitada apenas se 'Equidistante' estiver desmarcado."
-                                               FontSize="11" Foreground="#6B778C" Margin="0,6,0,0"/>
+                                    <TextBlock FontSize="11" Foreground="#6B778C" Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Text="Posição: 'Equidistante' distribui as travessas entre base e corrimão; desmarque para definir a altura de cada uma (Dist. mm). Perfil: desmarque 'Mesmo perfil p/ todas' para escolher perfil por linha."/>
 
                                     <Button Style="{StaticResource BtnDashed}" Content="+ adicionar travessa"
                                             HorizontalAlignment="Stretch" Margin="0,8,0,0"
@@ -806,7 +862,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding RodapeFamilyDisplay}" IsReadOnly="True"/>
+                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding RodapeFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
                                             </Border>
                                             <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
                                                     Content="Procurar..." Command="{Binding BrowseRodapeCommand}"/>
@@ -878,7 +934,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding FrameFamilyDisplay}" IsReadOnly="True"/>
+                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding FrameFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
                                             </Border>
                                             <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
                                                     Content="Procurar..." Command="{Binding BrowseFrameCommand}"/>
@@ -988,7 +1044,7 @@
         </TabControl>
 
         <!-- ── Avisos ───────────────────────────────────────────────── -->
-        <ListBox Grid.Row="1" ItemsSource="{Binding Warnings}"
+        <ListBox Grid.Row="2" ItemsSource="{Binding Warnings}"
                  Margin="20,0,20,0" MaxHeight="60"
                  FontFamily="Consolas" FontSize="10"
                  Background="#FFF8E1" Foreground="#7B4400"
@@ -1006,7 +1062,7 @@
         </ListBox>
 
         <!-- ── Footer ───────────────────────────────────────────────── -->
-        <Grid Grid.Row="2" Margin="20,10,20,16">
+        <Grid Grid.Row="3" Margin="20,10,20,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>

@@ -1,4 +1,5 @@
 using SAGAStructuralTools.Core.Models;
+using System.Collections.ObjectModel;
 
 namespace SAGAStructuralTools.UI.ViewModels
 {
@@ -15,6 +16,9 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string FamilyType  { get => _familyType;  set { if (Set(ref _familyType, value)) OnPropertyChanged(nameof(FamilyDisplay)); } }
         public BarAlignment Alignment { get => _alignment; set => Set(ref _alignment, value); }
         public double Distance    { get => _distance;    set => Set(ref _distance,    value); }
+
+        // Tipos disponíveis no catálogo do .rfa desta travessa (modo perfil por linha)
+        public ObservableCollection<string> AvailableTypes { get; } = new ObservableCollection<string>();
 
         public string FamilyDisplay
         {

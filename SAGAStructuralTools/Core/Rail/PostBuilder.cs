@@ -3,6 +3,7 @@ using Autodesk.Revit.DB.Structure;
 using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -18,7 +19,7 @@ namespace SAGAStructuralTools.Core.Rail
 
         public PostBuilder(Document doc) => _doc = doc;
 
-        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd)
+        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd, double? railAxisZ = null)
         {
             if (string.IsNullOrWhiteSpace(config.PostFamilyPath)) return;
 
@@ -43,37 +44,127 @@ namespace SAGAStructuralTools.Core.Rail
             var lateral = new XYZ(-dir.Y, dir.X, 0);
 
             double axisOffFt = config.PostAxisOffset / 304.8;
-            double baseZ     = lineStart.Z - config.PostBaseOffset / 304.8;
-            double topZ      = lineStart.Z + config.HandrailHeight / 304.8 + config.PostTopOffset / 304.8;
-            var level        = GetNearestLevel(lineStart.Z);
+            double baseZ     = lineStart.Z - config.PostBaseOffset / 304.8;   // nasce na linha selecionada
+            var    level     = GetNearestLevel(lineStart.Z);
 
-            Log($"PostBuilder: {seg.PostCount} montantes | família={Path.GetFileNameWithoutExtension(config.PostFamilyPath)}");
+            // ── Parte 3: restrição de altura (topo no EIXO CENTRAL do corrimão) ──
+            // Preferimos o eixo medido pela BoundingBox do corrimão (railAxisZ); se ausente,
+            // fallback para (HandrailHeight − R) lido por parâmetro. Nunca ultrapassa o eixo.
+            double limitZ = railAxisZ ??
+                            (lineStart.Z + (config.HandrailHeight - GetHandrailHalfHeightMm(config)) / 304.8);
+            double topZ   = Math.Min(limitZ + config.PostTopOffset / 304.8, limitZ);
 
+            // ── Cria todos os montantes nas posições brutas (PostOffsets) ─────────
+            var created = new List<ElementId>();
             foreach (double offsetMm in seg.PostOffsets)
             {
                 double offsetFt = offsetMm / 304.8;
                 var    center   = lineStart + dir * offsetFt + lateral * axisOffFt;
                 var    basePt   = new XYZ(center.X, center.Y, baseZ);
 
+                FamilyInstance inst;
                 if (isFraming)
                 {
                     var topPt = new XYZ(center.X, center.Y, topZ);
-                    var line  = Line.CreateBound(basePt, topPt);
-                    _doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
+                    inst = _doc.Create.NewFamilyInstance(Line.CreateBound(basePt, topPt), symbol, level, StructuralType.Beam);
                 }
                 else
                 {
-                    var inst = _doc.Create.NewFamilyInstance(basePt, symbol, level, StructuralType.Column);
-                    SetColumnTopOffset(inst, topZ, level);
+                    inst = _doc.Create.NewFamilyInstance(basePt, symbol, level, StructuralType.Column);
+                    SetColumnExtents(inst, level, baseZ, topZ);
                 }
+
+                ApplyRotation(inst, config.PostRotation, isColumn, basePt);
+                created.Add(inst.Id);
+            }
+
+            // ── Parte 2: recuo W/2 nas pontas (distribuição em L_eixos = L − W) ───
+            // Mede a largura REAL da seção pela BoundingBox (independe de parâmetro) e move
+            // cada montante do offset bruto para o final, alinhando as faces externas.
+            double W = 0;
+            if (created.Count > 0) { _doc.Regenerate(); W = MeasureHorizontalWidthMm(created[0]); }
+
+            double L = seg.Length;
+            var axisOffsets = new List<double>(seg.PostOffsets);
+            if (W > 1e-6 && L > W)
+            {
+                double halfW = W / 2.0, lEixos = L - W;
+                for (int i = 0; i < created.Count; i++)
+                {
+                    double newOff  = halfW + seg.PostOffsets[i] * lEixos / L;
+                    axisOffsets[i] = newOff;
+                    double deltaFt = (newOff - seg.PostOffsets[i]) / 304.8;
+                    if (Math.Abs(deltaFt) > 1e-9)
+                        ElementTransformUtils.MoveElement(_doc, created[i], dir * deltaFt);
+                }
+            }
+            seg.AxisOffsets = axisOffsets;   // InfillBuilder alinha travessas/quadros por estes eixos
+
+            Log($"PostBuilder: {created.Count} montantes | W={W:F1}mm | topZ={(topZ - lineStart.Z) * 304.8:F0}mm | família={Path.GetFileNameWithoutExtension(config.PostFamilyPath)}");
+        }
+
+        /// <summary>
+        /// Aplica rotação (graus) ao montante em torno do seu eixo vertical.
+        ///   Coluna → gira o elemento em torno da vertical pela base (RotateElement).
+        ///   Viga   → parâmetro "Rotação do corte transversal" (STRUCTURAL_BEND_DIR_ANGLE).
+        /// </summary>
+        private void ApplyRotation(FamilyInstance inst, double degrees, bool isColumn, XYZ basePt)
+        {
+            if (inst == null || Math.Abs(degrees) < 1e-9) return;
+            double rad = degrees * Math.PI / 180.0;
+
+            if (isColumn)
+            {
+                var axis = Line.CreateBound(basePt, basePt + XYZ.BasisZ);
+                ElementTransformUtils.RotateElement(_doc, inst.Id, axis, rad);
+            }
+            else
+            {
+                var p = inst.get_Parameter(BuiltInParameter.STRUCTURAL_BEND_DIR_ANGLE)
+                        ?? inst.LookupParameter("Rotação do corte transversal");
+                if (p != null && !p.IsReadOnly) p.Set(rad);
             }
         }
 
-        private void SetColumnTopOffset(FamilyInstance inst, double topZFt, Level baseLevel)
+        /// <summary>Largura horizontal (mm) da seção, medida pela BoundingBox. Tubo: dx=dy=Ø.</summary>
+        private double MeasureHorizontalWidthMm(ElementId id)
         {
-            var topOffParam = inst.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-            if (topOffParam != null && !topOffParam.IsReadOnly)
-                topOffParam.Set(topZFt - baseLevel.Elevation);
+            var bb = _doc.GetElement(id)?.get_BoundingBox(null);
+            if (bb == null) return 0;
+            double dx = (bb.Max.X - bb.Min.X) * 304.8;
+            double dy = (bb.Max.Y - bb.Min.Y) * 304.8;
+            return Math.Min(dx, dy);   // menor extensão horizontal ≈ seção (evita superestimar em linha diagonal)
+        }
+
+        /// <summary>Meia-altura (mm) da seção do corrimão (fallback por parâmetro). 0 se indisponível.</summary>
+        private double GetHandrailHalfHeightMm(RailConfig config)
+        {
+            if (string.IsNullOrWhiteSpace(config.HandrailFamilyPath)) return 0;
+            try
+            {
+                var hs = GetOrLoadSymbol(config.HandrailFamilyPath, config.HandrailFamilyType);
+                return SectionSize.SectionHeightMm(hs) / 2.0;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>
+        /// Ajusta a extensão vertical de uma COLUNA. Colunas são controladas por
+        /// Nível base/topo + deslocamentos — não por Z absoluto. Por padrão o Revit
+        /// ancora o topo no PRÓXIMO nível acima (ex.: Nível 2), fazendo a coluna ir de
+        /// nível a nível. Aqui forçamos o Nível superior = Nível base e definimos os dois
+        /// deslocamentos relativos a esse nível, para o topo parar exatamente em topZ.
+        /// </summary>
+        private static void SetColumnExtents(FamilyInstance inst, Level level, double baseZFt, double topZFt)
+        {
+            var topLevel = inst.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+            if (topLevel != null && !topLevel.IsReadOnly) topLevel.Set(level.Id);
+
+            var baseOff = inst.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM);
+            if (baseOff != null && !baseOff.IsReadOnly) baseOff.Set(baseZFt - level.Elevation);
+
+            var topOff = inst.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
+            if (topOff != null && !topOff.IsReadOnly) topOff.Set(topZFt - level.Elevation);
         }
 
         private FamilySymbol GetOrLoadSymbol(string path, string typeName)

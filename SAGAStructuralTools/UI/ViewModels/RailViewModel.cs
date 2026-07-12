@@ -21,7 +21,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         private readonly ExternalEvent       _createEvent;
         private readonly RailCreationHandler _createHandler;
 
-        // Segmentos selecionados internamente
+        // Linhas selecionadas (cada clique em "Adicionar linha" acrescenta uma)
         private readonly List<(ElementId id, double lengthMm)> _segments = new List<(ElementId, double)>();
 
         public RailViewModel(ExternalEvent pickEvent, LinePickHandler pickHandler,
@@ -33,23 +33,34 @@ namespace SAGAStructuralTools.UI.ViewModels
             _createEvent   = createEvent;
             _createHandler = createHandler;
 
-            pickHandler.LinesPicked    += OnLinesPicked;
+            pickHandler.LinePicked     += OnLinePicked;
             _createHandler.Completed   += OnCreationCompleted;
 
             SagaLog.Write("RailViewModel — criando comandos...");
-            SelectPerimeterCommand    = new RelayCommand(_ => _pickEvent.Raise());
+            AddLineCommand            = new RelayCommand(_ => _pickEvent.Raise());
+            ClearSelectionCommand     = new RelayCommand(_ => ClearSelection(), _ => _segments.Count > 0);
             BrowsePostCommand         = new RelayCommand(_ => BrowseFamily(ref _postFamilyPath,  ref _postFamilyType,  nameof(PostFamilyDisplay),  nameof(PostAvailableTypes),  PostAvailableTypes));
             BrowseHandrailCommand     = new RelayCommand(_ => BrowseFamily(ref _handrailFamilyPath, ref _handrailFamilyType, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), HandrailAvailableTypes));
             BrowseFrameCommand        = new RelayCommand(_ => BrowseFamily(ref _frameFamilyPath, ref _frameFamilyType, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), FrameAvailableTypes));
             BrowseRodapeCommand       = new RelayCommand(_ => BrowseFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), RodapeAvailableTypes));
+            BrowseBarCommonCommand    = new RelayCommand(_ => BrowseFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), BarCommonAvailableTypes));
+            BrowseBarRowCommand       = new RelayCommand(o => BrowseBarRow(o as BarConfigVm));
             AddBarCommand             = new RelayCommand(_ => AddBar());
 
             RemoveBarCommand          = new RelayCommand(o => RemoveBar(o as BarConfigVm));
             CalculatePreviewCommand   = new RelayCommand(_ => CalculatePreview(), _ => _segments.Count > 0);
-            CreateCommand             = new RelayCommand(_ => CreateRail(), _ => IsCalculated && _definition?.IsValid == true);
+            CreateCommand             = new RelayCommand(_ => CreateRail(), _ => _segments.Count > 0);
+
+            SavePresetCommand         = new RelayCommand(_ => SavePreset(),   _ => !string.IsNullOrWhiteSpace(PresetName));
+            LoadPresetCommand         = new RelayCommand(_ => LoadPreset(),   _ => !string.IsNullOrWhiteSpace(PresetName));
+            DeletePresetCommand       = new RelayCommand(_ => DeletePreset(), _ => !string.IsNullOrWhiteSpace(PresetName));
 
             SagaLog.Write("RailViewModel — adicionando item inicial em HorizontalBars...");
             HorizontalBars.Add(new BarConfigVm { RowIndex = 1 });
+
+            // Presets: lista global por usuário + auto-carrega a última configuração usada.
+            RefreshPresets();
+            TryLoadLast();
             SagaLog.Write("RailViewModel — construtor OK");
         }
 
@@ -60,19 +71,46 @@ namespace SAGAStructuralTools.UI.ViewModels
         private bool _hasSegments;
         public bool HasSegments { get => _hasSegments; set => Set(ref _hasSegments, value); }
 
-        private void OnLinesPicked(List<(ElementId id, double lengthMm)> items)
+        // Resumo da seleção (usada para criar)
+        public int    SelectedLinesCount => _segments.Count;
+        public double SelectedLinesTotal => _segments.Sum(s => s.lengthMm);
+        public string SelectionSummary =>
+            _segments.Count == 0
+                ? "Nenhuma linha adicionada."
+                : $"{_segments.Count} linha(s)  ·  total {SelectedLinesTotal:F0} mm";
+
+        // Disparado pelo LinePickHandler após cada clique válido (um PickObject).
+        // Roda no contexto de ExternalEvent (thread da API = thread da UI); o padrão
+        // _dispatcher.Invoke é o mesmo usado com sucesso pela escada (StairViewModel).
+        private void OnLinePicked(ElementId id, double lengthMm)
         {
             _dispatcher.Invoke(() =>
             {
-                _segments.Clear();
-                _segments.AddRange(items);
-                SegmentItems.Clear();
-                for (int i = 0; i < items.Count; i++)
-                    SegmentItems.Add($"{i + 1}  —  comprimento: {items[i].lengthMm:F0} mm");
-                HasSegments = _segments.Count > 0;
+                if (_segments.Any(s => s.id == id)) return;   // evita duplicar a mesma linha
+                _segments.Add((id, lengthMm));
+                SegmentItems.Add($"{_segments.Count}  —  comprimento: {lengthMm:F0} mm");
+                HasSegments  = true;
                 IsCalculated = false;
-                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+                RaiseSelectionChanged();
             });
+        }
+
+        // Botão "Limpar": zera a seleção para recomeçar.
+        private void ClearSelection()
+        {
+            _segments.Clear();
+            SegmentItems.Clear();
+            HasSegments  = false;
+            IsCalculated = false;
+            RaiseSelectionChanged();
+        }
+
+        private void RaiseSelectionChanged()
+        {
+            OnPropertyChanged(nameof(SelectedLinesCount));
+            OnPropertyChanged(nameof(SelectedLinesTotal));
+            OnPropertyChanged(nameof(SelectionSummary));
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
         }
 
         // ── Aba Entrada — distribuição ────────────────────────────────────
@@ -134,7 +172,9 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string HandrailFamilyType    { get => _handrailFamilyType;  set { if (Set(ref _handrailFamilyType, value)) OnPropertyChanged(nameof(HandrailFamilyDisplay)); } }
         public double HandrailRotation      { get => _handrailRotation;    set => Set(ref _handrailRotation,    value); }
         public double HandrailAxisOffset    { get => _handrailAxisOffset;  set => Set(ref _handrailAxisOffset,  value); }
-        public HandrailJustification Justification { get => _justification; set => Set(ref _justification, value); }
+        public HandrailJustification Justification { get => _justification; set { if (Set(ref _justification, value)) OnPropertyChanged(nameof(JustificationIndex)); } }
+        // Índice para o ComboBox (Esquerda=0, Centro=1, Direita=2 = ordem do enum)
+        public int JustificationIndex { get => (int)_justification; set => Justification = (HandrailJustification)value; }
         public double HandrailHeight        { get => _handrailHeight;      set => Set(ref _handrailHeight,      value); }
         public ObservableCollection<string> HandrailAvailableTypes { get; } = new ObservableCollection<string>();
 
@@ -160,13 +200,25 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private bool _sameProfileAll   = true;
         private bool _equidistantBars  = true;
-        public bool SameProfileAll    { get => _sameProfileAll;  set => Set(ref _sameProfileAll,  value); }
+        public bool SameProfileAll
+        {
+            get => _sameProfileAll;
+            set { if (Set(ref _sameProfileAll, value)) OnPropertyChanged(nameof(IsPerRowProfile)); }
+        }
+        public bool IsPerRowProfile => !SameProfileAll;
         public bool EquidistantBars
         {
             get => _equidistantBars;
             set { if (Set(ref _equidistantBars, value)) OnPropertyChanged(nameof(IsDistanceColumnEnabled)); }
         }
         public bool IsDistanceColumnEnabled => !EquidistantBars;
+
+        // Perfil comum das travessas (usado quando SameProfileAll = true)
+        private string _barCommonFamilyPath;
+        private string _barCommonFamilyType;
+        public string BarCommonFamilyDisplay => FamilyDisplay(_barCommonFamilyPath, _barCommonFamilyType);
+        public string BarCommonFamilyType { get => _barCommonFamilyType; set { if (Set(ref _barCommonFamilyType, value)) OnPropertyChanged(nameof(BarCommonFamilyDisplay)); } }
+        public ObservableCollection<string> BarCommonAvailableTypes { get; } = new ObservableCollection<string>();
 
         // Rodapé
         private string _rodapeFamilyPath;
@@ -263,10 +315,146 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private void CreateRail()
         {
+            // Calcular Preview é opcional: se ainda não há definição válida, calcula agora.
+            if (!IsCalculated || _definition == null)
+                CalculatePreview();
+
+            if (_definition == null || !_definition.IsValid)
+                return;   // avisos já foram preenchidos por CalculatePreview
+
+            var config = BuildConfig();
             _createHandler.Definition = _definition;
-            _createHandler.Config     = BuildConfig();
+            _createHandler.Config     = config;
             _createHandler.SegmentIds = _segments.Select(s => s.id).ToList();
+
+            RailPresetStore.SaveLast(config);   // lembra a última config usada
+
             _createEvent.Raise();
+        }
+
+        // ── Presets (salvar/carregar configurações) ───────────────────────
+
+        public ObservableCollection<string> Presets { get; } = new ObservableCollection<string>();
+
+        private string _presetName;
+        public string PresetName { get => _presetName; set => Set(ref _presetName, value); }
+
+        private void RefreshPresets()
+        {
+            Presets.Clear();
+            foreach (var n in RailPresetStore.List()) Presets.Add(n);
+        }
+
+        private void TryLoadLast()
+        {
+            var last = RailPresetStore.LoadLast();
+            if (last != null) ApplyConfig(last);
+        }
+
+        private void SavePreset()
+        {
+            RailPresetStore.Save(PresetName.Trim(), BuildConfig());
+            RefreshPresets();
+            Warnings.Clear();
+            Warnings.Add($"Configuração '{PresetName.Trim()}' salva.");
+        }
+
+        private void LoadPreset()
+        {
+            var c = RailPresetStore.Load(PresetName.Trim());
+            if (c == null)
+            {
+                Warnings.Clear();
+                Warnings.Add($"Configuração '{PresetName.Trim()}' não encontrada.");
+                return;
+            }
+            ApplyConfig(c);
+            Warnings.Clear();
+            Warnings.Add($"Configuração '{PresetName.Trim()}' carregada.");
+        }
+
+        private void DeletePreset()
+        {
+            RailPresetStore.Delete(PresetName.Trim());
+            RefreshPresets();
+            Warnings.Clear();
+            Warnings.Add($"Configuração '{PresetName.Trim()}' excluída.");
+        }
+
+        // Aplica um RailConfig salvo de volta aos campos da UI (inverso de BuildConfig).
+        private void ApplyConfig(RailConfig c)
+        {
+            if (c == null) return;
+
+            DistMode         = c.DistMode;
+            PostCount        = c.PostCount;
+            MaxPostSpan      = c.MaxPostSpan;
+            FixedAxisSpacing = c.FixedAxisSpacing;
+
+            SetFamily(ref _postFamilyPath, ref _postFamilyType, c.PostFamilyPath, c.PostFamilyType,
+                      PostAvailableTypes, nameof(PostFamilyDisplay), nameof(PostAvailableTypes), nameof(PostFamilyType));
+            PostRotation   = c.PostRotation;
+            PostTopOffset  = c.PostTopOffset;
+            PostBaseOffset = c.PostBaseOffset;
+            PostAxisOffset = c.PostAxisOffset;
+
+            SetFamily(ref _handrailFamilyPath, ref _handrailFamilyType, c.HandrailFamilyPath, c.HandrailFamilyType,
+                      HandrailAvailableTypes, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), nameof(HandrailFamilyType));
+            HandrailRotation   = c.HandrailRotation;
+            HandrailAxisOffset = c.HandrailAxisOffset;
+            Justification      = c.Justification;
+            HandrailHeight     = c.HandrailHeight;
+
+            InfillMode      = c.InfillMode;
+            SameProfileAll  = c.SameProfileAll;
+            EquidistantBars = c.EquidistantBars;
+
+            SetFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, c.Rodape?.FamilyPath, c.Rodape?.FamilyType,
+                      RodapeAvailableTypes, nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), nameof(RodapeFamilyType));
+            RodapeAlignment = c.Rodape?.Alignment ?? RodapeAlignment;
+            RodapeOffset    = c.Rodape?.Distance  ?? 0;
+
+            SetFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, c.HorizontalBarCommon?.FamilyPath, c.HorizontalBarCommon?.FamilyType,
+                      BarCommonAvailableTypes, nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), nameof(BarCommonFamilyType));
+
+            HorizontalBars.Clear();
+            if (c.HorizontalBars != null)
+            {
+                foreach (var b in c.HorizontalBars)
+                {
+                    var vm = new BarConfigVm { FamilyPath = b.FamilyPath, FamilyType = b.FamilyType, Alignment = b.Alignment, Distance = b.Distance };
+                    if (!string.IsNullOrWhiteSpace(b.FamilyPath))
+                        LoadTypesFromCatalog(b.FamilyPath, b.FamilyType, vm.AvailableTypes, out _);
+                    HorizontalBars.Add(vm);
+                }
+            }
+            if (HorizontalBars.Count == 0) HorizontalBars.Add(new BarConfigVm());
+            RenumberBars();
+
+            FrameType = c.FrameType;
+            SetFamily(ref _frameFamilyPath, ref _frameFamilyType, c.FrameFamilyPath, c.FrameFamilyType,
+                      FrameAvailableTypes, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), nameof(FrameFamilyType));
+            FrameAlignment = c.FrameAlignment;
+            FrameOffset    = c.FrameOffset;
+            FrameHeight    = c.FrameHeight;
+
+            TerminalType   = c.TerminalType;
+            TerminalRadius = c.TerminalRadius;
+        }
+
+        // Define caminho+tipo de uma família e recarrega a lista de tipos do catálogo.
+        private void SetFamily(ref string pathField, ref string typeField, string path, string type,
+                               ObservableCollection<string> types,
+                               string displayProp, string typesProp, string typeProp)
+        {
+            pathField = path;
+            types.Clear();
+            if (!string.IsNullOrWhiteSpace(path))
+                LoadTypesFromCatalog(path, type, types, out _);
+            typeField = type;
+            OnPropertyChanged(displayProp);
+            OnPropertyChanged(typesProp);
+            OnPropertyChanged(typeProp);
         }
 
         private void OnCreationCompleted(string error)
@@ -314,6 +502,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             InfillMode         = InfillMode,
             HorizontalBars     = HorizontalBars.Select(b => b.ToModel()).ToList(),
+            HorizontalBarCommon = new BarConfig { FamilyPath = _barCommonFamilyPath, FamilyType = _barCommonFamilyType },
             SameProfileAll     = SameProfileAll,
             EquidistantBars    = EquidistantBars,
             Rodape             = new BarConfig { FamilyPath = _rodapeFamilyPath, FamilyType = _rodapeFamilyType, Alignment = RodapeAlignment, Distance = RodapeOffset },
@@ -344,6 +533,23 @@ namespace SAGAStructuralTools.UI.ViewModels
                 LoadTypesFromCatalog(dlg.FileName, typeField, typesCollection, out typeField);
                 OnPropertyChanged(displayProp);
                 OnPropertyChanged(typesProp);
+            }
+        }
+
+        // Browse de perfil para uma travessa específica (modo perfil por linha)
+        private void BrowseBarRow(BarConfigVm bar)
+        {
+            if (bar == null) return;
+            using (var dlg = new OpenFileDialog
+            {
+                Title  = "Selecionar família (.rfa)",
+                Filter = "Revit Family (*.rfa)|*.rfa"
+            })
+            {
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+                bar.FamilyPath = dlg.FileName;
+                LoadTypesFromCatalog(dlg.FileName, bar.FamilyType, bar.AvailableTypes, out var selected);
+                bar.FamilyType = selected;
             }
         }
 
@@ -399,14 +605,20 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         // ── Commands ─────────────────────────────────────────────────────
 
-        public RelayCommand SelectPerimeterCommand  { get; }
+        public RelayCommand AddLineCommand          { get; }
+        public RelayCommand ClearSelectionCommand   { get; }
         public RelayCommand BrowsePostCommand       { get; }
         public RelayCommand BrowseHandrailCommand   { get; }
         public RelayCommand BrowseFrameCommand      { get; }
         public RelayCommand BrowseRodapeCommand     { get; }
+        public RelayCommand BrowseBarCommonCommand  { get; }
+        public RelayCommand BrowseBarRowCommand     { get; }
         public RelayCommand AddBarCommand           { get; }
         public RelayCommand RemoveBarCommand        { get; }
         public RelayCommand CalculatePreviewCommand { get; }
         public RelayCommand CreateCommand           { get; }
+        public RelayCommand SavePresetCommand       { get; }
+        public RelayCommand LoadPresetCommand       { get; }
+        public RelayCommand DeletePresetCommand     { get; }
     }
 }

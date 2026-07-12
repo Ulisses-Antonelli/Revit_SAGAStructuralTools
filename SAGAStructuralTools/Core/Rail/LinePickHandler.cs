@@ -2,37 +2,39 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using System;
-using System.Collections.Generic;
 
 namespace SAGAStructuralTools.Core.Rail
 {
+    /// <summary>
+    /// Seleção de UMA linha por vez (PickObject único), igual ao padrão do BeamPickHandler
+    /// da escada. Retorna imediatamente após um clique — não deixa pick pendente, então o
+    /// ExternalEvent de criação roda a qualquer momento. Para adicionar várias linhas, o
+    /// usuário aciona a seleção repetidamente. Aceita apenas CurveElement (Linhas).
+    /// </summary>
     public class LinePickHandler : IExternalEventHandler
     {
-        public event Action<List<(ElementId id, double lengthMm)>> LinesPicked;
+        /// <summary>Disparado após um clique válido: (ElementId, comprimento em mm).</summary>
+        public event Action<ElementId, double> LinePicked;
 
         public void Execute(UIApplication app)
         {
             try
             {
                 var uidoc = app.ActiveUIDocument;
-                var refs  = uidoc.Selection.PickObjects(
+                var r     = uidoc.Selection.PickObject(
                     ObjectType.Element,
                     new CurveElementFilter(),
-                    "Selecione as linhas de perímetro e pressione Enter para confirmar");
+                    "Clique em UMA linha do perímetro (ESC para cancelar).");
 
-                var result = new List<(ElementId, double)>();
-                foreach (var r in refs)
-                {
-                    var el     = uidoc.Document.GetElement(r.ElementId);
-                    double len = GetLengthMm(el);
-                    if (len > 1.0)
-                        result.Add((r.ElementId, len));
-                }
-
-                if (result.Count > 0)
-                    LinesPicked?.Invoke(result);
+                var el     = uidoc.Document.GetElement(r.ElementId);
+                double len = GetLengthMm(el);
+                if (len > 1.0)
+                    LinePicked?.Invoke(r.ElementId, len);
             }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                // ESC cancela o clique — nenhuma ação.
+            }
         }
 
         private static double GetLengthMm(Element el)
@@ -44,7 +46,7 @@ namespace SAGAStructuralTools.Core.Rail
             return p != null ? p.AsDouble() * 304.8 : 0;
         }
 
-        public string GetName() => "SAGAPickRailLines";
+        public string GetName() => "SAGAPickRailLine";
     }
 
     internal class CurveElementFilter : ISelectionFilter
