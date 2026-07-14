@@ -17,6 +17,7 @@ namespace SAGAStructuralTools.Core.Models
         public int    PostCount                  { get; set; } = RailDefaults.PostCount;
         public double MaxPostSpan                { get; set; } = RailDefaults.MaxPostSpan;
         public double FixedAxisSpacing           { get; set; } = RailDefaults.FixedAxisSpacing;
+        public double EndPostInset               { get; set; } = RailDefaults.EndPostInset;
 
         // ── Montante ─────────────────────────────────────────────────────
         public string PostFamilyPath             { get; set; }

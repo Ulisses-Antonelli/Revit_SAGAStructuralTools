@@ -48,10 +48,9 @@ namespace SAGAStructuralTools.Core.Rail
             var    level     = GetNearestLevel(lineStart.Z);
 
             // ── Parte 3: restrição de altura (topo no EIXO CENTRAL do corrimão) ──
-            // Preferimos o eixo medido pela BoundingBox do corrimão (railAxisZ); se ausente,
-            // fallback para (HandrailHeight − R) lido por parâmetro. Nunca ultrapassa o eixo.
+            // HandrailHeight representa diretamente o eixo central do corrimão.
             double limitZ = railAxisZ ??
-                            (lineStart.Z + (config.HandrailHeight - GetHandrailHalfHeightMm(config)) / 304.8);
+                            (lineStart.Z + config.HandrailHeight / 304.8);
             double topZ   = Math.Min(limitZ + config.PostTopOffset / 304.8, limitZ);
 
             // ── Cria todos os montantes nas posições brutas (PostOffsets) ─────────
@@ -115,7 +114,9 @@ namespace SAGAStructuralTools.Core.Rail
 
             double L = seg.Length;
             var axisOffsets = new List<double>(seg.PostOffsets);
-            if (W > 1e-6 && L > W)
+            // Com recuo configurado, PostOffsets já contém os eixos finais exatos.
+            // O ajuste automático por W/2 é mantido apenas no modo legado (recuo zero).
+            if (config.EndPostInset <= 1e-6 && W > 1e-6 && L > W)
             {
                 double halfW = W / 2.0, lEixos = L - W;
                 for (int i = 0; i < created.Count; i++)
@@ -188,18 +189,6 @@ namespace SAGAStructuralTools.Core.Rail
                         ?? inst.LookupParameter("Rotação do corte transversal");
                 if (p != null && !p.IsReadOnly) p.Set(rad);
             }
-        }
-
-        /// <summary>Meia-altura (mm) da seção do corrimão (fallback por parâmetro). 0 se indisponível.</summary>
-        private double GetHandrailHalfHeightMm(RailConfig config)
-        {
-            if (string.IsNullOrWhiteSpace(config.HandrailFamilyPath)) return 0;
-            try
-            {
-                var hs = GetOrLoadSymbol(config.HandrailFamilyPath, config.HandrailFamilyType);
-                return SectionSize.SectionHeightMm(hs) / 2.0;
-            }
-            catch { return 0; }
         }
 
         /// <summary>

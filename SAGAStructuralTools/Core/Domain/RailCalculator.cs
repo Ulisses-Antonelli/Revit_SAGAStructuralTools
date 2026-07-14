@@ -40,44 +40,63 @@ namespace SAGAStructuralTools.Core.Domain
                 return;
             }
 
+            double inset = config.EndPostInset;
+            if (inset < 0)
+            {
+                warnings.Add($"Segmento {seg.Index + 1}: o recuo das extremidades não pode ser negativo.");
+                return;
+            }
+
+            double start = inset;
+            double end = seg.Length - inset;
+            double usableLength = end - start;
+            if (usableLength < 1.0)
+            {
+                warnings.Add(
+                    $"Segmento {seg.Index + 1}: o recuo de {inset:F0} mm em cada extremidade " +
+                    $"não cabe no comprimento de {seg.Length:F0} mm.");
+                return;
+            }
+
             switch (config.DistMode)
             {
                 case DistributionMode.ByCount:
-                    ByCount(seg, config.PostCount);
+                    ByCount(seg, config.PostCount, start, end);
                     break;
 
                 case DistributionMode.MaxSpan:
-                    int n = (int)Math.Ceiling(seg.Length / config.MaxPostSpan) + 1;
-                    ByCount(seg, n);
+                    double maxSpan = Math.Max(config.MaxPostSpan, 1.0);
+                    int n = (int)Math.Ceiling(usableLength / maxSpan) + 1;
+                    ByCount(seg, n, start, end);
                     break;
 
                 case DistributionMode.FixedAxis:
-                    FixedAxis(seg, config.FixedAxisSpacing);
+                    FixedAxis(seg, config.FixedAxisSpacing, start, end);
                     break;
             }
         }
 
-        private static void ByCount(RailSegment seg, int count)
+        private static void ByCount(RailSegment seg, int count, double start, double end)
         {
             count = Math.Max(count, 2);
-            double step = seg.Length / (count - 1);
+            double step = (end - start) / (count - 1);
             for (int i = 0; i < count; i++)
-                seg.PostOffsets.Add(Math.Round(i * step, 4));
+                seg.PostOffsets.Add(Math.Round(start + i * step, 4));
             seg.ActualSpacing = step;
         }
 
-        private static void FixedAxis(RailSegment seg, double step)
+        private static void FixedAxis(RailSegment seg, double step, double start, double end)
         {
             step = Math.Max(step, 1.0);
-            double pos = 0;
-            while (pos < seg.Length - 0.5)
+            double pos = start;
+            while (pos < end - 0.5)
             {
                 seg.PostOffsets.Add(Math.Round(pos, 4));
                 pos += step;
             }
-            // Post final no fim exato do segmento
-            if (seg.PostOffsets.Count == 0 || seg.Length - seg.PostOffsets[seg.PostOffsets.Count - 1] > 0.5)
-                seg.PostOffsets.Add(seg.Length);
+            // Último montante no recuo exato da extremidade final.
+            if (seg.PostOffsets.Count == 0 || end - seg.PostOffsets[seg.PostOffsets.Count - 1] > 0.5)
+                seg.PostOffsets.Add(Math.Round(end, 4));
             seg.ActualSpacing = step;
         }
     }

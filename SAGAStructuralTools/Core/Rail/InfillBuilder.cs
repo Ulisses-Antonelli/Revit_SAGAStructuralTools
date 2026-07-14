@@ -53,9 +53,9 @@ namespace SAGAStructuralTools.Core.Rail
         {
             double baseZ        = lineStart.Z;
             // Distribuição equidistante vai da base até o EIXO do corrimão (não o topo).
-            // Preferimos o eixo medido pela BoundingBox (railAxisZ); fallback por parâmetro.
+            // HandrailHeight representa diretamente o eixo central do corrimão.
             double railAxisZFt  = railAxisZ ??
-                                  (lineStart.Z + config.HandrailHeight / 304.8 - HandrailHalfHeightMm(config) / 304.8);
+                                  (lineStart.Z + config.HandrailHeight / 304.8);
             double lateralOffFt = config.PostAxisOffset / 304.8;   // mesmo eixo dos montantes
 
             // As travessas nascem do eixo do 1º e do último montante — usa AxisOffsets
@@ -307,13 +307,6 @@ namespace SAGAStructuralTools.Core.Rail
         }
 
         /// <summary>Meia-altura (mm) da seção do corrimão. 0 se não configurado/indisponível.</summary>
-        private double HandrailHalfHeightMm(RailConfig config)
-        {
-            if (string.IsNullOrWhiteSpace(config.HandrailFamilyPath)) return 0;
-            try { return SectionSize.SectionHeightMm(GetSymbol(config.HandrailFamilyPath, config.HandrailFamilyType)) / 2.0; }
-            catch { return 0; }
-        }
-
         private FamilySymbol GetSymbol(string path, string typeName)
         {
             var familyName = Path.GetFileNameWithoutExtension(path);

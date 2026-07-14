@@ -5,6 +5,7 @@ namespace SAGAStructuralTools.Core.Domain
         public const int    PostCount          = 5;
         public const double MaxPostSpan        = 1200.0;  // mm
         public const double FixedAxisSpacing   = 1000.0;  // mm
+        public const double EndPostInset       = 150.0;   // mm (eixo do montante até a extremidade)
 
         public const double PostRotation       = 0.0;
         public const double PostTopOffset      = 0.0;

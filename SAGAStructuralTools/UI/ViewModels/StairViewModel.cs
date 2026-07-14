@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Domain;
 using SAGAStructuralTools.Core.Models;
 using SAGAStructuralTools.Core.Stair;
@@ -218,7 +219,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             try
             {
-                var lines = File.ReadAllLines(catalogPath, Encoding.Default);
+                var lines = CatalogTextReader.ReadAllLines(catalogPath);
                 foreach (var line in lines.Skip(1)) // pula cabeçalho
                 {
                     if (string.IsNullOrWhiteSpace(line)) continue;

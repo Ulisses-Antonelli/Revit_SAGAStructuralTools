@@ -19,9 +19,9 @@ namespace SAGAStructuralTools.Core.Rail
         public HandrailBuilder(Document doc) => _doc = doc;
 
         /// <summary>
-        /// Cria o corrimão e retorna a elevação Z (em pés) do EIXO CENTRAL real da seção,
-        /// medida pela BoundingBox da instância (independe de nome de parâmetro). Retorna
-        /// null se não há corrimão configurado ou a medição falhar.
+        /// Cria o corrimão e retorna a elevação Z (em pés) do EIXO CENTRAL da seção.
+        /// HandrailHeight representa diretamente essa cota, independentemente da altura
+        /// física ou da rotação do perfil. Retorna null se não há corrimão configurado.
         /// </summary>
         public double? Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd)
         {
@@ -65,21 +65,20 @@ namespace SAGAStructuralTools.Core.Rail
             // Mede a seção REAL (projetada) já rotacionada: altura (vertical) e largura (lateral).
             double hMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, XYZ.BasisZ);
             double wMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, lateral);
-            double rFt = (hMm / 2.0) / 304.8;
-
-            // Z: com Z=Centro o eixo está em heightFt (topo em heightFt+R). Descemos R para
-            //    o TOPO ficar em heightFt (HandrailHeight) e o eixo em heightFt−R.
+            // Z: a altura informada corresponde diretamente ao EIXO CENTRAL. Como a
+            // justificação Z está travada no centro, não há compensação pela meia seção.
             // Y: justificativa por movimento lateral ±W/2 (Esquerda/Direita), 0 no Centro.
             double lateralJustFt = config.Justification == HandrailJustification.Left  ? -(wMm / 2.0) / 304.8
                                  : config.Justification == HandrailJustification.Right ? +(wMm / 2.0) / 304.8
                                  :                                                        0.0;
-            var move = new XYZ(lateral.X * lateralJustFt, lateral.Y * lateralJustFt, -rFt);
+            var move = new XYZ(lateral.X * lateralJustFt, lateral.Y * lateralJustFt, 0);
             if (move.GetLength() > 1e-9) ElementTransformUtils.MoveElement(_doc, inst.Id, move);
 
-            double axisZ = heightFt - rFt;   // eixo central após o deslocamento (exato por construção)
+            double axisZ = heightFt;
+            double topZ = axisZ + (hMm / 2.0) / 304.8;
 
             Log($"HandrailBuilder: segmento {seg.Index + 1} | h={hMm:F1}mm w={wMm:F1}mm | " +
-                $"z_topo={heightFt * 304.8:F0}mm | z_eixo={(axisZ - lineStart.Z) * 304.8:F0}mm | just={config.Justification}");
+                $"z_topo={(topZ - lineStart.Z) * 304.8:F0}mm | z_eixo={(axisZ - lineStart.Z) * 304.8:F0}mm | just={config.Justification}");
             return axisZ;
         }
 

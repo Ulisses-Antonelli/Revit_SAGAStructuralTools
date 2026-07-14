@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Domain;
 using SAGAStructuralTools.Core.Models;
 using SAGAStructuralTools.Core.Rail;
@@ -138,10 +139,19 @@ namespace SAGAStructuralTools.UI.ViewModels
         private int    _postCount        = RailDefaults.PostCount;
         private double _maxPostSpan      = RailDefaults.MaxPostSpan;
         private double _fixedAxisSpacing = RailDefaults.FixedAxisSpacing;
+        private double _endPostInset     = RailDefaults.EndPostInset;
 
         public int    PostCount        { get => _postCount;        set => Set(ref _postCount,        value); }
         public double MaxPostSpan      { get => _maxPostSpan;      set => Set(ref _maxPostSpan,      value); }
         public double FixedAxisSpacing { get => _fixedAxisSpacing; set => Set(ref _fixedAxisSpacing, value); }
+        public double EndPostInset
+        {
+            get => _endPostInset;
+            set
+            {
+                if (Set(ref _endPostInset, value)) IsCalculated = false;
+            }
+        }
 
         // ── Montante ──────────────────────────────────────────────────────
 
@@ -406,6 +416,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             PostCount        = c.PostCount;
             MaxPostSpan      = c.MaxPostSpan;
             FixedAxisSpacing = c.FixedAxisSpacing;
+            EndPostInset     = c.EndPostInset;
 
             SetFamily(ref _postFamilyPath, ref _postFamilyType, c.PostFamilyPath, c.PostFamilyType,
                       PostAvailableTypes, nameof(PostFamilyDisplay), nameof(PostAvailableTypes), nameof(PostFamilyType));
@@ -440,7 +451,10 @@ namespace SAGAStructuralTools.UI.ViewModels
                 {
                     var vm = new BarConfigVm { FamilyPath = b.FamilyPath, FamilyType = b.FamilyType, Alignment = b.Alignment, Distance = b.Distance };
                     if (!string.IsNullOrWhiteSpace(b.FamilyPath))
-                        LoadTypesFromCatalog(b.FamilyPath, b.FamilyType, vm.AvailableTypes, out _);
+                    {
+                        LoadTypesFromCatalog(b.FamilyPath, b.FamilyType, vm.AvailableTypes, out var selected);
+                        vm.FamilyType = selected;
+                    }
                     HorizontalBars.Add(vm);
                 }
             }
@@ -470,9 +484,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             pathField = path;
             types.Clear();
+            var selectedType = type;
             if (!string.IsNullOrWhiteSpace(path))
-                LoadTypesFromCatalog(path, type, types, out _);
-            typeField = type;
+                LoadTypesFromCatalog(path, type, types, out selectedType);
+            typeField = selectedType;
             OnPropertyChanged(displayProp);
             OnPropertyChanged(typesProp);
             OnPropertyChanged(typeProp);
@@ -506,6 +521,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             PostCount          = PostCount,
             MaxPostSpan        = MaxPostSpan,
             FixedAxisSpacing   = FixedAxisSpacing,
+            EndPostInset       = EndPostInset,
 
             PostFamilyPath     = _postFamilyPath,
             PostFamilyType     = _postFamilyType,
@@ -590,7 +606,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             try
             {
-                var lines = File.ReadAllLines(catalogPath, Encoding.Default);
+                var lines = CatalogTextReader.ReadAllLines(catalogPath);
                 foreach (var line in lines.Skip(1))
                 {
                     if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("##")) continue;
@@ -598,9 +614,32 @@ namespace SAGAStructuralTools.UI.ViewModels
                     if (!string.IsNullOrWhiteSpace(name) && !name.Contains("##"))
                         target.Add(name);
                 }
-                if (target.Count > 0) selectedType = target[0];
+                if (target.Count > 0)
+                {
+                    selectedType = target.FirstOrDefault(t =>
+                        string.Equals(t, currentType, StringComparison.OrdinalIgnoreCase));
+
+                    // Recupera presets gravados com caracteres corrompidos, por exemplo
+                    // "Tubo ï¿½ 31.75 x 3.35" em vez de "Tubo Ø 31.75 x 3.35".
+                    if (selectedType == null && !string.IsNullOrWhiteSpace(currentType))
+                    {
+                        string signature = TypeSignature(currentType);
+                        selectedType = target.FirstOrDefault(t => TypeSignature(t) == signature);
+                    }
+
+                    if (selectedType == null) selectedType = target[0];
+                }
             }
             catch { }
+        }
+
+        private static string TypeSignature(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            return new string(value
+                .Where(c => c <= 127 && (char.IsLetterOrDigit(c) || c == '.' || c == ',' || c == '/' || c == '"'))
+                .Select(char.ToUpperInvariant)
+                .ToArray());
         }
 
         private static string FamilyDisplay(string path, string type)

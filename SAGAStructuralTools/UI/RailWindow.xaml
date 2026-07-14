@@ -412,6 +412,8 @@
                                     <RowDefinition Height="32"/>
                                     <RowDefinition Height="8"/>
                                     <RowDefinition Height="32"/>
+                                    <RowDefinition Height="14"/>
+                                    <RowDefinition Height="32"/>
                                 </Grid.RowDefinitions>
 
                                 <!-- ByCount -->
@@ -455,6 +457,19 @@
                                 <TextBlock Grid.Row="4" Grid.Column="3" Text="mm"
                                            Foreground="#6B778C" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"
                                            IsEnabled="{Binding IsFixedAxisEnabled}"/>
+
+                                <!-- Recuo simétrico dos montantes extremos -->
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="Recuo nas extremidades"
+                                           Foreground="#344563" FontSize="12" VerticalAlignment="Center"
+                                           ToolTip="Distância entre cada extremidade do guarda-corpo e o eixo do primeiro/último montante."/>
+                                <Border Grid.Row="6" Grid.Column="2"
+                                        Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                    <TextBox Style="{StaticResource CleanInput}"
+                                             Text="{Binding EndPostInset, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Aplicado igualmente no início e no fim de cada trecho."/>
+                                </Border>
+                                <TextBlock Grid.Row="6" Grid.Column="3" Text="mm"
+                                           Foreground="#6B778C" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"/>
                             </Grid>
                         </Border>
 
@@ -621,11 +636,13 @@
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel Grid.Row="2" Grid.Column="2">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Altura"/>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Altura do eixo"/>
                                         <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding HandrailHeight, UpdateSourceTrigger=PropertyChanged}"/>
+                                                <TextBox Style="{StaticResource CleanInput}"
+                                                         Text="{Binding HandrailHeight, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="Cota vertical entre a linha de referência e o eixo central do corrimão."/>
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>

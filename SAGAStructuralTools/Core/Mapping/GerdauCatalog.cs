@@ -83,7 +83,7 @@ namespace SAGAStructuralTools.Core.Mapping
 
             try
             {
-                var lines = File.ReadAllLines(catalogPath, Encoding.Default);
+                var lines = CatalogTextReader.ReadAllLines(catalogPath);
 
                 foreach (var line in lines)
                 {
