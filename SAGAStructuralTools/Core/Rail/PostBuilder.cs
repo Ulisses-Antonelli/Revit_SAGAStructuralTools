@@ -67,6 +67,17 @@ namespace SAGAStructuralTools.Core.Rail
                 {
                     var topPt = new XYZ(center.X, center.Y, topZ);
                     inst = _doc.Create.NewFamilyInstance(Line.CreateBound(basePt, topPt), symbol, level, StructuralType.Beam);
+
+                    // Anula o cutback automático de junta: se o montante encostar em outro
+                    // membro estrutural (corrimão, laje, viga de apoio), o Revit recua a
+                    // extremidade até a FACE do elemento juntado, fazendo a extrusão nascer
+                    // fora do Z esperado. Mesmo fix já aplicado em InfillBuilder.CreateBeam.
+                    try
+                    {
+                        StructuralFramingUtils.DisallowJoinAtEnd(inst, 0);
+                        StructuralFramingUtils.DisallowJoinAtEnd(inst, 1);
+                    }
+                    catch { /* nem toda família/categoria suporta join; ignorar */ }
                 }
                 else
                 {
