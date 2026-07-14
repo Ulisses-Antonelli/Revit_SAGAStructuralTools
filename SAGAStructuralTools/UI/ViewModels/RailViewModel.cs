@@ -338,6 +338,15 @@ namespace SAGAStructuralTools.UI.ViewModels
             if (_definition == null || !_definition.IsValid)
                 return;   // avisos já foram preenchidos por CalculatePreview
 
+            // Brincadeira desta branch: a criação só é liberada após confirmar 13
+            // na simulação de urna eletrônica. Fechar/cancelar mantém o modelo intacto.
+            var votingMachine = new VotingMachineWindow();
+            var activeWindow = System.Windows.Application.Current?.Windows
+                .OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.IsActive);
+            if (activeWindow != null) votingMachine.Owner = activeWindow;
+            if (votingMachine.ShowDialog() != true) return;
+
             var config = BuildConfig();
             _createHandler.Definition = _definition;
             _createHandler.Config     = config;

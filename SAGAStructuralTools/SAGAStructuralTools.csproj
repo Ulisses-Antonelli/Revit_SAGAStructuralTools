@@ -40,6 +40,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Marca-d'água embutida na DLL; não exige arquivo separado no deploy. -->
+    <Resource Include="Resources\Images\lula_watermark.jfif" />
+
     <!-- Content: copiado para o output e depois para o deploy folder junto com a DLL -->
     <Content Include="Resources\Icons\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

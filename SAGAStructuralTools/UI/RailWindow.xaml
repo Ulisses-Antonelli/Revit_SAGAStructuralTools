@@ -17,7 +17,7 @@
 
         <!-- ── Reutilizados da escada ─────────────────────────────────── -->
         <Style x:Key="SectionCard" TargetType="Border">
-            <Setter Property="Background"      Value="White"/>
+            <Setter Property="Background"      Value="#66FFFFFF"/>
             <Setter Property="BorderBrush"     Value="#DFE1E6"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius"    Value="4"/>
@@ -321,6 +321,14 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
+
+        <!-- Marca-d'água exclusiva desta branch de brincadeira. -->
+        <Image Grid.RowSpan="4"
+               Source="/SAGAStructuralTools;component/Resources/Images/lula_watermark.jfif"
+               Width="560" MaxHeight="460"
+               HorizontalAlignment="Center" VerticalAlignment="Center"
+               Stretch="Uniform" Opacity="0.16"
+               IsHitTestVisible="False"/>
 
         <!-- ── Faixa de presets (salvar/carregar configurações) ──────── -->
         <Border Grid.Row="0" Background="White" BorderBrush="#DFE1E6" BorderThickness="0,0,0,1" Padding="20,10">
