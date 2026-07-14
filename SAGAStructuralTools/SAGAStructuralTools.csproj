@@ -10,6 +10,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <LangVersion>8.0</LangVersion>
     <Nullable>disable</Nullable>
+    <DeployToRevit Condition="'$(DeployToRevit)'==''">true</DeployToRevit>
   </PropertyGroup>
 
   <!-- Revit 2023 / .NET 4.8 -->
@@ -51,7 +52,8 @@
     C:\ProgramData\Autodesk\Revit\Addins\2023\
     C:\ProgramData\Autodesk\Revit\Addins\2026\
   -->
-  <Target Name="DeployToRevit" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+  <Target Name="DeployToRevit" AfterTargets="Build"
+          Condition="'$(TargetFramework)' != '' and '$(DeployToRevit)'=='true'">
     <PropertyGroup>
       <DeployDir Condition="'$(TargetFramework)'=='net48'">C:\ProgramData\Autodesk\Revit\Addins\2023</DeployDir>
       <DeployDir Condition="'$(TargetFramework)'=='net8.0-windows'">C:\ProgramData\Autodesk\Revit\Addins\2026</DeployDir>

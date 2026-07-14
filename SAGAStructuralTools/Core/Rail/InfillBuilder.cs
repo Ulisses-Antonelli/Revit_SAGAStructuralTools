@@ -227,7 +227,8 @@ namespace SAGAStructuralTools.Core.Rail
         private FamilyInstance CreateFrameColumn(FamilySymbol sym, XYZ basePt, double topZFt, double rotDegWorld, string tag)
         {
             var level = GetNearestLevel((basePt.Z + topZFt) / 2.0);
-            var inst  = _doc.Create.NewFamilyInstance(basePt, sym, level, StructuralType.Column);
+            var levelPt = new XYZ(basePt.X, basePt.Y, level.ProjectElevation);
+            var inst  = _doc.Create.NewFamilyInstance(levelPt, sym, level, StructuralType.Column);
             SetColumnExtents(inst, level, basePt.Z, topZFt);
             if (Math.Abs(rotDegWorld) > 1e-9)
             {
@@ -254,10 +255,10 @@ namespace SAGAStructuralTools.Core.Rail
             if (topLevel != null && !topLevel.IsReadOnly) topLevel.Set(level.Id);
 
             var baseOff = inst.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM);
-            if (baseOff != null && !baseOff.IsReadOnly) baseOff.Set(baseZFt - level.Elevation);
+            if (baseOff != null && !baseOff.IsReadOnly) baseOff.Set(baseZFt - level.ProjectElevation);
 
             var topOff = inst.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-            if (topOff != null && !topOff.IsReadOnly) topOff.Set(topZFt - level.Elevation);
+            if (topOff != null && !topOff.IsReadOnly) topOff.Set(topZFt - level.ProjectElevation);
         }
 
         // ── Helpers de criação ───────────────────────────────────────────
@@ -393,7 +394,7 @@ namespace SAGAStructuralTools.Core.Rail
             return new FilteredElementCollector(_doc)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
-                .OrderBy(l => Math.Abs(l.Elevation - zFt))
+                .OrderBy(l => Math.Abs(l.ProjectElevation - zFt))
                 .FirstOrDefault()
                 ?? throw new InvalidOperationException("Nenhum Level encontrado no documento.");
         }

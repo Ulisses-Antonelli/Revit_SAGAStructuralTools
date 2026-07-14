@@ -133,7 +133,7 @@ namespace SAGAStructuralTools.Core.Rail
             return new FilteredElementCollector(_doc)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
-                .OrderBy(l => Math.Abs(l.Elevation - zFt))
+                .OrderBy(l => Math.Abs(l.ProjectElevation - zFt))
                 .FirstOrDefault()
                 ?? throw new InvalidOperationException("Nenhum Level encontrado no documento.");
         }
