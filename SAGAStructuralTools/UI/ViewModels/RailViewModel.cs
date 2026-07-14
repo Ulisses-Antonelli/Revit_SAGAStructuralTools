@@ -21,25 +21,29 @@ namespace SAGAStructuralTools.UI.ViewModels
         private readonly ExternalEvent       _pickEvent;
         private readonly ExternalEvent       _createEvent;
         private readonly RailCreationHandler _createHandler;
+        private readonly RailEditContext      _editContext;
+        private bool                          _isSubmitting;
 
         // Linhas selecionadas (cada clique em "Adicionar linha" acrescenta uma)
         private readonly List<(ElementId id, double lengthMm)> _segments = new List<(ElementId, double)>();
 
         public RailViewModel(ExternalEvent pickEvent, LinePickHandler pickHandler,
-                             ExternalEvent createEvent, RailCreationHandler createHandler)
+                             ExternalEvent createEvent, RailCreationHandler createHandler,
+                             RailEditContext editContext = null)
         {
             SagaLog.Write("RailViewModel — construtor início");
             _dispatcher    = Dispatcher.CurrentDispatcher;
             _pickEvent     = pickEvent;
             _createEvent   = createEvent;
             _createHandler = createHandler;
+            _editContext   = editContext;
 
-            pickHandler.LinePicked     += OnLinePicked;
+            if (pickHandler != null) pickHandler.LinePicked += OnLinePicked;
             _createHandler.Completed   += OnCreationCompleted;
 
             SagaLog.Write("RailViewModel — criando comandos...");
-            AddLineCommand            = new RelayCommand(_ => _pickEvent.Raise());
-            ClearSelectionCommand     = new RelayCommand(_ => ClearSelection(), _ => _segments.Count > 0);
+            AddLineCommand            = new RelayCommand(_ => _pickEvent.Raise(), _ => !IsEditMode);
+            ClearSelectionCommand     = new RelayCommand(_ => ClearSelection(), _ => !IsEditMode && _segments.Count > 0);
             BrowsePostCommand         = new RelayCommand(_ => BrowseFamily(ref _postFamilyPath,  ref _postFamilyType,  nameof(PostFamilyDisplay),  nameof(PostAvailableTypes),  PostAvailableTypes));
             BrowseHandrailCommand     = new RelayCommand(_ => BrowseFamily(ref _handrailFamilyPath, ref _handrailFamilyType, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), HandrailAvailableTypes));
             BrowseFrameCommand        = new RelayCommand(_ => BrowseFamily(ref _frameFamilyPath, ref _frameFamilyType, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), FrameAvailableTypes));
@@ -51,7 +55,9 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             RemoveBarCommand          = new RelayCommand(o => RemoveBar(o as BarConfigVm));
             CalculatePreviewCommand   = new RelayCommand(_ => CalculatePreview(), _ => _segments.Count > 0);
-            CreateCommand             = new RelayCommand(_ => CreateRail(), _ => _segments.Count > 0);
+            CreateCommand             = new RelayCommand(
+                _ => CreateRail(),
+                _ => _segments.Count > 0 && !_isSubmitting);
 
             SavePresetCommand         = new RelayCommand(_ => SavePreset(),   _ => !string.IsNullOrWhiteSpace(PresetName));
             LoadPresetCommand         = new RelayCommand(_ => LoadPreset(),   _ => !string.IsNullOrWhiteSpace(PresetName));
@@ -62,11 +68,41 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             // Presets: lista global por usuário + auto-carrega a última configuração usada.
             RefreshPresets();
-            TryLoadLast();
+            if (IsEditMode) LoadEditContext();
+            else TryLoadLast();
             SagaLog.Write("RailViewModel — construtor OK");
         }
 
         // ── Seleção de perímetro ──────────────────────────────────────────
+
+        public bool IsEditMode => _editContext != null;
+        public bool IsSubmitting => _isSubmitting;
+        public bool CanClose => !_isSubmitting;
+        public string CreateActionText => IsEditMode ? "Atualizar" : "Criar";
+        public string WindowTitle => IsEditMode
+            ? "SAGA — Editar Guarda-Corpo Metálico"
+            : "SAGA — Gerar Guarda-Corpo Metálico";
+
+        private void LoadEditContext()
+        {
+            if (_editContext?.Config == null || _editContext.Start == null || _editContext.End == null)
+                return;
+
+            ApplyConfig(_editContext.Config);
+            double lengthMm = _editContext.Start.DistanceTo(_editContext.End) * 304.8;
+            _segments.Clear();
+            SegmentItems.Clear();
+            _segments.Add((ElementId.InvalidElementId, lengthMm));
+            SegmentItems.Add($"Trecho existente — comprimento: {lengthMm:F0} mm");
+            HasSegments = true;
+            IsCalculated = false;
+            RaiseSelectionChanged();
+
+            Warnings.Clear();
+            Warnings.Add("Editando guarda-corpo existente. Altere os campos e clique em Atualizar.");
+            Warnings.Add(
+                "A atualização recria as peças; cotas, tags ou restrições ligadas a elas podem perder o vínculo.");
+        }
 
         public ObservableCollection<string> SegmentItems { get; } = new ObservableCollection<string>();
 
@@ -329,6 +365,9 @@ namespace SAGAStructuralTools.UI.ViewModels
 
                 Warnings.Clear();
                 foreach (var w in _definition.Warnings) Warnings.Add(w);
+                if (IsEditMode)
+                    Warnings.Add(
+                        "A atualização recria as peças; cotas, tags ou restrições ligadas a elas podem perder o vínculo.");
             }
             catch (Exception ex)
             {
@@ -342,7 +381,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         private void CreateRail()
         {
             // Calcular Preview é opcional: se ainda não há definição válida, calcula agora.
-            if (!IsCalculated || _definition == null)
+            if (IsEditMode || !IsCalculated || _definition == null)
                 CalculatePreview();
 
             if (_definition == null || !_definition.IsValid)
@@ -352,10 +391,28 @@ namespace SAGAStructuralTools.UI.ViewModels
             _createHandler.Definition = _definition;
             _createHandler.Config     = config;
             _createHandler.SegmentIds = _segments.Select(s => s.id).ToList();
+            _createHandler.EditContext = _editContext;
 
             RailPresetStore.SaveLast(config);   // lembra a última config usada
 
-            _createEvent.Raise();
+            try
+            {
+                SetSubmitting(true);
+                var request = _createEvent.Raise();
+                if (request != ExternalEventRequest.Accepted)
+                {
+                    SetSubmitting(false);
+                    Warnings.Clear();
+                    Warnings.Add(
+                        $"O Revit não aceitou a operação ({request}). Aguarde e tente novamente.");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetSubmitting(false);
+                Warnings.Clear();
+                Warnings.Add($"Não foi possível iniciar a operação: {ex.Message}");
+            }
         }
 
         // ── Presets (salvar/carregar configurações) ───────────────────────
@@ -497,10 +554,13 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             _dispatcher.Invoke(() =>
             {
+                SetSubmitting(false);
                 if (error == null)
                 {
                     Warnings.Clear();
-                    Warnings.Add("Guarda-corpo criado com sucesso.");
+                    Warnings.Add(IsEditMode
+                        ? "Guarda-corpo atualizado com sucesso."
+                        : "Guarda-corpo criado com sucesso.");
                 }
                 else
                 {
@@ -511,6 +571,15 @@ namespace SAGAStructuralTools.UI.ViewModels
                         System.Windows.MessageBoxImage.Error);
                 }
             });
+        }
+
+        private void SetSubmitting(bool value)
+        {
+            if (_isSubmitting == value) return;
+            _isSubmitting = value;
+            OnPropertyChanged(nameof(IsSubmitting));
+            OnPropertyChanged(nameof(CanClose));
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
         }
 
         // ── Helpers ───────────────────────────────────────────────────────
@@ -572,7 +641,9 @@ namespace SAGAStructuralTools.UI.ViewModels
             {
                 if (dlg.ShowDialog() != DialogResult.OK) return;
                 pathField = dlg.FileName;
-                LoadTypesFromCatalog(dlg.FileName, typeField, typesCollection, out typeField);
+                // Uma escolha explícita de outra família deve começar pelo catálogo dela,
+                // sem reaproveitar o tipo da família anterior.
+                LoadTypesFromCatalog(dlg.FileName, null, typesCollection, out typeField);
                 OnPropertyChanged(displayProp);
                 OnPropertyChanged(typesProp);
             }
@@ -590,7 +661,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             {
                 if (dlg.ShowDialog() != DialogResult.OK) return;
                 bar.FamilyPath = dlg.FileName;
-                LoadTypesFromCatalog(dlg.FileName, bar.FamilyType, bar.AvailableTypes, out var selected);
+                LoadTypesFromCatalog(dlg.FileName, null, bar.AvailableTypes, out var selected);
                 bar.FamilyType = selected;
             }
         }
@@ -599,10 +670,17 @@ namespace SAGAStructuralTools.UI.ViewModels
                                            ObservableCollection<string> target, out string selectedType)
         {
             target.Clear();
-            selectedType = null;
+            // Ao reabrir uma configuração, o .txt pode ter sido removido ou pode não
+            // listar mais um tipo que ainda existe no projeto/família. Preservar o valor
+            // salvo evita trocar o perfil apenas por abrir e atualizar o guarda-corpo.
+            selectedType = currentType;
 
             var catalogPath = Path.ChangeExtension(rfaPath, ".txt");
-            if (!File.Exists(catalogPath)) return;
+            if (!File.Exists(catalogPath))
+            {
+                if (!string.IsNullOrWhiteSpace(currentType)) target.Add(currentType);
+                return;
+            }
 
             try
             {
@@ -627,10 +705,26 @@ namespace SAGAStructuralTools.UI.ViewModels
                         selectedType = target.FirstOrDefault(t => TypeSignature(t) == signature);
                     }
 
-                    if (selectedType == null) selectedType = target[0];
+                    if (selectedType == null)
+                    {
+                        if (string.IsNullOrWhiteSpace(currentType))
+                        {
+                            selectedType = target[0];
+                        }
+                        else
+                        {
+                            target.Insert(0, currentType);
+                            selectedType = currentType;
+                        }
+                    }
                 }
             }
-            catch { }
+            catch
+            {
+                target.Clear();
+                if (!string.IsNullOrWhiteSpace(currentType)) target.Add(currentType);
+                selectedType = currentType;
+            }
         }
 
         private static string TypeSignature(string value)

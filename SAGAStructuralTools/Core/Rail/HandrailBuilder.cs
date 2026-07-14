@@ -3,6 +3,7 @@ using Autodesk.Revit.DB.Structure;
 using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -23,7 +24,8 @@ namespace SAGAStructuralTools.Core.Rail
         /// HandrailHeight representa diretamente essa cota, independentemente da altura
         /// física ou da rotação do perfil. Retorna null se não há corrimão configurado.
         /// </summary>
-        public double? Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd)
+        public double? Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd,
+                             ICollection<ElementId> createdIds = null)
         {
             if (string.IsNullOrWhiteSpace(config.HandrailFamilyPath)) return null;
 
@@ -55,6 +57,7 @@ namespace SAGAStructuralTools.Core.Rail
             var level = GetNearestLevel(heightFt);
             var line  = Line.CreateBound(start, end);
             var inst  = _doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
+            createdIds?.Add(inst.Id);
 
             // Estabilidade sob rotação: justificação travada no CENTRO (imune a flip de
             // perfil assimétrico) + posicionamento 100% por vetor global (MoveElement).

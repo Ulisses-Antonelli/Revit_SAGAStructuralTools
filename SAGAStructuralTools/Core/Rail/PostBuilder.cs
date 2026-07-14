@@ -19,7 +19,8 @@ namespace SAGAStructuralTools.Core.Rail
 
         public PostBuilder(Document doc) => _doc = doc;
 
-        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd, double? railAxisZ = null)
+        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd,
+                          double? railAxisZ = null, ICollection<ElementId> createdIds = null)
         {
             if (string.IsNullOrWhiteSpace(config.PostFamilyPath)) return;
 
@@ -91,6 +92,7 @@ namespace SAGAStructuralTools.Core.Rail
 
                 ApplyRotation(inst, config.PostRotation, isColumn, basePt);
                 created.Add(inst.Id);
+                createdIds?.Add(inst.Id);
             }
 
             // BoundingBox é adequada para vigas, mas não para Structural Columns:

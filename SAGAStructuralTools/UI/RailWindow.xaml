@@ -1142,11 +1142,12 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Button Grid.Column="1" Style="{StaticResource BtnSecondary}"
-                    Content="Cancelar" IsCancel="True" Click="OnCancel"/>
+                    Content="Cancelar" IsCancel="True" Click="OnCancel"
+                    IsEnabled="{Binding CanClose}"/>
             <Button Grid.Column="3" Style="{StaticResource BtnSecondary}"
                     Content="Calcular Preview" Command="{Binding CalculatePreviewCommand}"/>
             <Button Grid.Column="5" Style="{StaticResource BtnPrimary}"
-                    Content="Criar" Command="{Binding CreateCommand}"/>
+                    Content="{Binding CreateActionText}" Command="{Binding CreateCommand}"/>
         </Grid>
 
     </Grid>

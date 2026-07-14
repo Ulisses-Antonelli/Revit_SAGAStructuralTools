@@ -1,4 +1,5 @@
 using Autodesk.Revit.UI;
+using SAGAStructuralTools.UI;
 using System;
 using System.IO;
 using System.Reflection;
@@ -10,6 +11,8 @@ namespace SAGAStructuralTools
 {
     public class App : IExternalApplication
     {
+        private RailSelectionController _railSelectionController;
+
         public Result OnStartup(UIControlledApplication application)
         {
             SagaLog.Write("=== App.OnStartup iniciado ===");
@@ -65,6 +68,8 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("railing_16.png", 16)
                 });
 
+                _railSelectionController = new RailSelectionController(application);
+
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
                 return Result.Succeeded;
             }
@@ -85,7 +90,12 @@ namespace SAGAStructuralTools
             catch (Exception ex) { SagaLog.Exception($"AddItem({data.Name})", ex); }
         }
 
-        public Result OnShutdown(UIControlledApplication application) => Result.Succeeded;
+        public Result OnShutdown(UIControlledApplication application)
+        {
+            _railSelectionController?.Dispose();
+            _railSelectionController = null;
+            return Result.Succeeded;
+        }
 
         private static ImageSource LoadIcon(string fileName, int pixelSize)
         {

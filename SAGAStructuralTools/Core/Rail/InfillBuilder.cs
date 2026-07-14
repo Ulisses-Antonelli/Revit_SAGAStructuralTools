@@ -28,6 +28,7 @@ namespace SAGAStructuralTools.Core.Rail
         private readonly Document _doc;
         private readonly Dictionary<string, FamilySymbol> _symbolCache =
             new Dictionary<string, FamilySymbol>(StringComparer.OrdinalIgnoreCase);
+        private ICollection<ElementId> _createdIds;
 
         private static readonly string LogPath = Path.Combine(
             Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "",
@@ -35,17 +36,26 @@ namespace SAGAStructuralTools.Core.Rail
 
         public InfillBuilder(Document doc) => _doc = doc;
 
-        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd, double? railAxisZ = null)
+        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd,
+                          double? railAxisZ = null, ICollection<ElementId> createdIds = null)
         {
-            var vec = lineEnd - lineStart;
-            if (vec.GetLength() < 0.001) return;
-            var dir     = vec.Normalize();
-            var lateral = new XYZ(-dir.Y, dir.X, 0);
+            _createdIds = createdIds;
+            try
+            {
+                var vec = lineEnd - lineStart;
+                if (vec.GetLength() < 0.001) return;
+                var dir     = vec.Normalize();
+                var lateral = new XYZ(-dir.Y, dir.X, 0);
 
-            if (config.InfillMode == InfillMode.HorizontalBars)
-                BuildHorizontalBars(seg, config, lineStart, dir, lateral, railAxisZ);
-            else
-                BuildFramePanel(seg, config, lineStart, dir, lateral);
+                if (config.InfillMode == InfillMode.HorizontalBars)
+                    BuildHorizontalBars(seg, config, lineStart, dir, lateral, railAxisZ);
+                else
+                    BuildFramePanel(seg, config, lineStart, dir, lateral);
+            }
+            finally
+            {
+                _createdIds = null;
+            }
         }
 
         // ── Barras horizontais + rodapé ──────────────────────────────────
@@ -215,6 +225,7 @@ namespace SAGAStructuralTools.Core.Rail
             if (a.DistanceTo(b) < 0.001) { Log($"  [{tag}] segmento degenerado ignorado"); return null; }
             var level = GetNearestLevel((a.Z + b.Z) / 2.0);
             var inst  = _doc.Create.NewFamilyInstance(Line.CreateBound(a, b), sym, level, StructuralType.Beam);
+            Track(inst);
             CenterJustify(inst);   // eixo no centro da seção → o espelho preserva a posição
             SetCrossSectionRotation(inst, rotDeg);
             try { StructuralFramingUtils.DisallowJoinAtEnd(inst, 0); StructuralFramingUtils.DisallowJoinAtEnd(inst, 1); }
@@ -229,6 +240,7 @@ namespace SAGAStructuralTools.Core.Rail
             var level = GetNearestLevel((basePt.Z + topZFt) / 2.0);
             var levelPt = new XYZ(basePt.X, basePt.Y, level.ProjectElevation);
             var inst  = _doc.Create.NewFamilyInstance(levelPt, sym, level, StructuralType.Column);
+            Track(inst);
             SetColumnExtents(inst, level, basePt.Z, topZFt);
             if (Math.Abs(rotDegWorld) > 1e-9)
             {
@@ -273,6 +285,7 @@ namespace SAGAStructuralTools.Core.Rail
             var level = GetNearestLevel((a.Z + b.Z) / 2.0);
             var line  = Line.CreateBound(a, b);
             var inst  = _doc.Create.NewFamilyInstance(line, sym, level, StructuralType.Beam);
+            Track(inst);
             CenterJustify(inst);
 
             // Anula o cutback automático de junta: o Revit preenche "Recuo da junta" com o
@@ -286,6 +299,12 @@ namespace SAGAStructuralTools.Core.Rail
             catch { /* nem toda família/categoria suporta join; ignorar */ }
 
             Log($"  [{tag}] {Fmt(a)} → {Fmt(b)}");
+        }
+
+        private FamilyInstance Track(FamilyInstance inst)
+        {
+            if (inst != null) _createdIds?.Add(inst.Id);
+            return inst;
         }
 
         /// <summary>
