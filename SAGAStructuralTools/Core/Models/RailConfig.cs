@@ -19,6 +19,12 @@ namespace SAGAStructuralTools.Core.Models
         public double FixedAxisSpacing           { get; set; } = RailDefaults.FixedAxisSpacing;
         public double EndPostInset               { get; set; } = RailDefaults.EndPostInset;
 
+        // ── Posicionamento do conjunto ───────────────────────────────────
+        // Aplicados ao conjunto inteiro em relação à linha-base selecionada.
+        // O lateral segue a normal horizontal do trecho e o vertical, o Z global.
+        public double GlobalLateralOffset        { get; set; } = RailDefaults.GlobalLateralOffset;
+        public double GlobalVerticalOffset       { get; set; } = RailDefaults.GlobalVerticalOffset;
+
         // ── Montante ─────────────────────────────────────────────────────
         public string PostFamilyPath             { get; set; }
         public string PostFamilyType             { get; set; }

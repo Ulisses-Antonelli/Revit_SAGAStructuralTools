@@ -22,14 +22,16 @@ namespace SAGAStructuralTools.UI.ViewModels
         private readonly ExternalEvent       _createEvent;
         private readonly RailCreationHandler _createHandler;
         private readonly RailEditContext      _editContext;
+        private readonly bool                 _isInclinedMode;
         private bool                          _isSubmitting;
 
         // Linhas selecionadas (cada clique em "Adicionar linha" acrescenta uma)
-        private readonly List<(ElementId id, double lengthMm)> _segments = new List<(ElementId, double)>();
+        private readonly List<RailLinePickResult> _segments = new List<RailLinePickResult>();
 
         public RailViewModel(ExternalEvent pickEvent, LinePickHandler pickHandler,
                              ExternalEvent createEvent, RailCreationHandler createHandler,
-                             RailEditContext editContext = null)
+                             RailEditContext editContext = null,
+                             bool isInclinedMode = false)
         {
             SagaLog.Write("RailViewModel — construtor início");
             _dispatcher    = Dispatcher.CurrentDispatcher;
@@ -37,12 +39,16 @@ namespace SAGAStructuralTools.UI.ViewModels
             _createEvent   = createEvent;
             _createHandler = createHandler;
             _editContext   = editContext;
+            _isInclinedMode = isInclinedMode || IsInclined(editContext?.Start, editContext?.End);
+            _createHandler.IsInclinedRun = _isInclinedMode;
 
             if (pickHandler != null) pickHandler.LinePicked += OnLinePicked;
             _createHandler.Completed   += OnCreationCompleted;
 
             SagaLog.Write("RailViewModel — criando comandos...");
-            AddLineCommand            = new RelayCommand(_ => _pickEvent.Raise(), _ => !IsEditMode);
+            AddLineCommand            = new RelayCommand(
+                _ => _pickEvent.Raise(),
+                _ => !IsEditMode);
             ClearSelectionCommand     = new RelayCommand(_ => ClearSelection(), _ => !IsEditMode && _segments.Count > 0);
             BrowsePostCommand         = new RelayCommand(_ => BrowseFamily(ref _postFamilyPath,  ref _postFamilyType,  nameof(PostFamilyDisplay),  nameof(PostAvailableTypes),  nameof(PostFamilyType), PostAvailableTypes));
             BrowseHandrailCommand     = new RelayCommand(_ => BrowseFamily(ref _handrailFamilyPath, ref _handrailFamilyType, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), nameof(HandrailFamilyType), HandrailAvailableTypes));
@@ -51,6 +57,33 @@ namespace SAGAStructuralTools.UI.ViewModels
             BrowseRodapeCommand       = new RelayCommand(_ => BrowseFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), nameof(RodapeFamilyType), RodapeAvailableTypes));
             BrowseBarCommonCommand    = new RelayCommand(_ => BrowseFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), nameof(BarCommonFamilyType), BarCommonAvailableTypes));
             BrowseBarRowCommand       = new RelayCommand(o => BrowseBarRow(o as BarConfigVm));
+            ClearPostFamilyCommand    = new RelayCommand(
+                _ => ClearFamily(ref _postFamilyPath, ref _postFamilyType, PostAvailableTypes,
+                                 nameof(PostFamilyDisplay), nameof(PostAvailableTypes), nameof(PostFamilyType)),
+                _ => HasFamilySelection(_postFamilyPath, _postFamilyType, PostAvailableTypes));
+            ClearHandrailFamilyCommand = new RelayCommand(
+                _ => ClearFamily(ref _handrailFamilyPath, ref _handrailFamilyType, HandrailAvailableTypes,
+                                 nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), nameof(HandrailFamilyType)),
+                _ => HasFamilySelection(_handrailFamilyPath, _handrailFamilyType, HandrailAvailableTypes));
+            ClearFrameFamilyCommand   = new RelayCommand(
+                _ => ClearFamily(ref _frameFamilyPath, ref _frameFamilyType, FrameAvailableTypes,
+                                 nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), nameof(FrameFamilyType)),
+                _ => HasFamilySelection(_frameFamilyPath, _frameFamilyType, FrameAvailableTypes));
+            ClearFrameVertFamilyCommand = new RelayCommand(
+                _ => ClearFamily(ref _frameVertFamilyPath, ref _frameVertFamilyType, FrameVertAvailableTypes,
+                                 nameof(FrameVertFamilyDisplay), nameof(FrameVertAvailableTypes), nameof(FrameVertFamilyType)),
+                _ => HasFamilySelection(_frameVertFamilyPath, _frameVertFamilyType, FrameVertAvailableTypes));
+            ClearRodapeFamilyCommand  = new RelayCommand(
+                _ => ClearFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, RodapeAvailableTypes,
+                                 nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), nameof(RodapeFamilyType)),
+                _ => HasFamilySelection(_rodapeFamilyPath, _rodapeFamilyType, RodapeAvailableTypes));
+            ClearBarCommonFamilyCommand = new RelayCommand(
+                _ => ClearFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, BarCommonAvailableTypes,
+                                 nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), nameof(BarCommonFamilyType)),
+                _ => HasFamilySelection(_barCommonFamilyPath, _barCommonFamilyType, BarCommonAvailableTypes));
+            ClearBarRowFamilyCommand  = new RelayCommand(
+                o => ClearBarRow(o as BarConfigVm),
+                o => HasFamilySelection(o as BarConfigVm));
             AddBarCommand             = new RelayCommand(_ => AddBar());
 
             RemoveBarCommand          = new RelayCommand(o => RemoveBar(o as BarConfigVm));
@@ -76,12 +109,27 @@ namespace SAGAStructuralTools.UI.ViewModels
         // ── Seleção de perímetro ──────────────────────────────────────────
 
         public bool IsEditMode => _editContext != null;
+        public bool IsInclinedMode => _isInclinedMode;
+        public bool IsStandardMode => !_isInclinedMode;
         public bool IsSubmitting => _isSubmitting;
         public bool CanClose => !_isSubmitting;
         public string CreateActionText => IsEditMode ? "Atualizar" : "Criar";
         public string WindowTitle => IsEditMode
-            ? "SAGA — Editar Guarda-Corpo Metálico"
-            : "SAGA — Gerar Guarda-Corpo Metálico";
+            ? (IsInclinedMode
+                ? "SAGA — Editar Guarda-Corpo Inclinado"
+                : "SAGA — Editar Guarda-Corpo Metálico")
+            : (IsInclinedMode
+                ? "SAGA — Gerar Guarda-Corpo Inclinado"
+                : "SAGA — Gerar Guarda-Corpo Metálico");
+        public string SelectionSectionTitle => IsInclinedMode
+            ? "Seleção do trecho inclinado"
+            : "Seleção do perímetro";
+        public string SelectionInstructions => IsInclinedMode
+            ? "Clique em \"Selecionar vigas/trechos\", selecione as longarinas/vigas estruturais inclinadas da escada e clique em Concluir no Revit. Também são aceitas linhas 3D retas."
+            : "Clique em \"Adicionar linha\" e selecione uma linha no desenho. Repita para cada trecho — cada linha vira um guarda-corpo independente.";
+        public string AddLineActionText => IsInclinedMode
+            ? "+ Selecionar vigas/trechos"
+            : "+ Adicionar linha";
 
         private void LoadEditContext()
         {
@@ -92,8 +140,12 @@ namespace SAGAStructuralTools.UI.ViewModels
             double lengthMm = _editContext.Start.DistanceTo(_editContext.End) * 304.8;
             _segments.Clear();
             SegmentItems.Clear();
-            _segments.Add((ElementId.InvalidElementId, lengthMm));
-            SegmentItems.Add($"Trecho existente — comprimento: {lengthMm:F0} mm");
+            var editResult = BuildEditResult(_editContext.Start, _editContext.End);
+            editResult.ElementId = ElementId.InvalidElementId;
+            _segments.Add(editResult);
+            SegmentItems.Add(IsInclinedMode
+                ? FormatInclinedSegment("Trecho existente", editResult)
+                : $"Trecho existente — comprimento: {lengthMm:F0} mm");
             HasSegments = true;
             IsCalculated = false;
             RaiseSelectionChanged();
@@ -111,22 +163,29 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         // Resumo da seleção (usada para criar)
         public int    SelectedLinesCount => _segments.Count;
-        public double SelectedLinesTotal => _segments.Sum(s => s.lengthMm);
+        public double SelectedLinesTotal => _segments.Sum(s => s.LengthMm);
+        public double SelectedElevationChangeTotal => _segments.Sum(s => s.ElevationChangeMm);
         public string SelectionSummary =>
             _segments.Count == 0
-                ? "Nenhuma linha adicionada."
-                : $"{_segments.Count} linha(s)  ·  total {SelectedLinesTotal:F0} mm";
+                ? (IsInclinedMode ? "Nenhum trecho inclinado adicionado." : "Nenhuma linha adicionada.")
+                : IsInclinedMode
+                    ? (_segments.Count == 1
+                        ? $"Trecho inclinado · comprimento {SelectedLinesTotal:F0} mm · desnível {SelectedElevationChangeTotal:F0} mm · ângulo {_segments[0].AngleDegrees:F1}° · cota baixa → alta"
+                        : $"{_segments.Count} trechos inclinados · comprimento {SelectedLinesTotal:F0} mm · desnível acumulado {SelectedElevationChangeTotal:F0} mm")
+                    : $"{_segments.Count} linha(s)  ·  total {SelectedLinesTotal:F0} mm";
 
-        // Disparado pelo LinePickHandler após cada clique válido (um PickObject).
+        // Disparado pelo LinePickHandler para cada elemento válido da seleção.
         // Roda no contexto de ExternalEvent (thread da API = thread da UI); o padrão
         // _dispatcher.Invoke é o mesmo usado com sucesso pela escada (StairViewModel).
-        private void OnLinePicked(ElementId id, double lengthMm)
+        private void OnLinePicked(RailLinePickResult result)
         {
             _dispatcher.Invoke(() =>
             {
-                if (_segments.Any(s => s.id == id)) return;   // evita duplicar a mesma linha
-                _segments.Add((id, lengthMm));
-                SegmentItems.Add($"{_segments.Count}  —  comprimento: {lengthMm:F0} mm");
+                if (result == null || _segments.Any(s => s.ElementId == result.ElementId)) return;
+                _segments.Add(result);
+                SegmentItems.Add(IsInclinedMode
+                    ? FormatInclinedSegment(_segments.Count.ToString(), result)
+                    : $"{_segments.Count}  —  comprimento: {result.LengthMm:F0} mm");
                 HasSegments  = true;
                 IsCalculated = false;
                 RaiseSelectionChanged();
@@ -147,8 +206,42 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             OnPropertyChanged(nameof(SelectedLinesCount));
             OnPropertyChanged(nameof(SelectedLinesTotal));
+            OnPropertyChanged(nameof(SelectedElevationChangeTotal));
             OnPropertyChanged(nameof(SelectionSummary));
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+        }
+
+        private static bool IsInclined(XYZ start, XYZ end)
+        {
+            return start != null && end != null &&
+                   Math.Abs(end.Z - start.Z) * 304.8 > 1.0;
+        }
+
+        private static RailLinePickResult BuildEditResult(XYZ start, XYZ end)
+        {
+            if (start == null || end == null)
+                return new RailLinePickResult { ElementId = ElementId.InvalidElementId };
+
+            double dx = end.X - start.X;
+            double dy = end.Y - start.Y;
+            double horizontalFeet = Math.Sqrt(dx * dx + dy * dy);
+            double elevationFeet = Math.Abs(end.Z - start.Z);
+            return new RailLinePickResult
+            {
+                ElementId = ElementId.InvalidElementId,
+                LengthMm = start.DistanceTo(end) * 304.8,
+                HorizontalLengthMm = horizontalFeet * 304.8,
+                ElevationChangeMm = elevationFeet * 304.8,
+                AngleDegrees = Math.Atan2(elevationFeet, horizontalFeet) * 180.0 / Math.PI,
+                WasReversedForSummary = start.Z > end.Z
+            };
+        }
+
+        private static string FormatInclinedSegment(string label, RailLinePickResult result)
+        {
+            return $"{label} — comprimento inclinado: {result.LengthMm:F0} mm · " +
+                   $"desnível: {result.ElevationChangeMm:F0} mm · " +
+                   $"ângulo: {result.AngleDegrees:F1}° · cota baixa → alta";
         }
 
         // ── Aba Entrada — distribuição ────────────────────────────────────
@@ -176,6 +269,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         private double _maxPostSpan      = RailDefaults.MaxPostSpan;
         private double _fixedAxisSpacing = RailDefaults.FixedAxisSpacing;
         private double _endPostInset     = RailDefaults.EndPostInset;
+        private double _globalLateralOffset;
+        private double _globalVerticalOffset;
 
         public int    PostCount        { get => _postCount;        set => Set(ref _postCount,        value); }
         public double MaxPostSpan      { get => _maxPostSpan;      set => Set(ref _maxPostSpan,      value); }
@@ -187,6 +282,16 @@ namespace SAGAStructuralTools.UI.ViewModels
             {
                 if (Set(ref _endPostInset, value)) IsCalculated = false;
             }
+        }
+        public double GlobalLateralOffset
+        {
+            get => _globalLateralOffset;
+            set => Set(ref _globalLateralOffset, value);
+        }
+        public double GlobalVerticalOffset
+        {
+            get => _globalVerticalOffset;
+            set => Set(ref _globalVerticalOffset, value);
         }
 
         // ── Montante ──────────────────────────────────────────────────────
@@ -233,6 +338,9 @@ namespace SAGAStructuralTools.UI.ViewModels
             get => _infillMode;
             set
             {
+                if (IsInclinedMode && value != InfillMode.HorizontalBars)
+                    value = InfillMode.HorizontalBars;
+
                 if (Set(ref _infillMode, value))
                 {
                     OnPropertyChanged(nameof(IsHorizontalBarsMode));
@@ -363,7 +471,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             try
             {
-                var lengths = _segments.Select(s => s.lengthMm).ToList();
+                var lengths = _segments.Select(s => s.LengthMm).ToList();
                 _definition  = RailCalculator.Calculate(lengths, BuildConfig());
                 IsCalculated = true;
 
@@ -400,7 +508,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             var config = BuildConfig();
             _createHandler.Definition = _definition;
             _createHandler.Config     = config;
-            _createHandler.SegmentIds = _segments.Select(s => s.id).ToList();
+            _createHandler.SegmentIds = _segments.Select(s => s.ElementId).ToList();
             _createHandler.EditContext = _editContext;
 
             RailPresetStore.SaveLast(config);   // lembra a última config usada
@@ -484,6 +592,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             MaxPostSpan      = c.MaxPostSpan;
             FixedAxisSpacing = c.FixedAxisSpacing;
             EndPostInset     = c.EndPostInset;
+            GlobalLateralOffset = IsInclinedMode ? c.GlobalLateralOffset : 0.0;
+            GlobalVerticalOffset = IsInclinedMode ? c.GlobalVerticalOffset : 0.0;
 
             SetFamily(ref _postFamilyPath, ref _postFamilyType, c.PostFamilyPath, c.PostFamilyType,
                       PostAvailableTypes, nameof(PostFamilyDisplay), nameof(PostAvailableTypes), nameof(PostFamilyType));
@@ -499,7 +609,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             Justification      = c.Justification;
             HandrailHeight     = c.HandrailHeight;
 
-            InfillMode      = c.InfillMode;
+            InfillMode      = IsInclinedMode ? InfillMode.HorizontalBars : c.InfillMode;
             SameProfileAll  = c.SameProfileAll;
             EquidistantBars = c.EquidistantBars;
 
@@ -559,6 +669,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             OnPropertyChanged(displayProp);
             OnPropertyChanged(typesProp);
             OnPropertyChanged(typeProp);
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
         }
 
         private void OnCreationCompleted(string error)
@@ -602,6 +713,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             MaxPostSpan        = MaxPostSpan,
             FixedAxisSpacing   = FixedAxisSpacing,
             EndPostInset       = EndPostInset,
+            GlobalLateralOffset = IsInclinedMode ? GlobalLateralOffset : 0.0,
+            GlobalVerticalOffset = IsInclinedMode ? GlobalVerticalOffset : 0.0,
 
             PostFamilyPath     = _postFamilyPath,
             PostFamilyType     = _postFamilyType,
@@ -617,7 +730,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             Justification      = Justification,
             HandrailHeight     = HandrailHeight,
 
-            InfillMode         = InfillMode,
+            InfillMode         = IsInclinedMode ? InfillMode.HorizontalBars : InfillMode,
             HorizontalBars     = HorizontalBars.Select(b => b.ToModel()).ToList(),
             HorizontalBarCommon = new BarConfig { FamilyPath = _barCommonFamilyPath, FamilyType = _barCommonFamilyType },
             SameProfileAll     = SameProfileAll,
@@ -665,7 +778,29 @@ namespace SAGAStructuralTools.UI.ViewModels
                 OnPropertyChanged(displayProp);
                 OnPropertyChanged(typesProp);
                 OnPropertyChanged(typeProp);
+                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        private void ClearFamily(ref string pathField, ref string typeField,
+                                 ObservableCollection<string> typesCollection,
+                                 string displayProp, string typesProp, string typeProp)
+        {
+            pathField = null;
+            typeField = null;
+            typesCollection.Clear();
+            OnPropertyChanged(displayProp);
+            OnPropertyChanged(typesProp);
+            OnPropertyChanged(typeProp);
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+        }
+
+        private static bool HasFamilySelection(string path, string type,
+                                               ObservableCollection<string> typesCollection)
+        {
+            return !string.IsNullOrWhiteSpace(path) ||
+                   !string.IsNullOrWhiteSpace(type) ||
+                   (typesCollection?.Count ?? 0) > 0;
         }
 
         // Browse de perfil para uma travessa específica (modo perfil por linha)
@@ -682,7 +817,25 @@ namespace SAGAStructuralTools.UI.ViewModels
                 bar.FamilyPath = dlg.FileName;
                 LoadTypesFromCatalog(dlg.FileName, null, bar.AvailableTypes, out var selected);
                 bar.FamilyType = selected;
+                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        private static void ClearBarRow(BarConfigVm bar)
+        {
+            if (bar == null) return;
+            bar.FamilyPath = null;
+            bar.FamilyType = null;
+            bar.AvailableTypes.Clear();
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+        }
+
+        private static bool HasFamilySelection(BarConfigVm bar)
+        {
+            return bar != null &&
+                   (!string.IsNullOrWhiteSpace(bar.FamilyPath) ||
+                    !string.IsNullOrWhiteSpace(bar.FamilyType) ||
+                    bar.AvailableTypes.Count > 0);
         }
 
         private void LoadTypesFromCatalog(string rfaPath, string currentType,
@@ -757,7 +910,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private static string FamilyDisplay(string path, string type)
         {
-            if (string.IsNullOrWhiteSpace(path)) return "Selecione uma família (.rfa)";
+            if (string.IsNullOrWhiteSpace(path)) return "Sem família — não será criado";
             var name = Path.GetFileNameWithoutExtension(path);
             return string.IsNullOrWhiteSpace(type) ? name : $"{name}  ·  {type}";
         }
@@ -792,6 +945,13 @@ namespace SAGAStructuralTools.UI.ViewModels
         public RelayCommand BrowseRodapeCommand     { get; }
         public RelayCommand BrowseBarCommonCommand  { get; }
         public RelayCommand BrowseBarRowCommand     { get; }
+        public RelayCommand ClearPostFamilyCommand  { get; }
+        public RelayCommand ClearHandrailFamilyCommand { get; }
+        public RelayCommand ClearFrameFamilyCommand { get; }
+        public RelayCommand ClearFrameVertFamilyCommand { get; }
+        public RelayCommand ClearRodapeFamilyCommand { get; }
+        public RelayCommand ClearBarCommonFamilyCommand { get; }
+        public RelayCommand ClearBarRowFamilyCommand { get; }
         public RelayCommand AddBarCommand           { get; }
         public RelayCommand RemoveBarCommand        { get; }
         public RelayCommand CalculatePreviewCommand { get; }

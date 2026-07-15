@@ -36,21 +36,23 @@ namespace SAGAStructuralTools.Core.Rail
 
         public InfillBuilder(Document doc) => _doc = doc;
 
-        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd,
-                          double? railAxisZ = null, ICollection<ElementId> createdIds = null)
+        public void Build(RailSegment seg, RailConfig config, RailRunGeometry run,
+                          RailRunGeometry railAxisRun = null, ICollection<ElementId> createdIds = null)
         {
             _createdIds = createdIds;
             try
             {
-                var vec = lineEnd - lineStart;
-                if (vec.GetLength() < 0.001) return;
-                var dir     = vec.Normalize();
-                var lateral = new XYZ(-dir.Y, dir.X, 0);
-
                 if (config.InfillMode == InfillMode.HorizontalBars)
-                    BuildHorizontalBars(seg, config, lineStart, dir, lateral, railAxisZ);
+                    BuildHorizontalBars(seg, config, run, railAxisRun);
                 else
-                    BuildFramePanel(seg, config, lineStart, dir, lateral);
+                {
+                    if (run.IsInclined)
+                        throw new InvalidOperationException(
+                            "O fechamento em quadros ainda não é compatível com guarda-corpo inclinado. " +
+                            "Selecione o fechamento com barras horizontais para este trecho.");
+
+                    BuildFramePanel(seg, config, run.Start, run.Direction, run.Lateral);
+                }
             }
             finally
             {
@@ -59,26 +61,31 @@ namespace SAGAStructuralTools.Core.Rail
         }
 
         // ── Barras horizontais + rodapé ──────────────────────────────────
-        private void BuildHorizontalBars(RailSegment seg, RailConfig config, XYZ lineStart, XYZ dir, XYZ lateral, double? railAxisZ)
+        private void BuildHorizontalBars(
+            RailSegment seg,
+            RailConfig config,
+            RailRunGeometry run,
+            RailRunGeometry railAxisRun)
         {
-            double baseZ        = lineStart.Z;
             // Distribuição equidistante vai da base até o EIXO do corrimão (não o topo).
-            // HandrailHeight representa diretamente o eixo central do corrimão.
-            double railAxisZFt  = railAxisZ ??
-                                  (lineStart.Z + config.HandrailHeight / 304.8);
+            // A distância é vertical global em qualquer ponto do percurso inclinado.
+            double railVerticalOffsetFt = railAxisRun != null
+                ? railAxisRun.Start.Z - run.Start.Z
+                : config.HandrailHeight / 304.8;
             double lateralOffFt = config.PostAxisOffset / 304.8;   // mesmo eixo dos montantes
 
             // As travessas nascem do eixo do 1º e do último montante — usa AxisOffsets
             // (posições reais após o recuo de W/2), com fallback para PostOffsets/linha.
             var offsets  = (seg.AxisOffsets != null && seg.AxisOffsets.Count > 0) ? seg.AxisOffsets : seg.PostOffsets;
             bool hasPosts = offsets != null && offsets.Count > 0;
-            double startFt = (hasPosts ? offsets[0]                    : 0.0)        / 304.8;
-            double endFt   = (hasPosts ? offsets[offsets.Count - 1]    : seg.Length) / 304.8;
+            double startMm = hasPosts ? offsets[0] : 0.0;
+            double endMm = hasPosts ? offsets[offsets.Count - 1] : run.LengthMm;
 
-            XYZ Pt(double alongFt, double z) => new XYZ(
-                lineStart.X + dir.X * alongFt + lateral.X * lateralOffFt,
-                lineStart.Y + dir.Y * alongFt + lateral.Y * lateralOffFt,
-                z);
+            XYZ Pt(double alongMm, double verticalOffsetFt, double extraLateralFt = 0) =>
+                run.PointAtDistanceMm(
+                    alongMm,
+                    verticalOffsetFt,
+                    lateralOffFt + extraLateralFt);
 
             // Rodapé (toe board) — barra próxima à base
             if (!string.IsNullOrWhiteSpace(config.Rodape?.FamilyPath))
@@ -86,13 +93,13 @@ namespace SAGAStructuralTools.Core.Rail
                 var rodapeSym = GetSymbol(config.Rodape.FamilyPath, config.Rodape.FamilyType);
                 if (rodapeSym != null)
                 {
-                    double z = baseZ + config.Rodape.Distance / 304.8;
+                    double verticalOffsetFt = config.Rodape.Distance / 304.8;
                     double extraLateralFt = config.Rodape.LateralOffset / 304.8;
-                    XYZ RodapePt(double alongFt) => new XYZ(
-                        lineStart.X + dir.X * alongFt + lateral.X * (lateralOffFt + extraLateralFt),
-                        lineStart.Y + dir.Y * alongFt + lateral.Y * (lateralOffFt + extraLateralFt),
-                        z);
-                    CreateBeam(rodapeSym, RodapePt(startFt), RodapePt(endFt), "rodapé");
+                    CreateBeam(
+                        rodapeSym,
+                        Pt(startMm, verticalOffsetFt, extraLateralFt),
+                        Pt(endMm, verticalOffsetFt, extraLateralFt),
+                        "rodapé");
                     Log($"  [rodapé] offset horizontal adicional={config.Rodape.LateralOffset:F1}mm | " +
                         $"offset vertical={config.Rodape.Distance:F1}mm");
                 }
@@ -114,12 +121,16 @@ namespace SAGAStructuralTools.Core.Rail
                 var sym = GetSymbol(famPath, famType);
                 if (sym == null) continue;
 
-                double z = config.EquidistantBars
+                double verticalOffsetFt = config.EquidistantBars
                     // distribui uniformemente entre a base e o EIXO do corrimão
-                    ? baseZ + (railAxisZFt - baseZ) * (i + 1) / (bars.Count + 1)
-                    : baseZ + (barCfg?.Distance ?? 0) / 304.8;
+                    ? railVerticalOffsetFt * (i + 1) / (bars.Count + 1)
+                    : (barCfg?.Distance ?? 0) / 304.8;
 
-                CreateBeam(sym, Pt(startFt, z), Pt(endFt, z), $"travessa {i + 1}");
+                CreateBeam(
+                    sym,
+                    Pt(startMm, verticalOffsetFt),
+                    Pt(endMm, verticalOffsetFt),
+                    $"travessa {i + 1}");
             }
         }
 

@@ -14,6 +14,7 @@ namespace SAGAStructuralTools.Core.Rail
         public RailConfig      Config      { get; set; }
         public List<ElementId> SegmentIds  { get; set; }
         public RailEditContext EditContext { get; set; }
+        public bool            IsInclinedRun { get; set; }
 
         public event Action<string> Completed;
 
@@ -81,10 +82,18 @@ namespace SAGAStructuralTools.Core.Rail
                             }
                             else
                             {
-                                if (SegmentIds == null || i >= SegmentIds.Count) continue;
-                                var lineEl = doc.GetElement(SegmentIds[i]);
-                                if (!(lineEl?.Location is LocationCurve lc)) continue;
-                                if (!(lc.Curve is Line line)) continue;
+                                if (SegmentIds == null || i >= SegmentIds.Count)
+                                    throw new InvalidOperationException(
+                                        $"Trecho {i + 1}: a referência da viga selecionada não está disponível.");
+
+                                var selectedId = SegmentIds[i];
+                                var lineEl = doc.GetElement(selectedId);
+                                if (lineEl == null)
+                                    throw new InvalidOperationException(
+                                        $"Trecho {i + 1} (elemento {selectedId}): a viga selecionada não foi encontrada.");
+                                if (!LinePickHandler.TryGetBoundLine(lineEl, out var line))
+                                    throw new InvalidOperationException(
+                                        $"Trecho {i + 1} (elemento {selectedId}): o elemento não possui mais um eixo reto válido.");
                                 start = line.GetEndPoint(0);
                                 end = line.GetEndPoint(1);
                             }
@@ -92,23 +101,52 @@ namespace SAGAStructuralTools.Core.Rail
                             if (start == null || end == null || start.DistanceTo(end) < 0.001)
                                 throw new InvalidOperationException("A linha-base do guarda-corpo é inválida.");
 
+                            // Mantém o eixo escolhido separado do eixo efetivo de criação.
+                            // O primeiro é persistido para que uma edição reaplique a configuração
+                            // exatamente uma vez, sem acumular o deslocamento global.
+                            var referenceRun = RailRunGeometry.Create(start, end);
+                            if (IsInclinedRun && !referenceRun.IsInclined)
+                                throw new InvalidOperationException(
+                                    "O comando de guarda-corpo inclinado exige uma linha-base com desnível. " +
+                                    "Selecione uma longarina ou linha 3D inclinada.");
+                            if (!IsInclinedRun && EditContext == null && referenceRun.IsInclined)
+                                throw new InvalidOperationException(
+                                    "A linha selecionada é inclinada. Use o comando 'Guarda-corpo inclinado' " +
+                                    "para gerar este trecho.");
+
+                            // Os offsets globais pertencem apenas ao fluxo inclinado. Isso evita
+                            // que um preset desse modo desloque silenciosamente o comando horizontal.
+                            var run = IsInclinedRun
+                                ? referenceRun.OffsetMm(
+                                    Config?.GlobalVerticalOffset ?? 0.0,
+                                    Config?.GlobalLateralOffset ?? 0.0)
+                                : referenceRun;
+
                             var createdIds = new List<ElementId>();
 
                             // Corrimão primeiro: mede o eixo central real e repassa aos
                             // montantes (topo) e travessas (distribuição), evitando o chute
                             // de dimensão por nome de parâmetro.
-                            double? railAxisZ = handrailBuilder.Build(seg, Config, start, end, createdIds);
-                            postBuilder.Build(seg, Config, start, end, railAxisZ, createdIds);
-                            infillBuilder.Build(seg, Config, start, end, railAxisZ, createdIds);
+                            try
+                            {
+                                var railAxisRun = handrailBuilder.Build(seg, Config, run, createdIds);
+                                postBuilder.Build(seg, Config, run, railAxisRun, createdIds);
+                                infillBuilder.Build(seg, Config, run, railAxisRun, createdIds);
 
-                            if (createdIds.Count == 0)
+                                if (createdIds.Count == 0)
+                                    throw new InvalidOperationException(
+                                        "Nenhum elemento foi criado. Verifique as famílias configuradas.");
+                            }
+                            catch (Exception ex)
+                            {
                                 throw new InvalidOperationException(
-                                    "Nenhum elemento foi criado para o trecho. Verifique as famílias configuradas.");
+                                    $"Trecho {i + 1}: {ex.Message}", ex);
+                            }
 
                             var stored = RailAssemblyStore.Create(
                                 Config,
-                                start,
-                                end,
+                                referenceRun.Start,
+                                referenceRun.End,
                                 EditContext?.AssemblyId,
                                 (EditContext?.Revision ?? -1) + 1);
                             RailAssemblyStore.Attach(doc, createdIds, stored);

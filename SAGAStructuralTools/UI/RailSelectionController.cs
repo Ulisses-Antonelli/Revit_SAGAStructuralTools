@@ -149,13 +149,19 @@ namespace SAGAStructuralTools.UI
                 SagaLog.Write(
                     $"Edição {context.AssemblyId}: documento confirmado e {memberCount} membros encontrados.");
 
-                var pickHandler = new LinePickHandler();
-                var createHandler = new RailCreationHandler();
+                bool isInclined = context.Start != null && context.End != null &&
+                                  Math.Abs(context.End.Z - context.Start.Z) * 304.8 > 1.0;
+                var pickHandler = new LinePickHandler(
+                    isInclined ? RailLinePickMode.Inclined : RailLinePickMode.Standard);
+                var createHandler = new RailCreationHandler
+                {
+                    IsInclinedRun = isInclined
+                };
                 _pickEvent = ExternalEvent.Create(pickHandler);
                 _createEvent = ExternalEvent.Create(createHandler);
 
                 var window = new RailWindow(
-                    _pickEvent, pickHandler, _createEvent, createHandler, context);
+                    _pickEvent, pickHandler, _createEvent, createHandler, context, isInclined);
                 if (!RailWindow.TryRegister(window))
                 {
                     _pickEvent.Dispose();

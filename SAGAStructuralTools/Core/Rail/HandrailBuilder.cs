@@ -20,12 +20,12 @@ namespace SAGAStructuralTools.Core.Rail
         public HandrailBuilder(Document doc) => _doc = doc;
 
         /// <summary>
-        /// Cria o corrimão e retorna a elevação Z (em pés) do EIXO CENTRAL da seção.
-        /// HandrailHeight representa diretamente essa cota, independentemente da altura
-        /// física ou da rotação do perfil. Retorna null se não há corrimão configurado.
+        /// Cria o corrimão e retorna seu eixo central. HandrailHeight é um deslocamento
+        /// vertical global em relação à linha-base, inclusive nos trechos inclinados.
+        /// Retorna null se não há corrimão configurado.
         /// </summary>
-        public double? Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd,
-                             ICollection<ElementId> createdIds = null)
+        public RailRunGeometry Build(RailSegment seg, RailConfig config, RailRunGeometry run,
+                                     ICollection<ElementId> createdIds = null)
         {
             if (string.IsNullOrWhiteSpace(config.HandrailFamilyPath)) return null;
 
@@ -41,20 +41,14 @@ namespace SAGAStructuralTools.Core.Rail
 
             if (!symbol.IsActive) symbol.Activate();
 
-            var vec = lineEnd - lineStart;
-            if (vec.GetLength() < 0.001) return null;
-            var dir     = vec.Normalize();
-            var lateral = new XYZ(-dir.Y, dir.X, 0);
-
-            double heightFt  = lineStart.Z + config.HandrailHeight / 304.8;
+            double heightFt  = config.HandrailHeight / 304.8;
             double axisOffFt = config.HandrailAxisOffset / 304.8;
 
-            var start = new XYZ(lineStart.X + lateral.X * axisOffFt, lineStart.Y + lateral.Y * axisOffFt, heightFt);
-            var end   = new XYZ(lineEnd.X   + lateral.X * axisOffFt, lineEnd.Y   + lateral.Y * axisOffFt, heightFt);
+            var axisRun = run.Offset(heightFt, axisOffFt);
+            var start = axisRun.Start;
+            var end = axisRun.End;
 
-            if (start.DistanceTo(end) < 0.001) return null;
-
-            var level = GetNearestLevel(heightFt);
+            var level = GetNearestLevel((start.Z + end.Z) / 2.0);
             var line  = Line.CreateBound(start, end);
             var inst  = _doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
             createdIds?.Add(inst.Id);
@@ -65,24 +59,24 @@ namespace SAGAStructuralTools.Core.Rail
             SetCrossSectionRotation(inst, config.HandrailRotation);
             _doc.Regenerate();
 
-            // Mede a seção REAL (projetada) já rotacionada: altura (vertical) e largura (lateral).
-            double hMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, XYZ.BasisZ);
-            double wMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, lateral);
+            // A extensão Z inclui o desnível do próprio eixo quando o trecho é inclinado;
+            // serve apenas para diagnóstico. A largura lateral continua sendo a seção real.
+            double extentZMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, XYZ.BasisZ);
+            double wMm = GeometryMeasure.ExtentAlongMm(_doc, inst.Id, run.Lateral);
             // Z: a altura informada corresponde diretamente ao EIXO CENTRAL. Como a
             // justificação Z está travada no centro, não há compensação pela meia seção.
             // Y: justificativa por movimento lateral ±W/2 (Esquerda/Direita), 0 no Centro.
             double lateralJustFt = config.Justification == HandrailJustification.Left  ? -(wMm / 2.0) / 304.8
                                  : config.Justification == HandrailJustification.Right ? +(wMm / 2.0) / 304.8
                                  :                                                        0.0;
-            var move = new XYZ(lateral.X * lateralJustFt, lateral.Y * lateralJustFt, 0);
+            var move = run.Lateral * lateralJustFt;
             if (move.GetLength() > 1e-9) ElementTransformUtils.MoveElement(_doc, inst.Id, move);
 
-            double axisZ = heightFt;
-            double topZ = axisZ + (hMm / 2.0) / 304.8;
+            axisRun = axisRun.Offset(0, lateralJustFt);
 
-            Log($"HandrailBuilder: segmento {seg.Index + 1} | h={hMm:F1}mm w={wMm:F1}mm | " +
-                $"z_topo={(topZ - lineStart.Z) * 304.8:F0}mm | z_eixo={(axisZ - lineStart.Z) * 304.8:F0}mm | just={config.Justification}");
-            return axisZ;
+            Log($"HandrailBuilder: segmento {seg.Index + 1} | extensãoZ={extentZMm:F1}mm w={wMm:F1}mm | " +
+                $"altura_eixo={config.HandrailHeight:F0}mm | inclinado={run.IsInclined} | just={config.Justification}");
+            return axisRun;
         }
 
         /// <summary>Trava a justificação no Centro (Y e Z, YZ Uniforme) — estável sob rotação/flip.</summary>

@@ -7,6 +7,10 @@ namespace SAGAStructuralTools.Core.Domain
         public const double FixedAxisSpacing   = 1000.0;  // mm
         public const double EndPostInset       = 150.0;   // mm (eixo do montante até a extremidade)
 
+        // Deslocamento do conjunto completo em relação à linha-base selecionada.
+        public const double GlobalLateralOffset = 0.0;    // mm
+        public const double GlobalVerticalOffset = 0.0;   // mm
+
         public const double PostRotation       = 0.0;
         public const double PostTopOffset      = 0.0;
         public const double PostBaseOffset     = 0.0;

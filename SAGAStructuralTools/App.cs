@@ -69,6 +69,17 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(panel, new PushButtonData(
+                    name:         "GenerateInclinedRail",
+                    text:         "Guarda-Corpo\nInclinado",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateInclinedRailCommand")
+                {
+                    ToolTip    = "Gera guarda-corpos metálicos em linhas 3D ou vigas estruturais retas e inclinadas.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
+                TryAddButton(panel, new PushButtonData(
                     name:         "RoundRailCorner",
                     text:         "Arredondar\nCanto",
                     assemblyName: assemblyPath,

@@ -43,13 +43,14 @@ namespace SAGAStructuralTools.UI
 
         public RailWindow(ExternalEvent pickEvent, LinePickHandler pickHandler,
                           ExternalEvent createEvent, RailCreationHandler createHandler,
-                          RailEditContext editContext = null)
+                          RailEditContext editContext = null,
+                          bool isInclinedMode = false)
         {
             SagaLog.Write("RailWindow — InitializeComponent...");
             InitializeComponent();
             SagaLog.Write("RailWindow — InitializeComponent OK");
             var viewModel = new RailViewModel(
-                pickEvent, pickHandler, createEvent, createHandler, editContext);
+                pickEvent, pickHandler, createEvent, createHandler, editContext, isInclinedMode);
             DataContext = viewModel;
             Title = viewModel.WindowTitle;
             SagaLog.Write("RailWindow — DataContext setado, construtor OK");

@@ -24,7 +24,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             get
             {
-                if (string.IsNullOrWhiteSpace(FamilyPath)) return "(sem perfil)";
+                if (string.IsNullOrWhiteSpace(FamilyPath)) return "Sem família — não será criado";
                 var name = System.IO.Path.GetFileNameWithoutExtension(FamilyPath);
                 return string.IsNullOrWhiteSpace(FamilyType) ? name : $"{name} · {FamilyType}";
             }

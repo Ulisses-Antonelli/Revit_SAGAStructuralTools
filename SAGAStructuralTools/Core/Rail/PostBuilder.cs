@@ -19,8 +19,8 @@ namespace SAGAStructuralTools.Core.Rail
 
         public PostBuilder(Document doc) => _doc = doc;
 
-        public void Build(RailSegment seg, RailConfig config, XYZ lineStart, XYZ lineEnd,
-                          double? railAxisZ = null, ICollection<ElementId> createdIds = null)
+        public void Build(RailSegment seg, RailConfig config, RailRunGeometry run,
+                          RailRunGeometry railAxisRun = null, ICollection<ElementId> createdIds = null)
         {
             if (string.IsNullOrWhiteSpace(config.PostFamilyPath)) return;
 
@@ -39,28 +39,29 @@ namespace SAGAStructuralTools.Core.Rail
 
             if (!symbol.IsActive) symbol.Activate();
 
-            var vec = lineEnd - lineStart;
-            if (vec.GetLength() < 0.001) return;
-            var dir     = vec.Normalize();
-            var lateral = new XYZ(-dir.Y, dir.X, 0);
-
             double axisOffFt = config.PostAxisOffset / 304.8;
-            double baseZ     = lineStart.Z - config.PostBaseOffset / 304.8;   // nasce na linha selecionada
-            var    level     = GetNearestLevel(lineStart.Z);
-
-            // ── Parte 3: restrição de altura (topo no EIXO CENTRAL do corrimão) ──
-            // HandrailHeight representa diretamente o eixo central do corrimão.
-            double limitZ = railAxisZ ??
-                            (lineStart.Z + config.HandrailHeight / 304.8);
-            double topZ   = Math.Min(limitZ + config.PostTopOffset / 304.8, limitZ);
 
             // ── Cria todos os montantes nas posições brutas (PostOffsets) ─────────
             var created = new List<ElementId>();
+            var baseById = new Dictionary<ElementId, double>();
+            var topById = new Dictionary<ElementId, double>();
+            var levelById = new Dictionary<ElementId, Level>();
             foreach (double offsetMm in seg.PostOffsets)
             {
-                double offsetFt = offsetMm / 304.8;
-                var    center   = lineStart + dir * offsetFt + lateral * axisOffFt;
-                var    basePt   = new XYZ(center.X, center.Y, baseZ);
+                var baselinePoint = run.PointAtDistanceMm(offsetMm);
+                var center = baselinePoint + run.Lateral * axisOffFt;
+                double baseZ = baselinePoint.Z - config.PostBaseOffset / 304.8;
+
+                // A altura é globalmente vertical: em cada posição, o topo acompanha
+                // a elevação local da linha inclinada e não uma única cota do trecho.
+                double limitZ = railAxisRun?.PointAtDistanceMm(offsetMm).Z ??
+                                (baselinePoint.Z + config.HandrailHeight / 304.8);
+                double topZ = Math.Min(limitZ + config.PostTopOffset / 304.8, limitZ);
+                var basePt = new XYZ(center.X, center.Y, baseZ);
+                // No fluxo horizontal preserva a ancoragem histórica pelo nível da
+                // linha selecionada. No inclinado, cada poste recebe o nível mais
+                // adequado à sua própria cota de base.
+                var level = GetNearestLevel(run.IsInclined ? baseZ : run.Start.Z);
 
                 FamilyInstance inst;
                 if (isFraming)
@@ -92,6 +93,9 @@ namespace SAGAStructuralTools.Core.Rail
 
                 ApplyRotation(inst, config.PostRotation, isColumn, basePt);
                 created.Add(inst.Id);
+                baseById[inst.Id] = baseZ;
+                topById[inst.Id] = topZ;
+                levelById[inst.Id] = level;
                 createdIds?.Add(inst.Id);
             }
 
@@ -100,7 +104,7 @@ namespace SAGAStructuralTools.Core.Rail
             // Colunas são posicionadas exclusivamente por nível e offsets em
             // SetColumnExtents; usar a caixa nelas pode deslocá-las centenas de metros.
             double maxBaseCorrectionMm = isFraming
-                ? AlignPhysicalBases(created, baseZ)
+                ? AlignPhysicalBases(baseById)
                 : 0.0;
 
             // ── Parte 2: recuo W/2 nas pontas (distribuição em L_eixos = L − W) ───
@@ -110,34 +114,63 @@ namespace SAGAStructuralTools.Core.Rail
             if (created.Count > 0)
             {
                 _doc.Regenerate();
-                // Largura na DIREÇÃO da linha (projetada) — exata em diagonais e sob rotação.
-                W = GeometryMeasure.ExtentAlongMm(_doc, created[0], dir);
+                // Mede somente na direção horizontal do percurso. Medir no vetor 3D
+                // incluiria a altura do montante na projeção de um trecho inclinado.
+                W = GeometryMeasure.ExtentAlongMm(_doc, created[0], run.HorizontalDirection);
             }
 
-            double L = seg.Length;
+            double L = run.LengthMm;
             var axisOffsets = new List<double>(seg.PostOffsets);
             // Com recuo configurado, PostOffsets já contém os eixos finais exatos.
             // O ajuste automático por W/2 é mantido apenas no modo legado (recuo zero).
-            if (config.EndPostInset <= 1e-6 && W > 1e-6 && L > W)
+            double horizontalRatio = run.HorizontalLengthFt / run.LengthFt;
+            double axisWidthMm = W / horizontalRatio;
+            if (config.EndPostInset <= 1e-6 && axisWidthMm > 1e-6 && L > axisWidthMm)
             {
-                double halfW = W / 2.0, lEixos = L - W;
+                double halfW = axisWidthMm / 2.0, lEixos = L - axisWidthMm;
                 for (int i = 0; i < created.Count; i++)
                 {
                     double newOff  = halfW + seg.PostOffsets[i] * lEixos / L;
                     axisOffsets[i] = newOff;
                     double deltaFt = (newOff - seg.PostOffsets[i]) / 304.8;
                     if (Math.Abs(deltaFt) > 1e-9)
-                        ElementTransformUtils.MoveElement(_doc, created[i], dir * deltaFt);
+                    {
+                        if (isColumn)
+                        {
+                            // Move o pilar apenas em planta; a nova elevação é controlada
+                            // pelos offsets do nível para evitar dupla soma de Z.
+                            ElementTransformUtils.MoveElement(
+                                _doc,
+                                created[i],
+                                run.HorizontalDirection * (deltaFt * horizontalRatio));
+
+                            double shiftedBaseZ = baseById[created[i]] + run.Direction.Z * deltaFt;
+                            double shiftedTopZ = topById[created[i]] + run.Direction.Z * deltaFt;
+                            SetColumnExtents(
+                                _doc.GetElement(created[i]) as FamilyInstance,
+                                levelById[created[i]],
+                                shiftedBaseZ,
+                                shiftedTopZ);
+                            baseById[created[i]] = shiftedBaseZ;
+                            topById[created[i]] = shiftedTopZ;
+                        }
+                        else
+                        {
+                            ElementTransformUtils.MoveElement(_doc, created[i], run.Direction * deltaFt);
+                        }
+                    }
                 }
             }
             seg.AxisOffsets = axisOffsets;   // InfillBuilder alinha travessas/quadros por estes eixos
             seg.PostWidthMm = W;             // largura na direção da linha (para faces das cantoneiras)
 
             string columnPosition = isColumn && created.Count > 0
-                ? DescribeColumnPosition(_doc.GetElement(created[0]) as FamilyInstance, level)
+                ? DescribeColumnPosition(
+                    _doc.GetElement(created[0]) as FamilyInstance,
+                    levelById[created[0]])
                 : "";
 
-            Log($"PostBuilder: {created.Count} montantes | W={W:F1}mm | topZ={(topZ - lineStart.Z) * 304.8:F0}mm | " +
+            Log($"PostBuilder: {created.Count} montantes | W={W:F1}mm | inclinado={run.IsInclined} | " +
                 $"correçãoZ={maxBaseCorrectionMm:F1}mm | categoria={(isColumn ? "Column" : "Framing")} | " +
                 $"família={Path.GetFileNameWithoutExtension(config.PostFamilyPath)}{columnPosition}");
         }
@@ -147,23 +180,23 @@ namespace SAGAStructuralTools.Core.Rail
         /// coincida com a cota de base desejada. A medição após Regenerate considera
         /// origem interna da família, justificação e eventuais recuos automáticos.
         /// </summary>
-        private double AlignPhysicalBases(IReadOnlyCollection<ElementId> ids, double targetBaseZFt)
+        private double AlignPhysicalBases(IReadOnlyDictionary<ElementId, double> targetBaseById)
         {
-            if (ids == null || ids.Count == 0) return 0;
+            if (targetBaseById == null || targetBaseById.Count == 0) return 0;
 
             _doc.Regenerate();
             double maxCorrectionFt = 0;
 
-            foreach (var id in ids)
+            foreach (var pair in targetBaseById)
             {
-                var element = _doc.GetElement(id);
+                var element = _doc.GetElement(pair.Key);
                 var box = element?.get_BoundingBox(null);
                 if (box == null) continue;
 
-                double deltaZ = targetBaseZFt - box.Min.Z;
+                double deltaZ = pair.Value - box.Min.Z;
                 maxCorrectionFt = Math.Max(maxCorrectionFt, Math.Abs(deltaZ));
                 if (Math.Abs(deltaZ) > 1e-9)
-                    ElementTransformUtils.MoveElement(_doc, id, XYZ.BasisZ * deltaZ);
+                    ElementTransformUtils.MoveElement(_doc, pair.Key, XYZ.BasisZ * deltaZ);
             }
 
             if (maxCorrectionFt > 1e-9) _doc.Regenerate();
