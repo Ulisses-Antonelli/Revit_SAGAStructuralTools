@@ -1081,7 +1081,7 @@
             <!-- ╔══════════════════════════════════════╗ -->
             <!-- ║  ABA TERMINAIS                       ║ -->
             <!-- ╚══════════════════════════════════════╝ -->
-            <TabItem Header="Terminais" Style="{StaticResource RailTabItem}">
+            <TabItem Header="Terminais" Style="{StaticResource RailTabItem}" Visibility="Collapsed">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="20,16,20,8">
 

@@ -29,10 +29,19 @@ namespace SAGAStructuralTools.UI
             _application = application ?? throw new ArgumentNullException(nameof(application));
             _application.SelectionChanged += OnSelectionChanged;
             _application.Idling += OnIdling;
+            RailToolSession.CornerCommandStarted += OnCornerCommandStarted;
         }
+
+        private void OnCornerCommandStarted() => ClearPendingSelection();
 
         private void OnSelectionChanged(object sender, SelectionChangedEventArgs args)
         {
+            if (RailToolSession.IsCornerCommandActive)
+            {
+                ClearPendingSelection();
+                return;
+            }
+
             if (_window != null || RailWindow.HasOpenWindow) return;
 
             try
@@ -90,6 +99,12 @@ namespace SAGAStructuralTools.UI
 
         private void OnIdling(object sender, IdlingEventArgs args)
         {
+            if (RailToolSession.IsCornerCommandActive)
+            {
+                ClearPendingSelection();
+                return;
+            }
+
             if (_pendingContext == null || _window != null) return;
             if (RailWindow.HasOpenWindow)
             {
@@ -196,6 +211,7 @@ namespace SAGAStructuralTools.UI
         {
             _application.SelectionChanged -= OnSelectionChanged;
             _application.Idling -= OnIdling;
+            RailToolSession.CornerCommandStarted -= OnCornerCommandStarted;
 
             if (_window != null)
                 _window.Close();

@@ -54,6 +54,11 @@ namespace SAGAStructuralTools.Core.Rail
 
                         if (EditContext != null)
                         {
+                            int removedCorners = RoundedCornerStore.RemoveForAssembly(
+                                doc, EditContext.AssemblyId);
+                            if (removedCorners > 0)
+                                Log($"Edicao: removidos {removedCorners} cantos arredondados manuais vinculados.");
+
                             var previousIds = RailAssemblyStore.FindMemberIds(doc, EditContext);
                             if (previousIds.Count == 0)
                                 throw new InvalidOperationException(

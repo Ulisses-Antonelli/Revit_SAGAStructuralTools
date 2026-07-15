@@ -68,6 +68,17 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("railing_16.png", 16)
                 });
 
+                TryAddButton(panel, new PushButtonData(
+                    name:         "RoundRailCorner",
+                    text:         "Arredondar\nCanto",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.RoundRailCornerCommand")
+                {
+                    ToolTip    = "Une duas vigas ou uma viga e um pilar com um arco tangente.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
                 _railSelectionController = new RailSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
