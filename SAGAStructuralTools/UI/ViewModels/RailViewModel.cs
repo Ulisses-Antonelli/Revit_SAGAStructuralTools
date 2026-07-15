@@ -44,12 +44,12 @@ namespace SAGAStructuralTools.UI.ViewModels
             SagaLog.Write("RailViewModel — criando comandos...");
             AddLineCommand            = new RelayCommand(_ => _pickEvent.Raise(), _ => !IsEditMode);
             ClearSelectionCommand     = new RelayCommand(_ => ClearSelection(), _ => !IsEditMode && _segments.Count > 0);
-            BrowsePostCommand         = new RelayCommand(_ => BrowseFamily(ref _postFamilyPath,  ref _postFamilyType,  nameof(PostFamilyDisplay),  nameof(PostAvailableTypes),  PostAvailableTypes));
-            BrowseHandrailCommand     = new RelayCommand(_ => BrowseFamily(ref _handrailFamilyPath, ref _handrailFamilyType, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), HandrailAvailableTypes));
-            BrowseFrameCommand        = new RelayCommand(_ => BrowseFamily(ref _frameFamilyPath, ref _frameFamilyType, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), FrameAvailableTypes));
-            BrowseFrameVertCommand    = new RelayCommand(_ => BrowseFamily(ref _frameVertFamilyPath, ref _frameVertFamilyType, nameof(FrameVertFamilyDisplay), nameof(FrameVertAvailableTypes), FrameVertAvailableTypes));
-            BrowseRodapeCommand       = new RelayCommand(_ => BrowseFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), RodapeAvailableTypes));
-            BrowseBarCommonCommand    = new RelayCommand(_ => BrowseFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), BarCommonAvailableTypes));
+            BrowsePostCommand         = new RelayCommand(_ => BrowseFamily(ref _postFamilyPath,  ref _postFamilyType,  nameof(PostFamilyDisplay),  nameof(PostAvailableTypes),  nameof(PostFamilyType), PostAvailableTypes));
+            BrowseHandrailCommand     = new RelayCommand(_ => BrowseFamily(ref _handrailFamilyPath, ref _handrailFamilyType, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), nameof(HandrailFamilyType), HandrailAvailableTypes));
+            BrowseFrameCommand        = new RelayCommand(_ => BrowseFamily(ref _frameFamilyPath, ref _frameFamilyType, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), nameof(FrameFamilyType), FrameAvailableTypes));
+            BrowseFrameVertCommand    = new RelayCommand(_ => BrowseFamily(ref _frameVertFamilyPath, ref _frameVertFamilyType, nameof(FrameVertFamilyDisplay), nameof(FrameVertAvailableTypes), nameof(FrameVertFamilyType), FrameVertAvailableTypes));
+            BrowseRodapeCommand       = new RelayCommand(_ => BrowseFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), nameof(RodapeFamilyType), RodapeAvailableTypes));
+            BrowseBarCommonCommand    = new RelayCommand(_ => BrowseFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), nameof(BarCommonFamilyType), BarCommonAvailableTypes));
             BrowseBarRowCommand       = new RelayCommand(o => BrowseBarRow(o as BarConfigVm));
             AddBarCommand             = new RelayCommand(_ => AddBar());
 
@@ -271,13 +271,23 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _rodapeFamilyPath;
         private string _rodapeFamilyType;
         private BarAlignment _rodapeAlignment = BarAlignment.InternalFace;
-        private double _rodapeOffset;
+        private double _rodapeHorizontalOffset;
+        private double _rodapeVerticalOffset;
 
         public string RodapeFamilyDisplay => FamilyDisplay(_rodapeFamilyPath, _rodapeFamilyType);
         public string RodapeFamilyType    { get => _rodapeFamilyType;  set { if (Set(ref _rodapeFamilyType, value)) OnPropertyChanged(nameof(RodapeFamilyDisplay)); } }
         public ObservableCollection<string> RodapeAvailableTypes { get; } = new ObservableCollection<string>();
         public BarAlignment RodapeAlignment { get => _rodapeAlignment; set => Set(ref _rodapeAlignment, value); }
-        public double RodapeOffset          { get => _rodapeOffset;    set => Set(ref _rodapeOffset,    value); }
+        public double RodapeHorizontalOffset
+        {
+            get => _rodapeHorizontalOffset;
+            set => Set(ref _rodapeHorizontalOffset, value);
+        }
+        public double RodapeVerticalOffset
+        {
+            get => _rodapeVerticalOffset;
+            set => Set(ref _rodapeVerticalOffset, value);
+        }
 
         // Fechamento em Quadro
         private FrameType _frameType = FrameType.AngleIron;
@@ -496,7 +506,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             SetFamily(ref _rodapeFamilyPath, ref _rodapeFamilyType, c.Rodape?.FamilyPath, c.Rodape?.FamilyType,
                       RodapeAvailableTypes, nameof(RodapeFamilyDisplay), nameof(RodapeAvailableTypes), nameof(RodapeFamilyType));
             RodapeAlignment = c.Rodape?.Alignment ?? RodapeAlignment;
-            RodapeOffset    = c.Rodape?.Distance  ?? 0;
+            RodapeHorizontalOffset = c.Rodape?.LateralOffset ?? 0;
+            RodapeVerticalOffset   = c.Rodape?.Distance      ?? 0;
 
             SetFamily(ref _barCommonFamilyPath, ref _barCommonFamilyType, c.HorizontalBarCommon?.FamilyPath, c.HorizontalBarCommon?.FamilyType,
                       BarCommonAvailableTypes, nameof(BarCommonFamilyDisplay), nameof(BarCommonAvailableTypes), nameof(BarCommonFamilyType));
@@ -611,7 +622,14 @@ namespace SAGAStructuralTools.UI.ViewModels
             HorizontalBarCommon = new BarConfig { FamilyPath = _barCommonFamilyPath, FamilyType = _barCommonFamilyType },
             SameProfileAll     = SameProfileAll,
             EquidistantBars    = EquidistantBars,
-            Rodape             = new BarConfig { FamilyPath = _rodapeFamilyPath, FamilyType = _rodapeFamilyType, Alignment = RodapeAlignment, Distance = RodapeOffset },
+            Rodape             = new BarConfig
+            {
+                FamilyPath = _rodapeFamilyPath,
+                FamilyType = _rodapeFamilyType,
+                Alignment = RodapeAlignment,
+                LateralOffset = RodapeHorizontalOffset,
+                Distance = RodapeVerticalOffset
+            },
 
             FrameType           = FrameType,
             FrameFamilyPath     = _frameFamilyPath,
@@ -630,7 +648,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         };
 
         private void BrowseFamily(ref string pathField, ref string typeField,
-                                   string displayProp, string typesProp,
+                                   string displayProp, string typesProp, string typeProp,
                                    ObservableCollection<string> typesCollection)
         {
             using (var dlg = new OpenFileDialog
@@ -646,6 +664,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 LoadTypesFromCatalog(dlg.FileName, null, typesCollection, out typeField);
                 OnPropertyChanged(displayProp);
                 OnPropertyChanged(typesProp);
+                OnPropertyChanged(typeProp);
             }
         }
 

@@ -28,7 +28,7 @@ namespace SAGAStructuralTools.Core.Rail
             if (doc == null) { Notify("Nenhum documento Revit aberto."); return; }
 
             if (EditContext?.SourceDocument != null &&
-                !ReferenceEquals(EditContext.SourceDocument, doc))
+                !EditContext.MatchesDocument(doc))
             {
                 Notify("O documento ativo mudou. Volte ao arquivo do guarda-corpo e tente novamente.");
                 return;

@@ -207,6 +207,13 @@ namespace SAGAStructuralTools.Core.Rail
         public List<string> MemberUniqueIds { get; set; } = new List<string>();
         public Document SourceDocument { get; set; }
 
+        public bool MatchesDocument(Document document)
+        {
+            if (SourceDocument == null || document == null) return false;
+            try { return SourceDocument.Equals(document); }
+            catch { return false; }
+        }
+
         public static RailEditContext FromStored(RailAssemblyData data)
         {
             if (data == null) return null;

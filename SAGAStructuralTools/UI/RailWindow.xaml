@@ -7,6 +7,7 @@
         Width="560" MinWidth="520" Height="780"
         ResizeMode="CanResizeWithGrip" MinHeight="560"
         WindowStartupLocation="CenterScreen"
+        Language="pt-BR"
         Background="#F8F9FB"
         FontFamily="Segoe UI" FontSize="13">
 
@@ -14,6 +15,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <converters:EnumToBoolConverter x:Key="EnumToBool"/>
         <converters:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
+        <converters:FlexibleDoubleConverter x:Key="FlexibleDouble"/>
 
         <!-- ── Reutilizados da escada ─────────────────────────────────── -->
         <Style x:Key="SectionCard" TargetType="Border">
@@ -862,16 +864,9 @@
                             </StackPanel>
 
                             <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="130"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="90"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Perfil (.rfa)"/>
+                                <StackPanel>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Família (.rfa)"/>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
@@ -885,24 +880,44 @@
                                                     Content="Procurar..." Command="{Binding BrowseRodapeCommand}"/>
                                         </Grid>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Alinhamento"/>
-                                        <ComboBox Style="{StaticResource RoundedComboBox}" SelectedIndex="0">
-                                            <ComboBoxItem Content="Eixo"/>
-                                            <ComboBoxItem Content="Face interna"/>
-                                            <ComboBoxItem Content="Face externa"/>
-                                        </ComboBox>
+
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding RodapeAvailableTypes}"
+                                                  SelectedItem="{Binding RodapeFamilyType}"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="4">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Offset vert."/>
-                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBox Style="{StaticResource CleanInput}" Text="{Binding RodapeOffset, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </DockPanel>
-                                        </Border>
-                                    </StackPanel>
-                                </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="16"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Offset horizontal"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding RodapeHorizontalOffset, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                             ToolTip="Deslocamento lateral adicional em relação ao eixo dos montantes. Positivo para a esquerda da direção da linha; negativo para a direita."/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Offset vertical"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding RodapeVerticalOffset, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                             ToolTip="Cota do eixo central do rodapé acima da linha-base."/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
 

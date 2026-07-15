@@ -97,62 +97,77 @@ namespace SAGAStructuralTools.UI
                 return;
             }
 
-            var uiApplication = sender as UIApplication;
             var context = _pendingContext;
             _pendingContext = null;
 
-            if (uiApplication?.ActiveUIDocument?.Document == null ||
-                !ReferenceEquals(uiApplication.ActiveUIDocument.Document, context.SourceDocument))
-            {
-                _lastAssemblyId = null;
-                return;
-            }
-
-            if (RailAssemblyStore.FindMemberIds(context.SourceDocument, context).Count == 0)
-            {
-                _lastAssemblyId = null;
-                return;
-            }
-
-            ExternalEvent pickEvent = null;
-            ExternalEvent createEvent = null;
-            RailWindow window = null;
             try
             {
+                var uiApplication = sender as UIApplication;
+                var activeDocument = uiApplication?.ActiveUIDocument?.Document;
+                if (activeDocument == null)
+                {
+                    SagaLog.Write(
+                        $"Edição {context.AssemblyId} cancelada: Idling sem documento ativo " +
+                        $"(sender={sender?.GetType().FullName ?? "null"}).");
+                    _lastAssemblyId = null;
+                    return;
+                }
+
+                if (!context.MatchesDocument(activeDocument))
+                {
+                    SagaLog.Write(
+                        $"Edição {context.AssemblyId} cancelada: o documento ativo mudou " +
+                        $"('{context.SourceDocument?.Title}' → '{activeDocument.Title}').");
+                    _lastAssemblyId = null;
+                    return;
+                }
+
+                int memberCount = RailAssemblyStore.FindMemberIds(activeDocument, context).Count;
+                if (memberCount == 0)
+                {
+                    SagaLog.Write(
+                        $"Edição {context.AssemblyId} cancelada: nenhum membro registrado foi encontrado.");
+                    _lastAssemblyId = null;
+                    return;
+                }
+
+                SagaLog.Write(
+                    $"Edição {context.AssemblyId}: documento confirmado e {memberCount} membros encontrados.");
+
                 var pickHandler = new LinePickHandler();
                 var createHandler = new RailCreationHandler();
-                pickEvent = ExternalEvent.Create(pickHandler);
-                createEvent = ExternalEvent.Create(createHandler);
+                _pickEvent = ExternalEvent.Create(pickHandler);
+                _createEvent = ExternalEvent.Create(createHandler);
 
-                window = new RailWindow(
-                    pickEvent, pickHandler, createEvent, createHandler, context);
+                var window = new RailWindow(
+                    _pickEvent, pickHandler, _createEvent, createHandler, context);
                 if (!RailWindow.TryRegister(window))
                 {
-                    pickEvent.Dispose();
-                    createEvent.Dispose();
+                    _pickEvent.Dispose();
+                    _createEvent.Dispose();
+                    _pickEvent = null;
+                    _createEvent = null;
                     ClearPendingSelection();
                     return;
                 }
+                _window = window;
                 new WindowInteropHelper(window).Owner =
                     Process.GetCurrentProcess().MainWindowHandle;
                 window.Closed += OnWindowClosed;
 
-                _pickEvent = pickEvent;
-                _createEvent = createEvent;
-                _window = window;
                 window.Show();
 
                 SagaLog.Write($"Janela de edição aberta para {context.AssemblyId}.");
             }
             catch (Exception ex)
             {
-                if (window != null) window.Closed -= OnWindowClosed;
-                RailWindow.Release(window);
+                if (_window != null) _window.Closed -= OnWindowClosed;
+                RailWindow.Release(_window);
                 _window = null;
+                _pickEvent?.Dispose();
+                _createEvent?.Dispose();
                 _pickEvent = null;
                 _createEvent = null;
-                pickEvent?.Dispose();
-                createEvent?.Dispose();
                 _lastAssemblyId = null;
                 SagaLog.Exception("RailSelectionController.OpenWindow", ex);
             }

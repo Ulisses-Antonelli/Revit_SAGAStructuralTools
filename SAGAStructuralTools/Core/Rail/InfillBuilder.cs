@@ -87,7 +87,14 @@ namespace SAGAStructuralTools.Core.Rail
                 if (rodapeSym != null)
                 {
                     double z = baseZ + config.Rodape.Distance / 304.8;
-                    CreateBeam(rodapeSym, Pt(startFt, z), Pt(endFt, z), "rodapé");
+                    double extraLateralFt = config.Rodape.LateralOffset / 304.8;
+                    XYZ RodapePt(double alongFt) => new XYZ(
+                        lineStart.X + dir.X * alongFt + lateral.X * (lateralOffFt + extraLateralFt),
+                        lineStart.Y + dir.Y * alongFt + lateral.Y * (lateralOffFt + extraLateralFt),
+                        z);
+                    CreateBeam(rodapeSym, RodapePt(startFt), RodapePt(endFt), "rodapé");
+                    Log($"  [rodapé] offset horizontal adicional={config.Rodape.LateralOffset:F1}mm | " +
+                        $"offset vertical={config.Rodape.Distance:F1}mm");
                 }
             }
 
