@@ -25,6 +25,22 @@ namespace SAGAStructuralTools.Core.Models
         public double GlobalLateralOffset        { get; set; } = RailDefaults.GlobalLateralOffset;
         public double GlobalVerticalOffset       { get; set; } = RailDefaults.GlobalVerticalOffset;
 
+        // ── Par espelhado para escadas ─────────────────────────────────────
+        // O vetor horizontal, medido entre dois eixos de referência reais, usa as
+        // coordenadas internas globais X/Y em milímetros. Ele é persistido para
+        // permitir que a edição recrie o par sem selecionar as referências novamente.
+        public bool   MirrorPairEnabled           { get; set; }
+        public bool   MirrorReferenceDefined      { get; set; }
+        public double MirrorTranslationX          { get; set; }
+        public double MirrorTranslationY          { get; set; }
+
+        // Compatibilidade de leitura/edição com pares criados pelo protótipo anterior.
+        public double MirrorStairWidth            { get; set; } = 800.0;
+        public bool   MirrorWidthIsAxis           { get; set; } = true;
+        public bool   MirrorInvertSide            { get; set; }
+        public double MirrorProfileWidth          { get; set; }
+        public int    MirrorBaseSideSign          { get; set; } = 1;
+
         // ── Montante ─────────────────────────────────────────────────────
         public string PostFamilyPath             { get; set; }
         public string PostFamilyType             { get; set; }

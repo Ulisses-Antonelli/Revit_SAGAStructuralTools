@@ -29,6 +29,20 @@ namespace SAGAStructuralTools.Core.Rail
     }
 
     /// <summary>
+    /// Vetor horizontal que leva o eixo de justificação da primeira longarina
+    /// ao eixo da segunda. Os componentes ficam em milímetros e em coordenadas
+    /// globais do modelo para poderem ser persistidos diretamente no RailConfig.
+    /// </summary>
+    public sealed class MirrorAxisPickResult
+    {
+        public ElementId SourceElementId { get; set; }
+        public ElementId TargetElementId { get; set; }
+        public double TranslationXmm { get; set; }
+        public double TranslationYmm { get; set; }
+        public double DistanceMm { get; set; }
+    }
+
+    /// <summary>
     /// No modo padrão seleciona um eixo reto por vez e preserva o comportamento
     /// histórico de aceitar CurveElement. No modo inclinado aceita a seleção múltipla
     /// de linhas e vigas estruturais retas, validando cada uma antes de publicá-la.
@@ -36,7 +50,9 @@ namespace SAGAStructuralTools.Core.Rail
     public class LinePickHandler : IExternalEventHandler
     {
         private const double MinimumDimensionMm = 1.0;
+        private const double ParallelToleranceDegrees = 1.0;
         private readonly RailLinePickMode _mode;
+        private bool _mirrorAxisPickQueued;
 
         public LinePickHandler(RailLinePickMode mode = RailLinePickMode.Standard)
         {
@@ -44,6 +60,20 @@ namespace SAGAStructuralTools.Core.Rail
         }
 
         public event Action<RailLinePickResult> LinePicked;
+        public event Action<MirrorAxisPickResult> MirrorAxisPicked;
+
+        /// <summary>
+        /// Faz o próximo ExternalEvent deste handler solicitar os dois eixos que
+        /// definem o espelho. Retorna false fora do comando inclinado.
+        /// </summary>
+        public bool QueueMirrorAxisPick()
+        {
+            if (_mode != RailLinePickMode.Inclined) return false;
+            _mirrorAxisPickQueued = true;
+            return true;
+        }
+
+        public void CancelMirrorAxisPick() => _mirrorAxisPickQueued = false;
 
         public void Execute(UIApplication app)
         {
@@ -52,6 +82,13 @@ namespace SAGAStructuralTools.Core.Rail
                 var uidoc = app.ActiveUIDocument;
                 if (_mode == RailLinePickMode.Inclined)
                 {
+                    if (_mirrorAxisPickQueued)
+                    {
+                        _mirrorAxisPickQueued = false;
+                        PickMirrorAxes(uidoc);
+                        return;
+                    }
+
                     PickInclinedLines(uidoc);
                     return;
                 }
@@ -155,6 +192,100 @@ namespace SAGAStructuralTools.Core.Rail
                 $"{invalidCount} item(ns) ignorado(s):\n• {string.Join("\n• ", reasons)}");
         }
 
+        private void PickMirrorAxes(UIDocument uidoc)
+        {
+            if (uidoc?.Document == null)
+                throw new InvalidOperationException("Nenhum documento Revit está ativo.");
+
+            var filter = new MirrorAxisSelectionFilter();
+            var sourceReference = uidoc.Selection.PickObject(
+                ObjectType.Element,
+                filter,
+                "1/2 — Clique na PRIMEIRA longarina (eixo de origem do espelho). ");
+            var targetReference = uidoc.Selection.PickObject(
+                ObjectType.Element,
+                filter,
+                "2/2 — Clique na SEGUNDA longarina (eixo de destino do espelho). ");
+
+            if (sourceReference.ElementId.GetId() == targetReference.ElementId.GetId())
+                throw new InvalidOperationException(
+                    "Selecione duas longarinas diferentes para definir o espelho.");
+
+            var sourceElement = uidoc.Document.GetElement(sourceReference.ElementId);
+            var targetElement = uidoc.Document.GetElement(targetReference.ElementId);
+            if (!TryGetBoundLine(sourceElement, out var sourceLine) ||
+                !TryGetBoundLine(targetElement, out var targetLine))
+                throw new InvalidOperationException(
+                    "Uma das longarinas selecionadas não possui eixo reto válido.");
+
+            var sourceDirection = HorizontalDirection(sourceLine);
+            var targetDirection = HorizontalDirection(targetLine);
+            double parallelism = Math.Abs(sourceDirection.DotProduct(targetDirection));
+            double minimumParallelism = Math.Cos(
+                ParallelToleranceDegrees * Math.PI / 180.0);
+            if (parallelism < minimumParallelism)
+                throw new InvalidOperationException(
+                    $"Os eixos selecionados não são paralelos em planta " +
+                    $"(tolerância: {ParallelToleranceDegrees:F0}°). Selecione as duas longarinas correspondentes.");
+
+            // Usa o ponto do primeiro clique apenas para escolher a estação da
+            // longarina. A origem real é sempre projetada sobre seu LocationCurve,
+            // ou seja, sobre o eixo de justificação e nunca sobre uma face do perfil.
+            var sourceFallback = Midpoint(sourceLine);
+            var clickedPoint = sourceReference.GlobalPoint ?? sourceFallback;
+            var sourceAxisPoint = ProjectToHorizontalAxis(
+                clickedPoint, sourceLine.GetEndPoint(0), sourceDirection);
+            var targetAxisPoint = ProjectToHorizontalAxis(
+                sourceAxisPoint, targetLine.GetEndPoint(0), targetDirection);
+
+            var sourceLateral = new XYZ(
+                -sourceDirection.Y,
+                sourceDirection.X,
+                0.0);
+            double signedDistanceFt = (targetAxisPoint - sourceAxisPoint)
+                .DotProduct(sourceLateral);
+            if (Math.Abs(signedDistanceFt) * 304.8 <= MinimumDimensionMm)
+                throw new InvalidOperationException(
+                    "A distância entre os eixos selecionados deve ser maior que 1 mm.");
+
+            var translation = sourceLateral * signedDistanceFt;
+            MirrorAxisPicked?.Invoke(new MirrorAxisPickResult
+            {
+                SourceElementId = sourceReference.ElementId,
+                TargetElementId = targetReference.ElementId,
+                TranslationXmm = translation.X * 304.8,
+                TranslationYmm = translation.Y * 304.8,
+                DistanceMm = Math.Abs(signedDistanceFt) * 304.8
+            });
+        }
+
+        private static XYZ HorizontalDirection(Line line)
+        {
+            var vector = line.GetEndPoint(1) - line.GetEndPoint(0);
+            var horizontal = new XYZ(vector.X, vector.Y, 0.0);
+            if (horizontal.GetLength() * 304.8 <= MinimumDimensionMm)
+                throw new InvalidOperationException(
+                    "A longarina selecionada não possui projeção horizontal válida.");
+            return horizontal.Normalize();
+        }
+
+        private static XYZ Midpoint(Line line) =>
+            (line.GetEndPoint(0) + line.GetEndPoint(1)) * 0.5;
+
+        private static XYZ ProjectToHorizontalAxis(
+            XYZ point,
+            XYZ axisOrigin,
+            XYZ horizontalDirection)
+        {
+            var horizontalDelta = new XYZ(
+                point.X - axisOrigin.X,
+                point.Y - axisOrigin.Y,
+                0.0);
+            double station = horizontalDelta.DotProduct(horizontalDirection);
+            return new XYZ(axisOrigin.X, axisOrigin.Y, 0.0) +
+                   horizontalDirection * station;
+        }
+
         private static RailLinePickResult BuildResult(ElementId id, Line line)
         {
             var originalStart = line.GetEndPoint(0);
@@ -223,6 +354,21 @@ namespace SAGAStructuralTools.Core.Rail
             return element is FamilyInstance instance &&
                    instance.StructuralType == StructuralType.Beam &&
                    element.Category?.Id.GetId() == (int)BuiltInCategory.OST_StructuralFraming;
+        }
+
+        public bool AllowReference(Reference reference, XYZ position) => false;
+    }
+
+    internal sealed class MirrorAxisSelectionFilter : ISelectionFilter
+    {
+        public bool AllowElement(Element element)
+        {
+            if (!(element is FamilyInstance instance) ||
+                instance.StructuralType != StructuralType.Beam ||
+                element.Category?.Id.GetId() != (int)BuiltInCategory.OST_StructuralFraming)
+                return false;
+
+            return LinePickHandler.TryGetBoundLine(element, out _);
         }
 
         public bool AllowReference(Reference reference, XYZ position) => false;

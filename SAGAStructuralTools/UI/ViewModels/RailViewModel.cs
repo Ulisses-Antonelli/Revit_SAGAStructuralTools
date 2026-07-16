@@ -19,6 +19,7 @@ namespace SAGAStructuralTools.UI.ViewModels
     {
         private readonly Dispatcher          _dispatcher;
         private readonly ExternalEvent       _pickEvent;
+        private readonly LinePickHandler     _pickHandler;
         private readonly ExternalEvent       _createEvent;
         private readonly RailCreationHandler _createHandler;
         private readonly RailEditContext      _editContext;
@@ -36,13 +37,18 @@ namespace SAGAStructuralTools.UI.ViewModels
             SagaLog.Write("RailViewModel — construtor início");
             _dispatcher    = Dispatcher.CurrentDispatcher;
             _pickEvent     = pickEvent;
+            _pickHandler   = pickHandler;
             _createEvent   = createEvent;
             _createHandler = createHandler;
             _editContext   = editContext;
             _isInclinedMode = isInclinedMode || IsInclined(editContext?.Start, editContext?.End);
             _createHandler.IsInclinedRun = _isInclinedMode;
 
-            if (pickHandler != null) pickHandler.LinePicked += OnLinePicked;
+            if (pickHandler != null)
+            {
+                pickHandler.LinePicked += OnLinePicked;
+                pickHandler.MirrorAxisPicked += OnMirrorAxisPicked;
+            }
             _createHandler.Completed   += OnCreationCompleted;
 
             SagaLog.Write("RailViewModel — criando comandos...");
@@ -50,6 +56,10 @@ namespace SAGAStructuralTools.UI.ViewModels
                 _ => _pickEvent.Raise(),
                 _ => !IsEditMode);
             ClearSelectionCommand     = new RelayCommand(_ => ClearSelection(), _ => !IsEditMode && _segments.Count > 0);
+            DefineMirrorAxesCommand   = new RelayCommand(
+                _ => RequestMirrorAxisPick(),
+                _ => IsInclinedMode && MirrorPairEnabled &&
+                     _segments.Count > 0 && _pickHandler != null && !_isSubmitting);
             BrowsePostCommand         = new RelayCommand(_ => BrowseFamily(ref _postFamilyPath,  ref _postFamilyType,  nameof(PostFamilyDisplay),  nameof(PostAvailableTypes),  nameof(PostFamilyType), PostAvailableTypes));
             BrowseHandrailCommand     = new RelayCommand(_ => BrowseFamily(ref _handrailFamilyPath, ref _handrailFamilyType, nameof(HandrailFamilyDisplay), nameof(HandrailAvailableTypes), nameof(HandrailFamilyType), HandrailAvailableTypes));
             BrowseFrameCommand        = new RelayCommand(_ => BrowseFamily(ref _frameFamilyPath, ref _frameFamilyType, nameof(FrameFamilyDisplay), nameof(FrameAvailableTypes), nameof(FrameFamilyType), FrameAvailableTypes));
@@ -111,6 +121,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         public bool IsEditMode => _editContext != null;
         public bool IsInclinedMode => _isInclinedMode;
         public bool IsStandardMode => !_isInclinedMode;
+        public bool CanChangeMirrorMode => !IsEditMode;
         public bool IsSubmitting => _isSubmitting;
         public bool CanClose => !_isSubmitting;
         public string CreateActionText => IsEditMode ? "Atualizar" : "Criar";
@@ -125,7 +136,9 @@ namespace SAGAStructuralTools.UI.ViewModels
             ? "Seleção do trecho inclinado"
             : "Seleção do perímetro";
         public string SelectionInstructions => IsInclinedMode
-            ? "Clique em \"Selecionar vigas/trechos\", selecione as longarinas/vigas estruturais inclinadas da escada e clique em Concluir no Revit. Também são aceitas linhas 3D retas."
+            ? (MirrorPairEnabled
+                ? "Selecione uma ou mais longarinas inclinadas de um lado da escada e clique em Concluir. Depois use “Definir eixos do espelho” para indicar uma longarina de origem e a correspondente do outro lado."
+                : "Clique em \"Selecionar vigas/trechos\", selecione as longarinas/vigas estruturais inclinadas da escada e clique em Concluir no Revit. Também são aceitas linhas 3D retas.")
             : "Clique em \"Adicionar linha\" e selecione uma linha no desenho. Repita para cada trecho — cada linha vira um guarda-corpo independente.";
         public string AddLineActionText => IsInclinedMode
             ? "+ Selecionar vigas/trechos"
@@ -167,9 +180,15 @@ namespace SAGAStructuralTools.UI.ViewModels
         public double SelectedElevationChangeTotal => _segments.Sum(s => s.ElevationChangeMm);
         public string SelectionSummary =>
             _segments.Count == 0
-                ? (IsInclinedMode ? "Nenhum trecho inclinado adicionado." : "Nenhuma linha adicionada.")
+                ? (IsInclinedMode
+                    ? (MirrorPairEnabled
+                        ? "Par espelhado: selecione uma ou mais longarinas inclinadas de um lado da escada."
+                        : "Nenhum trecho inclinado adicionado.")
+                    : "Nenhuma linha adicionada.")
                 : IsInclinedMode
-                    ? (_segments.Count == 1
+                    ? (MirrorPairEnabled
+                        ? $"{_segments.Count} longarina(s) · {_segments.Count * 2} guarda-corpo(s) · comprimento selecionado {SelectedLinesTotal:F0} mm · total gerado {SelectedLinesTotal * 2:F0} mm"
+                        : _segments.Count == 1
                         ? $"Trecho inclinado · comprimento {SelectedLinesTotal:F0} mm · desnível {SelectedElevationChangeTotal:F0} mm · ângulo {_segments[0].AngleDegrees:F1}° · cota baixa → alta"
                         : $"{_segments.Count} trechos inclinados · comprimento {SelectedLinesTotal:F0} mm · desnível acumulado {SelectedElevationChangeTotal:F0} mm")
                     : $"{_segments.Count} linha(s)  ·  total {SelectedLinesTotal:F0} mm";
@@ -192,11 +211,97 @@ namespace SAGAStructuralTools.UI.ViewModels
             });
         }
 
+        private void OnMirrorAxisPicked(MirrorAxisPickResult result)
+        {
+            if (result == null) return;
+            SetMirrorAxisReference(result.TranslationXmm, result.TranslationYmm);
+        }
+
+        private void RequestMirrorAxisPick()
+        {
+            Warnings.Clear();
+            if (_pickHandler == null || !_pickHandler.QueueMirrorAxisPick())
+            {
+                Warnings.Add("A seleção dos eixos do espelho não está disponível neste comando.");
+                return;
+            }
+
+            try
+            {
+                var request = _pickEvent.Raise();
+                if (request != ExternalEventRequest.Accepted)
+                {
+                    _pickHandler.CancelMirrorAxisPick();
+                    Warnings.Add(
+                        $"O Revit não aceitou a seleção dos eixos ({request}). Aguarde e tente novamente.");
+                    return;
+                }
+
+                Warnings.Add(
+                    "No Revit, clique primeiro no eixo de origem e depois no eixo correspondente do espelho.");
+            }
+            catch (Exception ex)
+            {
+                _pickHandler.CancelMirrorAxisPick();
+                Warnings.Add($"Não foi possível iniciar a seleção dos eixos: {ex.Message}");
+            }
+        }
+
+        public void SetMirrorAxisReference(double xMm, double yMm)
+        {
+            Action apply = () =>
+            {
+                double distance = Math.Sqrt(xMm * xMm + yMm * yMm);
+                if (double.IsNaN(distance) || double.IsInfinity(distance) || distance <= 1.0)
+                {
+                    Warnings.Clear();
+                    Warnings.Add(
+                        "A referência do espelho é inválida. Selecione eixos distintos, afastados mais de 1 mm.");
+                    return;
+                }
+
+                ApplyMirrorAxisReferenceState(true, xMm, yMm);
+                Warnings.Clear();
+                Warnings.Add(
+                    $"Eixos do espelho definidos: distância {distance:0.##} mm, " +
+                    $"vetor ΔX {xMm:+0.##;-0.##;0} mm / ΔY {yMm:+0.##;-0.##;0} mm.");
+            };
+
+            if (_dispatcher.CheckAccess()) apply();
+            else _dispatcher.Invoke(apply);
+        }
+
+        private void ApplyMirrorAxisReferenceState(bool defined, double xMm, double yMm)
+        {
+            double distance = Math.Sqrt(xMm * xMm + yMm * yMm);
+            if (!defined || double.IsNaN(distance) || double.IsInfinity(distance) || distance <= 1.0)
+            {
+                defined = false;
+                xMm = 0.0;
+                yMm = 0.0;
+            }
+
+            bool changed = Set(
+                ref _mirrorReferenceDefined,
+                defined,
+                nameof(MirrorReferenceDefined));
+            changed = Set(ref _mirrorTranslationX, xMm, nameof(MirrorTranslationX)) | changed;
+            changed = Set(ref _mirrorTranslationY, yMm, nameof(MirrorTranslationY)) | changed;
+            if (!changed) return;
+
+            IsCalculated = false;
+            OnPropertyChanged(nameof(MirrorAxisDistance));
+            OnPropertyChanged(nameof(MirrorAxisReferenceSummary));
+            OnPropertyChanged(nameof(DefineMirrorAxesActionText));
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+        }
+
         // Botão "Limpar": zera a seleção para recomeçar.
         private void ClearSelection()
         {
             _segments.Clear();
             SegmentItems.Clear();
+            ApplyMirrorAxisReferenceState(false, 0.0, 0.0);
             HasSegments  = false;
             IsCalculated = false;
             RaiseSelectionChanged();
@@ -271,6 +376,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         private double _endPostInset     = RailDefaults.EndPostInset;
         private double _globalLateralOffset;
         private double _globalVerticalOffset;
+        private bool   _mirrorPairEnabled;
+        private bool   _mirrorReferenceDefined;
+        private double _mirrorTranslationX;
+        private double _mirrorTranslationY;
 
         public int    PostCount        { get => _postCount;        set => Set(ref _postCount,        value); }
         public double MaxPostSpan      { get => _maxPostSpan;      set => Set(ref _maxPostSpan,      value); }
@@ -293,6 +402,41 @@ namespace SAGAStructuralTools.UI.ViewModels
             get => _globalVerticalOffset;
             set => Set(ref _globalVerticalOffset, value);
         }
+        public bool MirrorPairEnabled
+        {
+            get => _mirrorPairEnabled;
+            set
+            {
+                bool enabled = IsInclinedMode && value;
+                if (Set(ref _mirrorPairEnabled, enabled))
+                {
+                    IsCalculated = false;
+                    OnPropertyChanged(nameof(SelectionInstructions));
+                    OnPropertyChanged(nameof(SelectionSummary));
+                    OnPropertyChanged(nameof(GlobalLateralOffsetHelpText));
+                    OnPropertyChanged(nameof(PreviewTotalLength));
+                    OnPropertyChanged(nameof(PreviewTotalPosts));
+                    System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+        public bool MirrorReferenceDefined => _mirrorReferenceDefined;
+        public double MirrorTranslationX => _mirrorTranslationX;
+        public double MirrorTranslationY => _mirrorTranslationY;
+        public double MirrorAxisDistance => Math.Sqrt(
+            MirrorTranslationX * MirrorTranslationX +
+            MirrorTranslationY * MirrorTranslationY);
+        public string MirrorAxisReferenceSummary => MirrorReferenceDefined
+            ? $"Distância entre eixos: {MirrorAxisDistance:0.##} mm · " +
+              $"vetor global origem → espelho: ΔX {MirrorTranslationX:+0.##;-0.##;0} mm · " +
+              $"ΔY {MirrorTranslationY:+0.##;-0.##;0} mm"
+            : "Referência não definida. Clique em “Definir eixos do espelho” antes de criar.";
+        public string DefineMirrorAxesActionText => MirrorReferenceDefined
+            ? "Redefinir eixos do espelho"
+            : "Definir eixos do espelho";
+        public string GlobalLateralOffsetHelpText => MirrorPairEnabled
+            ? "No par espelhado, o deslocamento lateral é aplicado para fora de cada lado: positivo = afastar dos eixos; negativo = aproximar."
+            : "Lateral: + esquerda / − direita, olhando da cota baixa para a cota alta. A mesma configuração e o mesmo deslocamento serão aplicados a todos. Para lados opostos, faça duas criações usando sinais diferentes.";
 
         // ── Montante ──────────────────────────────────────────────────────
 
@@ -463,12 +607,18 @@ namespace SAGAStructuralTools.UI.ViewModels
         public ObservableCollection<string> Warnings { get; } = new ObservableCollection<string>();
 
         // Valores expostos para o preview
-        public double PreviewTotalLength   => _definition?.TotalLength   ?? 0;
-        public int    PreviewTotalPosts    => _definition?.TotalPosts    ?? 0;
+        public double PreviewTotalLength   => (_definition?.TotalLength ?? 0) * (MirrorPairEnabled ? 2 : 1);
+        public int    PreviewTotalPosts    => (_definition?.TotalPosts ?? 0) * (MirrorPairEnabled ? 2 : 1);
         public double PreviewSpacing       => _definition?.PreviewSpacing ?? 0;
 
         private void CalculatePreview()
         {
+            if (!ValidateMirrorPairConfiguration())
+            {
+                IsCalculated = false;
+                return;
+            }
+
             try
             {
                 var lengths = _segments.Select(s => s.LengthMm).ToList();
@@ -498,6 +648,9 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private void CreateRail()
         {
+            if (!ValidateMirrorPairConfiguration())
+                return;
+
             // Calcular Preview é opcional: se ainda não há definição válida, calcula agora.
             if (IsEditMode || !IsCalculated || _definition == null)
                 CalculatePreview();
@@ -594,6 +747,20 @@ namespace SAGAStructuralTools.UI.ViewModels
             EndPostInset     = c.EndPostInset;
             GlobalLateralOffset = IsInclinedMode ? c.GlobalLateralOffset : 0.0;
             GlobalVerticalOffset = IsInclinedMode ? c.GlobalVerticalOffset : 0.0;
+            // Durante a edição, o formato do conjunto (lado único ou par) pertence
+            // ao assembly existente e não deve mudar ao carregar outro preset. A
+            // referência geométrica também vem sempre do assembly, nunca do preset.
+            bool storedMirrorMode = _editContext?.Config?.MirrorPairEnabled == true;
+            MirrorPairEnabled = IsInclinedMode &&
+                                (IsEditMode ? storedMirrorMode : c.MirrorPairEnabled);
+            if (IsEditMode && _editContext?.Config != null)
+            {
+                var storedConfig = _editContext.Config;
+                ApplyMirrorAxisReferenceState(
+                    storedConfig.MirrorReferenceDefined,
+                    storedConfig.MirrorTranslationX,
+                    storedConfig.MirrorTranslationY);
+            }
 
             SetFamily(ref _postFamilyPath, ref _postFamilyType, c.PostFamilyPath, c.PostFamilyType,
                       PostAvailableTypes, nameof(PostFamilyDisplay), nameof(PostAvailableTypes), nameof(PostFamilyType));
@@ -715,6 +882,10 @@ namespace SAGAStructuralTools.UI.ViewModels
             EndPostInset       = EndPostInset,
             GlobalLateralOffset = IsInclinedMode ? GlobalLateralOffset : 0.0,
             GlobalVerticalOffset = IsInclinedMode ? GlobalVerticalOffset : 0.0,
+            MirrorPairEnabled  = IsInclinedMode && MirrorPairEnabled,
+            MirrorReferenceDefined = IsInclinedMode && MirrorReferenceDefined,
+            MirrorTranslationX = MirrorTranslationX,
+            MirrorTranslationY = MirrorTranslationY,
 
             PostFamilyPath     = _postFamilyPath,
             PostFamilyType     = _postFamilyType,
@@ -780,6 +951,22 @@ namespace SAGAStructuralTools.UI.ViewModels
                 OnPropertyChanged(typeProp);
                 System.Windows.Input.CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        private bool ValidateMirrorPairConfiguration()
+        {
+            if (!IsInclinedMode || !MirrorPairEnabled)
+                return true;
+
+            Warnings.Clear();
+            if (!MirrorReferenceDefined || MirrorAxisDistance <= 1.0)
+            {
+                Warnings.Add(
+                    "Defina os dois eixos do espelho antes de calcular ou criar o par espelhado.");
+                return false;
+            }
+
+            return true;
         }
 
         private void ClearFamily(ref string pathField, ref string typeField,
@@ -938,6 +1125,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         public RelayCommand AddLineCommand          { get; }
         public RelayCommand ClearSelectionCommand   { get; }
+        public RelayCommand DefineMirrorAxesCommand { get; }
         public RelayCommand BrowsePostCommand       { get; }
         public RelayCommand BrowseHandrailCommand   { get; }
         public RelayCommand BrowseFrameCommand      { get; }

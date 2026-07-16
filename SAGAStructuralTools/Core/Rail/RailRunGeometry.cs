@@ -14,10 +14,11 @@ namespace SAGAStructuralTools.Core.Rail
         private const double MinimumHorizontalLengthFt = 0.001;
         private const double InclinationToleranceFt = 1.0 / 304.8; // 1 mm
 
-        private RailRunGeometry(XYZ start, XYZ end)
+        private RailRunGeometry(XYZ start, XYZ end, int lateralOrientation = 1)
         {
             Start = start;
             End = end;
+            LateralOrientation = lateralOrientation < 0 ? -1 : 1;
 
             var vector = End - Start;
             LengthFt = vector.GetLength();
@@ -26,7 +27,8 @@ namespace SAGAStructuralTools.Core.Rail
             var horizontal = new XYZ(vector.X, vector.Y, 0);
             HorizontalLengthFt = horizontal.GetLength();
             HorizontalDirection = horizontal.Normalize();
-            Lateral = new XYZ(-HorizontalDirection.Y, HorizontalDirection.X, 0).Normalize();
+            Lateral = new XYZ(-HorizontalDirection.Y, HorizontalDirection.X, 0).Normalize()
+                * LateralOrientation;
         }
 
         public XYZ Start { get; }
@@ -34,6 +36,7 @@ namespace SAGAStructuralTools.Core.Rail
         public XYZ Direction { get; }
         public XYZ HorizontalDirection { get; }
         public XYZ Lateral { get; }
+        public int LateralOrientation { get; }
         public double LengthFt { get; }
         public double LengthMm => LengthFt * 304.8;
         public double HorizontalLengthFt { get; }
@@ -81,11 +84,32 @@ namespace SAGAStructuralTools.Core.Rail
         public XYZ PointAtDistanceMm(double distanceMm, double verticalOffsetFt, double lateralOffsetFt) =>
             PointAtDistanceMm(distanceMm) + XYZ.BasisZ * verticalOffsetFt + Lateral * lateralOffsetFt;
 
+        /// <summary>
+        /// Mantém o mesmo eixo e escolhe qual das duas normais horizontais representa
+        /// o lado positivo. No par de escada, cada lado usa a normal que aponta para fora.
+        /// </summary>
+        public RailRunGeometry WithLateralOrientation(int lateralOrientation) =>
+            new RailRunGeometry(Start, End, lateralOrientation);
+
+        /// <summary>
+        /// Translada o eixo por um vetor em coordenadas internas e preserva qual normal
+        /// horizontal representa o lado lateral positivo.
+        /// </summary>
+        public RailRunGeometry Translate(XYZ translation)
+        {
+            if (translation == null)
+                throw new ArgumentNullException(nameof(translation));
+            return new RailRunGeometry(
+                Start + translation,
+                End + translation,
+                LateralOrientation);
+        }
+
         /// <summary>Cria uma linha paralela, transladada vertical e lateralmente.</summary>
         public RailRunGeometry Offset(double verticalOffsetFt, double lateralOffsetFt)
         {
             var translation = XYZ.BasisZ * verticalOffsetFt + Lateral * lateralOffsetFt;
-            return new RailRunGeometry(Start + translation, End + translation);
+            return Translate(translation);
         }
 
         /// <summary>Cria uma linha paralela usando deslocamentos informados em milímetros.</summary>

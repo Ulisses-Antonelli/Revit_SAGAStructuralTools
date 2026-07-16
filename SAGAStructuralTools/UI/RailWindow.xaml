@@ -394,6 +394,36 @@
                                 <!-- Desloca o conjunto completo a partir do eixo inclinado selecionado. -->
                                 <StackPanel Margin="0,14,0,0"
                                             Visibility="{Binding IsInclinedMode, Converter={StaticResource BoolToVis}}">
+                                    <Border Background="#F4F7FF" BorderBrush="#B3C7F7" BorderThickness="1"
+                                            CornerRadius="5" Padding="12" Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <CheckBox Content="Gerar par espelhado"
+                                                      IsChecked="{Binding MirrorPairEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                                      IsEnabled="{Binding CanChangeMirrorMode}"
+                                                      ToolTip="O modo de par é definido na criação inicial do guarda-corpo."
+                                                      FontWeight="SemiBold" Foreground="#172B4D"/>
+                                            <TextBlock Style="{StaticResource FieldLabel}"
+                                                       Text="Selecione uma ou mais longarinas inclinadas. O mesmo vetor entre os dois eixos será usado para criar o espelho de cada trecho."
+                                                       TextWrapping="Wrap" Margin="22,5,0,8"/>
+
+                                            <StackPanel Margin="22,0,0,0" IsEnabled="{Binding MirrorPairEnabled}">
+                                                <Button Style="{StaticResource BtnSecondary}"
+                                                        Content="{Binding DefineMirrorAxesActionText}"
+                                                        Command="{Binding DefineMirrorAxesCommand}"
+                                                        HorizontalAlignment="Left"/>
+                                                <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1"
+                                                        CornerRadius="4" Padding="10,7" Margin="0,8,0,0">
+                                                    <TextBlock Text="{Binding MirrorAxisReferenceSummary}"
+                                                               Foreground="#42526E" FontSize="12"
+                                                               TextWrapping="Wrap"/>
+                                                </Border>
+                                                <TextBlock Style="{StaticResource FieldLabel}"
+                                                           Text="No Revit, clique primeiro na longarina do eixo de origem e depois na longarina do eixo espelhado. A direção e a distância serão obtidas diretamente desses eixos."
+                                                           TextWrapping="Wrap" Margin="0,7,0,0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
                                     <Separator Background="#DFE1E6" Margin="0,0,0,12"/>
                                     <TextBlock Text="Deslocamento global do guarda-corpo"
                                                FontSize="12" FontWeight="SemiBold" Foreground="#42526E"
@@ -435,7 +465,7 @@
                                         </StackPanel>
                                     </Grid>
                                     <TextBlock Style="{StaticResource FieldLabel}"
-                                               Text="Lateral: + esquerda / − direita, olhando da cota baixa para a cota alta. A mesma configuração e o mesmo deslocamento serão aplicados a todos. Para lados opostos, faça duas criações usando sinais diferentes."
+                                               Text="{Binding GlobalLateralOffsetHelpText}"
                                                TextWrapping="Wrap" Margin="0,8,0,0"/>
                                 </StackPanel>
                             </StackPanel>

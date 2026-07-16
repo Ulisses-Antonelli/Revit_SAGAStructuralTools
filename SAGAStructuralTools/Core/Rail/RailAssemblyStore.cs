@@ -27,6 +27,8 @@ namespace SAGAStructuralTools.Core.Rail
 
         private static readonly XmlSerializer Serializer =
             new XmlSerializer(typeof(RailAssemblyData));
+        private static readonly XmlSerializer ConfigSerializer =
+            new XmlSerializer(typeof(RailConfig));
 
         public static RailAssemblyData Create(RailConfig config, XYZ start, XYZ end,
                                               string assemblyId = null, int revision = 0)
@@ -39,7 +41,9 @@ namespace SAGAStructuralTools.Core.Rail
                 AssemblyId = string.IsNullOrWhiteSpace(assemblyId)
                     ? Guid.NewGuid().ToString("N")
                     : assemblyId,
-                Config = config ?? new RailConfig(),
+                // Captura um snapshot independente. Alterações posteriores na janela
+                // ou em outro trecho do lote não podem modificar este assembly.
+                Config = SnapshotConfig(config),
                 Start = RailPointData.FromXyz(start),
                 End = RailPointData.FromXyz(end)
             };
@@ -161,6 +165,17 @@ namespace SAGAStructuralTools.Core.Rail
             }
         }
 
+        private static RailConfig SnapshotConfig(RailConfig config)
+        {
+            config = config ?? new RailConfig();
+            using (var writer = new StringWriter())
+            {
+                ConfigSerializer.Serialize(writer, config);
+                using (var reader = new StringReader(writer.ToString()))
+                    return (RailConfig)ConfigSerializer.Deserialize(reader);
+            }
+        }
+
         private static RailAssemblyData Deserialize(string xml)
         {
             if (string.IsNullOrWhiteSpace(xml)) return null;
@@ -217,6 +232,7 @@ namespace SAGAStructuralTools.Core.Rail
         public static RailEditContext FromStored(RailAssemblyData data)
         {
             if (data == null) return null;
+            TryMigrateLegacyMirrorReference(data);
             return new RailEditContext
             {
                 AssemblyId = data.AssemblyId,
@@ -226,6 +242,41 @@ namespace SAGAStructuralTools.Core.Rail
                 End = data.End?.ToXyz(),
                 MemberUniqueIds = data.MemberUniqueIds ?? new List<string>()
             };
+        }
+
+        /// <summary>
+        /// Converte em memória o par baseado em largura/sinal do protótipo anterior
+        /// para o vetor global atual. A próxima atualização do conjunto persiste a
+        /// configuração migrada; nenhuma alteração no documento ocorre durante a leitura.
+        /// </summary>
+        private static void TryMigrateLegacyMirrorReference(RailAssemblyData data)
+        {
+            var config = data?.Config;
+            if (config == null || !config.MirrorPairEnabled ||
+                config.MirrorReferenceDefined || data.Start == null || data.End == null)
+                return;
+
+            try
+            {
+                double axisSpacingMm = config.MirrorWidthIsAxis
+                    ? config.MirrorStairWidth
+                    : config.MirrorStairWidth + config.MirrorProfileWidth;
+                if (axisSpacingMm <= 1.0) return;
+
+                var run = RailRunGeometry.Create(data.Start.ToXyz(), data.End.ToXyz());
+                int baseSign = config.MirrorBaseSideSign < 0 ? -1 : 1;
+                int effectiveSign = baseSign * (config.MirrorInvertSide ? -1 : 1);
+                var translation = run.Lateral * (effectiveSign * axisSpacingMm / 304.8);
+
+                config.MirrorTranslationX = translation.X * 304.8;
+                config.MirrorTranslationY = translation.Y * 304.8;
+                config.MirrorReferenceDefined = true;
+            }
+            catch
+            {
+                // Payload legado incompleto permanece legível; a UI poderá pedir
+                // que o usuário defina novamente os dois eixos de referência.
+            }
         }
     }
 }
