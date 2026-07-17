@@ -55,6 +55,11 @@ namespace SAGAStructuralTools.Core.Rail
 
             foreach (var entry in ReadEntries(document))
             {
+                // Se o arco foi apagado manualmente, o registro não pode continuar
+                // bloqueando as extremidades envolvidas.
+                if (document.GetElement(entry.Data.CurvedElementUniqueId) == null)
+                    continue;
+
                 if (UsesEndpoint(
                         entry.Data,
                         first.UniqueId,
@@ -68,6 +73,19 @@ namespace SAGAStructuralTools.Core.Rail
                         "Uma das extremidades selecionadas já participa de outro canto arredondado.");
                 }
             }
+        }
+
+        internal static int RemoveStaleEntries(Document document)
+        {
+            if (document == null || !document.IsModifiable) return 0;
+
+            var stale = ReadEntries(document)
+                .Where(entry =>
+                    document.GetElement(entry.Data.CurvedElementUniqueId) == null)
+                .ToList();
+            foreach (var entry in stale)
+                document.Delete(entry.Storage.Id);
+            return stale.Count;
         }
 
         private static bool UsesEndpoint(

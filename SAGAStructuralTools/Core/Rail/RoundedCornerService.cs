@@ -291,8 +291,8 @@ namespace SAGAStructuralTools.Core.Rail
             {
                 FirstId = request.FirstId,
                 SecondId = request.SecondId,
-                OriginalFirstLine = firstLine,
-                OriginalSecondLine = secondLine,
+                OriginalFirstLine = CloneBoundLine(firstLine),
+                OriginalSecondLine = CloneBoundLine(secondLine),
                 FirstCornerEnd = solution.FirstCornerEnd,
                 SecondCornerEnd = solution.SecondCornerEnd,
                 Vertex = solution.Vertex,
@@ -426,7 +426,8 @@ namespace SAGAStructuralTools.Core.Rail
             ElementId firstId,
             int firstCornerEnd,
             ElementId secondId,
-            int secondCornerEnd)
+            int secondCornerEnd,
+            Line referenceAxis)
         {
             CreateAutomaticCompoundPlan(
                 document,
@@ -434,6 +435,7 @@ namespace SAGAStructuralTools.Core.Rail
                 firstCornerEnd,
                 secondId,
                 secondCornerEnd,
+                referenceAxis,
                 0.1,
                 0.0,
                 false);
@@ -445,6 +447,7 @@ namespace SAGAStructuralTools.Core.Rail
             int firstCornerEnd,
             ElementId secondId,
             int secondCornerEnd,
+            Line referenceAxis,
             double radiusMm)
         {
             if (document == null)
@@ -455,6 +458,7 @@ namespace SAGAStructuralTools.Core.Rail
                 firstCornerEnd,
                 secondId,
                 secondCornerEnd,
+                referenceAxis,
                 radiusMm,
                 document.Application.ShortCurveTolerance,
                 true);
@@ -466,6 +470,7 @@ namespace SAGAStructuralTools.Core.Rail
             int firstCornerEnd,
             ElementId secondId,
             int secondCornerEnd,
+            Line referenceAxis,
             double radiusMm,
             double shortCurveTolerance,
             bool validateExtension)
@@ -474,6 +479,7 @@ namespace SAGAStructuralTools.Core.Rail
                 throw new ArgumentNullException(nameof(document));
             if (radiusMm <= 0 || double.IsNaN(radiusMm) || double.IsInfinity(radiusMm))
                 throw new InvalidOperationException("Informe um raio maior que zero.");
+            ValidateHorizontalReference(referenceAxis);
             ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
             ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
 
@@ -491,10 +497,27 @@ namespace SAGAStructuralTools.Core.Rail
                 firstLine,
                 firstCornerEnd,
                 secondLine,
-                secondCornerEnd);
+                secondCornerEnd,
+                referenceAxis);
+            ValidateForcedEndpointAdjustment(
+                firstLine.GetEndPoint(firstCornerEnd),
+                middleAxis.GetEndPoint(0),
+                "primeiro corrimão");
+            ValidateForcedEndpointAdjustment(
+                secondLine.GetEndPoint(secondCornerEnd),
+                middleAxis.GetEndPoint(1),
+                "segundo corrimão");
+            var adjustedFirstLine = ReplaceEndpoint(
+                firstLine,
+                firstCornerEnd,
+                middleAxis.GetEndPoint(0));
+            var adjustedSecondLine = ReplaceEndpoint(
+                secondLine,
+                secondCornerEnd,
+                middleAxis.GetEndPoint(1));
 
             var firstSolution = Calculate(
-                firstLine,
+                adjustedFirstLine,
                 middleAxis,
                 radiusMm / MillimetersPerFoot,
                 shortCurveTolerance,
@@ -504,7 +527,7 @@ namespace SAGAStructuralTools.Core.Rail
                 0);
             var secondSolution = Calculate(
                 middleAxis,
-                secondLine,
+                adjustedSecondLine,
                 radiusMm / MillimetersPerFoot,
                 shortCurveTolerance,
                 validateExtension,
@@ -546,6 +569,7 @@ namespace SAGAStructuralTools.Core.Rail
         {
             if (document == null)
                 throw new ArgumentNullException(nameof(document));
+            RoundedCornerStore.RemoveStaleEntries(document);
             if (radiusMm <= 0 || double.IsNaN(radiusMm) || double.IsInfinity(radiusMm))
                 throw new InvalidOperationException("Informe um raio maior que zero.");
 
@@ -657,6 +681,7 @@ namespace SAGAStructuralTools.Core.Rail
                 throw new ArgumentNullException(nameof(document));
             if (plan == null)
                 throw new ArgumentNullException(nameof(plan));
+            RoundedCornerStore.RemoveStaleEntries(document);
 
             var first = RoundedCornerMember.Get(document, plan.FirstId, "primeiro");
             var second = RoundedCornerMember.Get(document, plan.SecondId, "segundo");
@@ -793,12 +818,19 @@ namespace SAGAStructuralTools.Core.Rail
                 plan.FirstCornerEnd,
                 plan.SecondId,
                 plan.SecondCornerEnd,
+                plan.MiddleAxis,
                 plan.RadiusMm);
 
             var first = RoundedCornerMember.Get(
                 document,
                 currentPlan.FirstId,
                 "primeiro");
+            var second = RoundedCornerMember.Get(
+                document,
+                currentPlan.SecondId,
+                "segundo");
+            var originalFirstAxis = CloneBoundLine(first.GetAxis());
+            var originalSecondAxis = CloneBoundLine(second.GetAxis());
             var symbol = first.Instance.Symbol;
             if (symbol == null)
                 throw new InvalidOperationException(
@@ -839,6 +871,23 @@ namespace SAGAStructuralTools.Core.Rail
                 actualMiddleAxis,
                 currentPlan.MiddleAxis.GetEndPoint(0));
 
+            var firstTarget = actualMiddleAxis.GetEndPoint(middleFirstCornerEnd);
+            var secondTarget = actualMiddleAxis.GetEndPoint(1 - middleFirstCornerEnd);
+            ValidateForcedEndpointAdjustment(
+                originalFirstAxis.GetEndPoint(currentPlan.FirstCornerEnd),
+                firstTarget,
+                "primeiro corrimão");
+            ValidateForcedEndpointAdjustment(
+                originalSecondAxis.GetEndPoint(currentPlan.SecondCornerEnd),
+                secondTarget,
+                "segundo corrimão");
+
+            first.DisallowJoinAtEnd(currentPlan.FirstCornerEnd);
+            second.DisallowJoinAtEnd(currentPlan.SecondCornerEnd);
+            first.SetCornerEndpoint(currentPlan.FirstCornerEnd, firstTarget);
+            second.SetCornerEndpoint(currentPlan.SecondCornerEnd, secondTarget);
+            document.Regenerate();
+
             var compoundPlan = CreateCompoundPlan(
                 document,
                 currentPlan.FirstId,
@@ -848,6 +897,8 @@ namespace SAGAStructuralTools.Core.Rail
                 currentPlan.SecondId,
                 currentPlan.SecondCornerEnd,
                 currentPlan.RadiusMm);
+            compoundPlan.FirstCorner.OriginalFirstLine = CloneBoundLine(originalFirstAxis);
+            compoundPlan.SecondCorner.OriginalSecondLine = CloneBoundLine(originalSecondAxis);
             var results = ApplyCompound(
                 document,
                 compoundPlan,
@@ -858,6 +909,30 @@ namespace SAGAStructuralTools.Core.Rail
                 MiddleElementId = middle.Id,
                 CornerResults = results
             };
+        }
+
+        private static Line ReplaceEndpoint(Line line, int endpoint, XYZ point)
+        {
+            ValidateCornerEnd(endpoint, "perfil");
+            return endpoint == 0
+                ? Line.CreateBound(point, line.GetEndPoint(1))
+                : Line.CreateBound(line.GetEndPoint(0), point);
+        }
+
+        private static void ValidateForcedEndpointAdjustment(
+            XYZ originalPoint,
+            XYZ targetPoint,
+            string label)
+        {
+            double adjustmentMm = originalPoint.DistanceTo(targetPoint) *
+                                  MillimetersPerFoot;
+            if (adjustmentMm > MaximumAutomaticEndpointAdjustmentMm)
+            {
+                throw new InvalidOperationException(
+                    $"O {label} precisaria ter sua ponta deslocada em " +
+                    $"{adjustmentMm:F0} mm para alcançar o eixo definido. " +
+                    $"O limite é {MaximumAutomaticEndpointAdjustmentMm:F0} mm.");
+            }
         }
 
         private static bool HasRegisteredAssembly(
@@ -1333,62 +1408,22 @@ namespace SAGAStructuralTools.Core.Rail
             Line firstLine,
             int firstCornerEnd,
             Line secondLine,
-            int secondCornerEnd)
+            int secondCornerEnd,
+            Line referenceAxis)
         {
+            ValidateHorizontalReference(referenceAxis);
             var firstPoint = firstLine.GetEndPoint(firstCornerEnd);
             var secondPoint = secondLine.GetEndPoint(secondCornerEnd);
-            var firstDirection = Direction(
-                firstPoint,
-                firstLine.GetEndPoint(1 - firstCornerEnd),
-                "primeiro");
-            var secondDirection = Direction(
-                secondPoint,
-                secondLine.GetEndPoint(1 - secondCornerEnd),
-                "segundo");
-
-            double firstVertical = firstDirection.Z;
-            double secondVertical = secondDirection.Z;
-            double elevationDelta = secondPoint.Z - firstPoint.Z;
-            double denominator =
-                firstVertical * firstVertical +
-                secondVertical * secondVertical;
-
-            XYZ firstVertex;
-            XYZ secondVertex;
-            if (denominator < 1e-12)
-            {
-                double elevationTolerance = Math.Max(
-                    document.Application.VertexTolerance,
-                    0.01 / MillimetersPerFoot);
-                if (Math.Abs(elevationDelta) > elevationTolerance)
-                {
-                    throw new InvalidOperationException(
-                        $"Os dois eixos são horizontais e estão em cotas diferentes " +
-                        $"({Math.Abs(elevationDelta) * MillimetersPerFoot:F1} mm). " +
-                        "Selecione um trecho existente para definir a transição.");
-                }
-
-                firstVertex = firstPoint;
-                secondVertex = secondPoint;
-            }
-            else
-            {
-                double firstShift =
-                    firstVertical * elevationDelta / denominator;
-                double secondShift =
-                    -secondVertical * elevationDelta / denominator;
-                firstVertex = firstPoint + firstDirection * firstShift;
-                secondVertex = secondPoint + secondDirection * secondShift;
-            }
+            var referenceStart = referenceAxis.GetEndPoint(0);
+            var referenceDirection = referenceAxis.Direction;
+            XYZ firstVertex = referenceStart + referenceDirection *
+                (firstPoint - referenceStart).DotProduct(referenceDirection);
+            XYZ secondVertex = referenceStart + referenceDirection *
+                (secondPoint - referenceStart).DotProduct(referenceDirection);
 
             if (!IsFinite(firstVertex) || !IsFinite(secondVertex))
                 throw new InvalidOperationException(
                     "Não foi possível calcular uma cota horizontal finita para o patamar.");
-
-            // Neutraliza apenas o resíduo numérico da solução da restrição Z1 = Z2.
-            double commonZ = (firstVertex.Z + secondVertex.Z) * 0.5;
-            firstVertex = new XYZ(firstVertex.X, firstVertex.Y, commonZ);
-            secondVertex = new XYZ(secondVertex.X, secondVertex.Y, commonZ);
 
             double minimumLength = Math.Max(
                 document.Application.ShortCurveTolerance,
@@ -1401,6 +1436,23 @@ namespace SAGAStructuralTools.Core.Rail
             }
 
             return Line.CreateBound(firstVertex, secondVertex);
+        }
+
+        private static void ValidateHorizontalReference(Line referenceAxis)
+        {
+            if (referenceAxis == null || referenceAxis.Length <= 1e-9)
+                throw new InvalidOperationException(
+                    "Selecione uma aresta reta e horizontal como referência.");
+
+            double inclinationDegrees =
+                Math.Asin(Math.Min(1.0, Math.Abs(referenceAxis.Direction.Z))) *
+                180.0 / Math.PI;
+            if (inclinationDegrees > 0.5)
+            {
+                throw new InvalidOperationException(
+                    $"A aresta de referência deve ser horizontal. " +
+                    $"A inclinação encontrada foi {inclinationDegrees:F2} graus.");
+            }
         }
 
         private static void ValidateCompoundSpacing(
@@ -1466,6 +1518,21 @@ namespace SAGAStructuralTools.Core.Rail
                 throw new InvalidOperationException(
                     $"O {label} perfil não possui comprimento válido.");
             return vector.Normalize();
+        }
+
+        private static Line CloneBoundLine(Line line)
+        {
+            if (line == null)
+                throw new ArgumentNullException(nameof(line));
+            return Line.CreateBound(
+                new XYZ(
+                    line.GetEndPoint(0).X,
+                    line.GetEndPoint(0).Y,
+                    line.GetEndPoint(0).Z),
+                new XYZ(
+                    line.GetEndPoint(1).X,
+                    line.GetEndPoint(1).Y,
+                    line.GetEndPoint(1).Z));
         }
 
         private static int NearestEnd(Line line, XYZ point)

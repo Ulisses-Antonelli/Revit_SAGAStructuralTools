@@ -7,6 +7,8 @@ namespace SAGAStructuralTools.UI
     public partial class HandrailJoinWindow : Window
     {
         public double RadiusMm { get; private set; }
+        public double ReferenceHeightMm { get; private set; }
+        public double HorizontalOffsetMm { get; private set; }
 
         public HandrailJoinWindow(
             string firstProfile,
@@ -14,9 +16,23 @@ namespace SAGAStructuralTools.UI
             string thirdProfile,
             string transitionDescription,
             double initialRadiusMm,
-            bool showsSagaEditWarning)
+            bool showsSagaEditWarning,
+            double? initialReferenceHeightMm = null,
+            double? initialHorizontalOffsetMm = null,
+            int batchIndex = 0,
+            int batchCount = 0)
         {
             InitializeComponent();
+
+            if (batchCount > 1 && batchIndex >= 0 && batchIndex < batchCount)
+            {
+                int displayIndex = batchIndex + 1;
+                DialogHeading.Text = $"SAGA - Unir corrimãos — Par {displayIndex} de {batchCount}";
+                ApplyButton.Content = displayIndex < batchCount
+                    ? $"Confirmar par {displayIndex} e próximo"
+                    : "Confirmar e criar lote";
+                ApplyButton.Width = 180;
+            }
 
             FirstProfileText.Text = firstProfile ?? "Trecho 1";
             SecondProfileText.Text = secondProfile ?? "Trecho 2";
@@ -38,6 +54,20 @@ namespace SAGAStructuralTools.UI
             RadiusTextBox.Text = initialRadiusMm.ToString(
                 "0.########",
                 CultureInfo.GetCultureInfo("pt-BR"));
+            if (initialReferenceHeightMm.HasValue)
+            {
+                ReferenceHeightPanel.Visibility = Visibility.Visible;
+                ReferenceHeightTextBox.Text = initialReferenceHeightMm.Value.ToString(
+                    "0.########",
+                    CultureInfo.GetCultureInfo("pt-BR"));
+            }
+            if (initialHorizontalOffsetMm.HasValue)
+            {
+                HorizontalOffsetPanel.Visibility = Visibility.Visible;
+                HorizontalOffsetTextBox.Text = initialHorizontalOffsetMm.Value.ToString(
+                    "0.########",
+                    CultureInfo.GetCultureInfo("pt-BR"));
+            }
             SagaEditWarning.Visibility = showsSagaEditWarning
                 ? Visibility.Visible
                 : Visibility.Collapsed;
@@ -70,7 +100,47 @@ namespace SAGAStructuralTools.UI
                 return;
             }
 
+            if (ReferenceHeightPanel.Visibility == Visibility.Visible &&
+                (!FlexibleDoubleConverter.TryParse(
+                     ReferenceHeightTextBox.Text,
+                     out double referenceHeightMm) ||
+                 referenceHeightMm < -100000 || referenceHeightMm > 100000))
+            {
+                ValidationText.Text =
+                    "Informe uma altura entre -100000 e 100000 mm em relação à aresta.";
+                ReferenceHeightTextBox.Focus();
+                ReferenceHeightTextBox.SelectAll();
+                return;
+            }
+
+            if (HorizontalOffsetPanel.Visibility == Visibility.Visible &&
+                (!FlexibleDoubleConverter.TryParse(
+                     HorizontalOffsetTextBox.Text,
+                     out double horizontalOffsetMm) ||
+                 horizontalOffsetMm < 0 || horizontalOffsetMm > 100000))
+            {
+                ValidationText.Text =
+                    "Informe um deslocamento entre 0 e 100000 mm; o ponto define o lado.";
+                HorizontalOffsetTextBox.Focus();
+                HorizontalOffsetTextBox.SelectAll();
+                return;
+            }
+
             RadiusMm = radiusMm;
+            if (ReferenceHeightPanel.Visibility == Visibility.Visible)
+            {
+                FlexibleDoubleConverter.TryParse(
+                    ReferenceHeightTextBox.Text,
+                    out double parsedReferenceHeightMm);
+                ReferenceHeightMm = parsedReferenceHeightMm;
+            }
+            if (HorizontalOffsetPanel.Visibility == Visibility.Visible)
+            {
+                FlexibleDoubleConverter.TryParse(
+                    HorizontalOffsetTextBox.Text,
+                    out double parsedHorizontalOffsetMm);
+                HorizontalOffsetMm = parsedHorizontalOffsetMm;
+            }
             DialogResult = true;
         }
     }

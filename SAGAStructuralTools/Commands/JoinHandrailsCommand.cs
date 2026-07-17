@@ -6,6 +6,7 @@ using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Rail;
 using SAGAStructuralTools.UI;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Interop;
 
@@ -124,6 +125,11 @@ namespace SAGAStructuralTools.Commands
                     first.CornerEnd,
                     second.CornerEnd);
                 PickedMember middle = null;
+                Line referenceAxis = null;
+                Line referenceBaseAxis = null;
+                double referenceHeightMm = 0.0;
+                double horizontalOffsetMm = 0.0;
+                XYZ offsetSidePoint = null;
                 var modeDecision = AskForConnectionMode();
                 if (modeDecision == IntermediateDecision.End)
                 {
@@ -133,6 +139,20 @@ namespace SAGAStructuralTools.Commands
                 }
                 if (modeDecision == IntermediateDecision.Retry)
                     continue;
+                if (modeDecision == IntermediateDecision.BatchReference)
+                {
+                    int batchCreated = RunReferenceBatch(
+                        uiDocument,
+                        document,
+                        filter,
+                        first,
+                        second,
+                        ref activeRadiusMm,
+                        ref radiusConfirmed,
+                        ref sagaWarningAcknowledged);
+                    createdConnections += batchCreated;
+                    continue;
+                }
 
                 bool automatic =
                     modeDecision == IntermediateDecision.AutomaticMiddle;
@@ -169,12 +189,31 @@ namespace SAGAStructuralTools.Commands
                 {
                     try
                     {
+                        referenceBaseAxis = PickHorizontalReferenceEdge(
+                            uiDocument,
+                            document,
+                            first,
+                            second,
+                            out referenceHeightMm,
+                            "Selecione a aresta de um perfil horizontal do patamar; ela definirá a cota-base e o plano da união (Esc reinicia o par)");
+                        offsetSidePoint = uiDocument.Selection.PickPoint(
+                            "Clique no lado da aresta para onde o eixo horizontal deve ser deslocado");
+                        referenceAxis = BuildReferenceAxis(
+                            referenceBaseAxis,
+                            referenceHeightMm,
+                            horizontalOffsetMm,
+                            offsetSidePoint);
                         RoundedCornerService.ValidateAutomaticCompoundSelection(
                             document,
                             first.Id,
                             first.CornerEnd,
                             second.Id,
-                            second.CornerEnd);
+                            second.CornerEnd,
+                            referenceAxis);
+                    }
+                    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                    {
+                        continue;
                     }
                     catch (Exception ex)
                     {
@@ -264,6 +303,7 @@ namespace SAGAStructuralTools.Commands
                             first.CornerEnd,
                             second.Id,
                             second.CornerEnd,
+                            referenceAxis,
                             radius);
                 }
                 else if (compound)
@@ -288,7 +328,7 @@ namespace SAGAStructuralTools.Commands
                 }
 
                 bool mustShowDialog =
-                    !radiusConfirmed ||
+                    automatic || !radiusConfirmed ||
                     (hasSagaMember && !sagaWarningAcknowledged);
                 if (!mustShowDialog)
                 {
@@ -312,7 +352,21 @@ namespace SAGAStructuralTools.Commands
                         modeDecision,
                         activeRadiusMm,
                         hasSagaMember && !sagaWarningAcknowledged,
-                        validateRadius);
+                        validateRadius,
+                        automatic ? (double?)referenceHeightMm : null,
+                        automatic ? (double?)horizontalOffsetMm : null,
+                        automatic
+                            ? (Action<double, double>)((height, offset) =>
+                            {
+                                referenceHeightMm = height;
+                                horizontalOffsetMm = offset;
+                                referenceAxis = BuildReferenceAxis(
+                                    referenceBaseAxis,
+                                    referenceHeightMm,
+                                    horizontalOffsetMm,
+                                    offsetSidePoint);
+                            })
+                            : null);
                     if (!selectedRadius.HasValue)
                         continue;
 
@@ -333,6 +387,7 @@ namespace SAGAStructuralTools.Commands
                             first.CornerEnd,
                             second.Id,
                             second.CornerEnd,
+                            referenceAxis,
                             activeRadiusMm);
                         var result = ApplyAutomaticCompound(document, plan);
                         createdArcs = result.CornerResults?.Length ?? 0;
@@ -404,6 +459,264 @@ namespace SAGAStructuralTools.Commands
             };
         }
 
+        private static int RunReferenceBatch(
+            UIDocument uiDocument,
+            Document document,
+            StraightBeamPointSelectionFilter filter,
+            PickedMember first,
+            PickedMember second,
+            ref double activeRadiusMm,
+            ref bool radiusConfirmed,
+            ref bool sagaWarningAcknowledged)
+        {
+            IList<Reference> remainingReferences;
+            try
+            {
+                remainingReferences = uiDocument.Selection.PickObjects(
+                    ObjectType.PointOnElement,
+                    filter,
+                    "Selecione os demais corrimãos na ordem dos pares e clique em Concluir");
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return 0;
+            }
+
+            if (remainingReferences == null || remainingReferences.Count == 0 ||
+                remainingReferences.Count % 2 != 0)
+            {
+                ShowCreateError(
+                    "A seleção em lote precisa conter pares completos além do primeiro par.",
+                    "Selecione 2, 4, 6 ou mais perfis adicionais, sempre na ordem de cada união.");
+                return 0;
+            }
+
+            var pairs = new List<PickedMember[]>
+            {
+                new[] { first, second }
+            };
+            for (int index = 0; index < remainingReferences.Count; index += 2)
+            {
+                var batchFirst = PickMemberFromReference(
+                    document, remainingReferences[index], filter);
+                var batchSecond = PickMemberFromReference(
+                    document, remainingReferences[index + 1], filter);
+                if (batchFirst.Id.Equals(batchSecond.Id))
+                    throw new InvalidOperationException(
+                        $"O par {pairs.Count + 1} contém o mesmo perfil duas vezes.");
+                pairs.Add(new[] { batchFirst, batchSecond });
+            }
+
+            Line referenceBaseAxis;
+            double suggestedHeightMm;
+            XYZ sidePoint;
+            try
+            {
+                referenceBaseAxis = PickHorizontalReferenceEdge(
+                    uiDocument,
+                    document,
+                    first,
+                    second,
+                    out suggestedHeightMm,
+                    "Selecione a aresta horizontal comum às uniões do lote");
+                sidePoint = uiDocument.Selection.PickPoint(
+                    "Clique no lado da aresta para onde os eixos horizontais devem ser deslocados");
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return 0;
+            }
+
+            double commonOffsetMm = 0.0;
+            var plans = new List<RoundedCornerAutomaticCompoundPlan>();
+            for (int index = 0; index < pairs.Count; index++)
+            {
+                var pair = pairs[index];
+                double pairHeightMm =
+                    GetStoredHandrailElevationOffsetMm(pair[0].Instance) ??
+                    GetStoredHandrailElevationOffsetMm(pair[1].Instance) ??
+                    suggestedHeightMm;
+                Line pairReferenceAxis = BuildReferenceAxis(
+                    referenceBaseAxis,
+                    pairHeightMm,
+                    commonOffsetMm,
+                    sidePoint);
+                Action<double> validateRadius = radius =>
+                    RoundedCornerService.CreateAutomaticCompoundPlan(
+                        document,
+                        pair[0].Id,
+                        pair[0].CornerEnd,
+                        pair[1].Id,
+                        pair[1].CornerEnd,
+                        pairReferenceAxis,
+                        radius);
+
+                double? selectedRadius = PromptForValidRadius(
+                    document,
+                    pair[0],
+                    pair[1],
+                    null,
+                    IntermediateDecision.AutomaticMiddle,
+                    activeRadiusMm,
+                    HasSagaMember(pair[0], pair[1], null) &&
+                        !sagaWarningAcknowledged,
+                    validateRadius,
+                    pairHeightMm,
+                    commonOffsetMm,
+                    (height, offset) =>
+                    {
+                        pairHeightMm = height;
+                        commonOffsetMm = offset;
+                        pairReferenceAxis = BuildReferenceAxis(
+                            referenceBaseAxis,
+                            pairHeightMm,
+                            commonOffsetMm,
+                            sidePoint);
+                    },
+                    index,
+                    pairs.Count);
+                if (!selectedRadius.HasValue)
+                    return 0;
+
+                activeRadiusMm = selectedRadius.Value;
+                radiusConfirmed = true;
+                if (HasSagaMember(pair[0], pair[1], null))
+                    sagaWarningAcknowledged = true;
+                plans.Add(RoundedCornerService.CreateAutomaticCompoundPlan(
+                    document,
+                    pair[0].Id,
+                    pair[0].CornerEnd,
+                    pair[1].Id,
+                    pair[1].CornerEnd,
+                    pairReferenceAxis,
+                    activeRadiusMm));
+            }
+
+            using (var group = new TransactionGroup(
+                document,
+                "SAGA - Unir corrimãos em lote"))
+            {
+                group.Start();
+                try
+                {
+                    foreach (var plan in plans)
+                        ApplyAutomaticCompound(document, plan);
+                    if (group.Assimilate() != TransactionStatus.Committed)
+                        throw new InvalidOperationException(
+                            "O Revit não confirmou a criação do lote de uniões.");
+                }
+                catch
+                {
+                    if (group.GetStatus() == TransactionStatus.Started)
+                        group.RollBack();
+                    throw;
+                }
+            }
+
+            _lastRadiusMm = activeRadiusMm;
+            return plans.Count;
+        }
+
+        private static PickedMember PickMemberFromReference(
+            Document document,
+            Reference reference,
+            StraightBeamPointSelectionFilter filter)
+        {
+            var point = GetPickedPoint(reference, filter);
+            int cornerEnd = RoundedCornerService.ResolvePickedEnd(
+                document,
+                reference.ElementId,
+                point);
+            return new PickedMember
+            {
+                Id = reference.ElementId,
+                CornerEnd = cornerEnd,
+                Instance = document.GetElement(reference.ElementId) as FamilyInstance
+            };
+        }
+
+        private static Line PickHorizontalReferenceEdge(
+            UIDocument uiDocument,
+            Document document,
+            PickedMember first,
+            PickedMember second,
+            out double suggestedHeightMm,
+            string prompt)
+        {
+            suggestedHeightMm = 0.0;
+            var filter = new HorizontalStraightEdgeSelectionFilter(document);
+            var reference = uiDocument.Selection.PickObject(
+                ObjectType.Edge,
+                filter,
+                prompt);
+            var element = document.GetElement(reference.ElementId);
+            var profileAxis = (element?.Location as LocationCurve)?.Curve as Line;
+            var edge = element?.GetGeometryObjectFromReference(reference) as Edge;
+            var line = edge?.AsCurve() as Line;
+            var rawReference = IsHorizontal(profileAxis) ? profileAxis : line;
+            if (!IsHorizontal(rawReference))
+                throw new InvalidOperationException(
+                    "A referência selecionada não é uma aresta reta válida.");
+
+            // Um corrimão SAGA horizontal já fornece a cota de seu próprio eixo.
+            if (RailAssemblyStore.TryRead(element, out _))
+                return rawReference;
+
+            // Perfis estruturais do patamar fornecem a cota-base e a direção. A cota
+            // funcional do corrimão vem da configuração persistida no conjunto SAGA.
+            double? heightOffsetMm = GetStoredHandrailElevationOffsetMm(first?.Instance);
+            double? secondOffsetMm = GetStoredHandrailElevationOffsetMm(second?.Instance);
+            if (heightOffsetMm.HasValue && secondOffsetMm.HasValue &&
+                Math.Abs(heightOffsetMm.Value - secondOffsetMm.Value) > 1.0)
+            {
+                throw new InvalidOperationException(
+                    $"Os dois guarda-corpos possuem alturas de eixo diferentes " +
+                    $"({heightOffsetMm.Value:F1} mm e {secondOffsetMm.Value:F1} mm). " +
+                    "Use como referência um corrimão horizontal já modelado.");
+            }
+
+            double? elevationOffsetMm = heightOffsetMm ?? secondOffsetMm;
+            suggestedHeightMm = elevationOffsetMm ?? 0.0;
+            return rawReference;
+        }
+
+        private static Line BuildReferenceAxis(
+            Line baseAxis,
+            double heightMm,
+            double horizontalOffsetMm,
+            XYZ sidePoint)
+        {
+            if (baseAxis == null)
+                throw new InvalidOperationException("A aresta de referência é inválida.");
+            var elevation = XYZ.BasisZ * (heightMm / 304.8);
+            var direction = baseAxis.Direction;
+            var perpendicular = new XYZ(-direction.Y, direction.X, 0.0).Normalize();
+            if (sidePoint != null &&
+                (sidePoint - baseAxis.GetEndPoint(0)).DotProduct(perpendicular) < 0.0)
+                perpendicular = -perpendicular;
+            var horizontal = perpendicular * (horizontalOffsetMm / 304.8);
+            var translation = elevation + horizontal;
+            return Line.CreateBound(
+                baseAxis.GetEndPoint(0) + translation,
+                baseAxis.GetEndPoint(1) + translation);
+        }
+
+        private static double? GetStoredHandrailElevationOffsetMm(Element element)
+        {
+            if (!RailAssemblyStore.TryRead(element, out var data) || data?.Config == null)
+                return null;
+            return data.Config.GlobalVerticalOffset + data.Config.HandrailHeight;
+        }
+
+        private static bool IsHorizontal(Line line)
+        {
+            if (line == null || line.Length <= 1e-9) return false;
+            double inclinationDegrees =
+                Math.Asin(Math.Min(1.0, Math.Abs(line.Direction.Z))) *
+                180.0 / Math.PI;
+            return inclinationDegrees <= 0.5;
+        }
+
         private static XYZ GetPickedPoint(
             Reference reference,
             StraightBeamPointSelectionFilter filter)
@@ -439,7 +752,12 @@ namespace SAGAStructuralTools.Commands
             IntermediateDecision mode,
             double initialRadiusMm,
             bool showSagaWarning,
-            Action<double> validateRadius)
+            Action<double> validateRadius,
+            double? initialReferenceHeightMm = null,
+            double? initialHorizontalOffsetMm = null,
+            Action<double, double> referencePlacementChanged = null,
+            int batchIndex = 0,
+            int batchCount = 0)
         {
             double requestedRadiusMm = initialRadiusMm;
             bool automatic = mode == IntermediateDecision.AutomaticMiddle;
@@ -450,13 +768,13 @@ namespace SAGAStructuralTools.Commands
                 var dialog = new HandrailJoinWindow(
                     Describe(first?.Instance, "Trecho 1"),
                     automatic
-                        ? "Patamar automático — será criado após confirmar"
+                        ? "Patamar no plano da aresta — será criado após confirmar"
                         : compound
                         ? Describe(middle?.Instance, "Patamar")
                         : Describe(second?.Instance, "Trecho 2"),
                     compound ? Describe(second?.Instance, "Trecho 3") : null,
                     automatic
-                        ? $"{DescribeOrientation(first?.Instance)} → patamar automático → " +
+                        ? $"{DescribeOrientation(first?.Instance)} → patamar no plano da aresta → " +
                           $"{DescribeOrientation(second?.Instance)} (2 arcos)"
                         : compound
                         ? $"{DescribeOrientation(first?.Instance)} → patamar existente → " +
@@ -464,7 +782,11 @@ namespace SAGAStructuralTools.Commands
                         : $"{DescribeOrientation(first?.Instance)} → " +
                           $"{DescribeOrientation(second?.Instance)} (1 arco)",
                     requestedRadiusMm,
-                    showSagaWarning);
+                    showSagaWarning,
+                    initialReferenceHeightMm,
+                    initialHorizontalOffsetMm,
+                    batchIndex,
+                    batchCount);
                 new WindowInteropHelper(dialog).Owner =
                     Process.GetCurrentProcess().MainWindowHandle;
 
@@ -474,6 +796,13 @@ namespace SAGAStructuralTools.Commands
                 requestedRadiusMm = dialog.RadiusMm;
                 try
                 {
+                    referencePlacementChanged?.Invoke(
+                        dialog.ReferenceHeightMm,
+                        dialog.HorizontalOffsetMm);
+                    if (initialReferenceHeightMm.HasValue)
+                        initialReferenceHeightMm = dialog.ReferenceHeightMm;
+                    if (initialHorizontalOffsetMm.HasValue)
+                        initialHorizontalOffsetMm = dialog.HorizontalOffsetMm;
                     validateRadius(requestedRadiusMm);
                     return requestedRadiusMm;
                 }
@@ -618,26 +947,27 @@ namespace SAGAStructuralTools.Commands
             {
                 MainInstruction = "Como estes corrimãos devem ser unidos?",
                 MainContent =
-                    "No modo automático, a ferramenta tenta primeiro um único arco. " +
-                    "Se os eixos forem paralelos ou não se encontrarem, ela calcula e " +
-                    "cria o trecho horizontal necessário.",
+                    "A união direta usa um único arco quando os eixos se encontram. " +
+                    "Para criar um patamar, selecione uma aresta reta e horizontal que " +
+                    "defina sua cota-base e seu plano horizontal.",
                 CommonButtons = TaskDialogCommonButtons.Cancel
             };
             dialog.AddCommandLink(
                 TaskDialogCommandLinkId.CommandLink1,
-                "Unir automaticamente (recomendado)",
-                "Usa um arco direto quando os eixos se encontram; caso contrário, cria o patamar e dois arcos.");
+                "Tentar união direta",
+                "Usa um único arco; se os eixos não se encontrarem, solicita uma aresta de referência.");
             dialog.AddCommandLink(
                 TaskDialogCommandLinkId.CommandLink2,
-                "Criar patamar horizontal",
-                "Cria diretamente o trecho horizontal e dois arcos tangentes.");
+                "Criar patamar por aresta (recomendado)",
+                "Seleciona uma aresta horizontal para definir a cota-base e cria o trecho entre as duas pontas.");
             dialog.AddCommandLink(
                 TaskDialogCommandLinkId.CommandLink3,
-                "Usar trecho horizontal do patamar",
-                "Seleciona um terceiro perfil e cria dois arcos tangentes.");
+                "Criar várias uniões pela mesma aresta",
+                "Selecione os perfis restantes em pares e informe a altura de cada união.");
             dialog.AddCommandLink(
                 TaskDialogCommandLinkId.CommandLink4,
-                "Escolher outro par");
+                "Usar trecho horizontal do patamar",
+                "Seleciona um terceiro perfil e cria dois arcos tangentes.");
             dialog.DefaultButton = TaskDialogResult.CommandLink1;
 
             var result = dialog.Show();
@@ -646,9 +976,9 @@ namespace SAGAStructuralTools.Commands
             if (result == TaskDialogResult.CommandLink2)
                 return IntermediateDecision.AutomaticMiddle;
             if (result == TaskDialogResult.CommandLink3)
-                return IntermediateDecision.SelectMiddle;
+                return IntermediateDecision.BatchReference;
             if (result == TaskDialogResult.CommandLink4)
-                return IntermediateDecision.Retry;
+                return IntermediateDecision.SelectMiddle;
             return IntermediateDecision.End;
         }
 
@@ -657,7 +987,7 @@ namespace SAGAStructuralTools.Commands
             var dialog = new TaskDialog("SAGA - Unir corrimãos")
             {
                 MainInstruction =
-                    "Não foi possível calcular um patamar horizontal automático.",
+                    "Não foi possível criar o patamar pela referência selecionada.",
                 MainContent =
                     reason + "\n\n" +
                     "Você ainda pode indicar um trecho horizontal já modelado.",
@@ -689,6 +1019,7 @@ namespace SAGAStructuralTools.Commands
         private enum IntermediateDecision
         {
             AutomaticMiddle,
+            BatchReference,
             Direct,
             SelectMiddle,
             Retry,
@@ -730,6 +1061,33 @@ namespace SAGAStructuralTools.Commands
                        elementId.Equals(_capturedElementId)
                     ? _capturedPoint
                     : null;
+            }
+        }
+
+        private sealed class HorizontalStraightEdgeSelectionFilter : ISelectionFilter
+        {
+            private readonly Document _document;
+
+            internal HorizontalStraightEdgeSelectionFilter(Document document) =>
+                _document = document;
+
+            public bool AllowElement(Element element) => element != null;
+
+            public bool AllowReference(Reference reference, XYZ position)
+            {
+                try
+                {
+                    var element = _document?.GetElement(reference?.ElementId);
+                    var edge = element?.GetGeometryObjectFromReference(reference) as Edge;
+                    var line = edge?.AsCurve() as Line;
+                    if (line == null || line.Length <= 1e-9) return false;
+
+                    return IsHorizontal(line);
+                }
+                catch
+                {
+                    return false;
+                }
             }
         }
     }
