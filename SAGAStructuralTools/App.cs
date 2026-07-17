@@ -112,6 +112,17 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("railing_16.png", 16)
                 });
 
+                TryAddButton(panel, new PushButtonData(
+                    name:         "RealAlign",
+                    text:         "Alinhamento\nReal",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.RealAlignCommand")
+                {
+                    ToolTip    = "Estende o eixo real de um componente até uma referência (face, linha, ou eixo de outro membro) — diferente do Alinhar nativo, que só ajusta o recuo visual da junta.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
                 _railSelectionController = new RailSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
