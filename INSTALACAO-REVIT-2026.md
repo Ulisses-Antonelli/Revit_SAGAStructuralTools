@@ -2,7 +2,8 @@
 
 ## Opção mais simples: pacote ZIP
 
-1. Baixe o ZIP anexado à versão de trabalho no GitHub.
+1. Na branch `feature/rail-transitions`, baixe
+   [`SAGAStructuralTools-Revit2026-feature-rail-transitions.zip`](artifacts/SAGAStructuralTools-Revit2026-feature-rail-transitions.zip).
 2. Extraia todos os arquivos.
 3. Feche o Revit.
 4. Dê dois cliques em `INSTALAR.cmd`.
