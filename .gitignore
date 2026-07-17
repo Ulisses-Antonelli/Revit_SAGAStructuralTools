@@ -1,6 +1,7 @@
 # Build output
 SAGAStructuralTools/bin/
 SAGAStructuralTools/obj/
+artifacts/
 
 # Logs gerados pelo plugin
 SAGA_Log_*.txt

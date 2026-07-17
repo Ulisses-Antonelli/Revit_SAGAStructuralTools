@@ -1,0 +1,9 @@
+@echo off
+setlocal
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0INSTALAR-Revit2026.ps1"
+if errorlevel 1 (
+  echo.
+  echo A instalacao nao foi concluida. Revise a mensagem acima.
+)
+echo.
+pause
