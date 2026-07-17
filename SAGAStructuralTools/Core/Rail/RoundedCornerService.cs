@@ -6,6 +6,73 @@ using System.Linq;
 
 namespace SAGAStructuralTools.Core.Rail
 {
+    internal sealed class RoundedCornerTransitionRequiredException : InvalidOperationException
+    {
+        internal RoundedCornerTransitionRequiredException(string message)
+            : base(message)
+        {
+        }
+    }
+
+    internal sealed class RoundedCornerRequest
+    {
+        internal RoundedCornerRequest(
+            ElementId firstId,
+            ElementId secondId,
+            int? firstCornerEnd = null,
+            int? secondCornerEnd = null)
+        {
+            FirstId = firstId;
+            SecondId = secondId;
+            FirstCornerEnd = firstCornerEnd;
+            SecondCornerEnd = secondCornerEnd;
+        }
+
+        internal ElementId FirstId { get; }
+        internal ElementId SecondId { get; }
+        internal int? FirstCornerEnd { get; }
+        internal int? SecondCornerEnd { get; }
+    }
+
+    internal sealed class RoundedCornerPlan
+    {
+        internal ElementId FirstId { get; set; }
+        internal ElementId SecondId { get; set; }
+        internal Line OriginalFirstLine { get; set; }
+        internal Line OriginalSecondLine { get; set; }
+        internal int FirstCornerEnd { get; set; }
+        internal int SecondCornerEnd { get; set; }
+        internal XYZ Vertex { get; set; }
+        internal XYZ FirstTangent { get; set; }
+        internal XYZ SecondTangent { get; set; }
+        internal XYZ PointOnArc { get; set; }
+        internal double RadiusMm { get; set; }
+        internal double RayAngleRadians { get; set; }
+    }
+
+    internal sealed class RoundedCornerCompoundPlan
+    {
+        internal RoundedCornerPlan FirstCorner { get; set; }
+        internal RoundedCornerPlan SecondCorner { get; set; }
+        internal ElementId MiddleId { get; set; }
+    }
+
+    internal sealed class RoundedCornerAutomaticCompoundPlan
+    {
+        internal ElementId FirstId { get; set; }
+        internal ElementId SecondId { get; set; }
+        internal int FirstCornerEnd { get; set; }
+        internal int SecondCornerEnd { get; set; }
+        internal Line MiddleAxis { get; set; }
+        internal double RadiusMm { get; set; }
+    }
+
+    internal sealed class RoundedCornerAutomaticCompoundResult
+    {
+        internal ElementId MiddleElementId { get; set; }
+        internal RoundedCornerResult[] CornerResults { get; set; }
+    }
+
     internal sealed class RoundedCornerResult
     {
         internal ElementId CurvedElementId { get; set; }
@@ -95,6 +162,382 @@ namespace SAGAStructuralTools.Core.Rail
                 solution.SecondCornerEnd);
         }
 
+        internal static void ValidateSelection(
+            Document document,
+            RoundedCornerRequest request)
+        {
+            CreatePlan(document, request, 0.1, 0.0, false);
+        }
+
+        internal static void ValidateRadius(
+            Document document,
+            RoundedCornerRequest request,
+            double radiusMm)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            CreatePlan(
+                document,
+                request,
+                radiusMm,
+                document.Application.ShortCurveTolerance,
+                true);
+        }
+
+        internal static int ResolvePickedEnd(
+            Document document,
+            ElementId elementId,
+            XYZ pickedPoint)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (pickedPoint == null)
+                throw new InvalidOperationException(
+                    "Não foi possível identificar o ponto clicado no corrimão.");
+            if (!IsFinite(pickedPoint))
+                throw new InvalidOperationException(
+                    "O ponto clicado no corrimão não possui coordenadas válidas.");
+
+            var member = RoundedCornerMember.Get(document, elementId, "selecionado");
+            if (!member.IsBeam)
+                throw new InvalidOperationException(
+                    "A ferramenta Unir Corrimãos aceita somente vigas estruturais retas.");
+
+            var line = member.GetAxis();
+            var start = line.GetEndPoint(0);
+            var end = line.GetEndPoint(1);
+
+            // Em vistas de planta o Revit não garante que GlobalPoint.Z seja
+            // significativo. A estação do clique deve, portanto, ser medida em XY.
+            if (document.ActiveView is ViewPlan)
+            {
+                double dx = end.X - start.X;
+                double dy = end.Y - start.Y;
+                double lengthSquared = dx * dx + dy * dy;
+                if (lengthSquared < 1e-12)
+                {
+                    throw new InvalidOperationException(
+                        "Não é possível escolher a extremidade deste perfil em planta. " +
+                        "Use uma vista 3D ou de elevação.");
+                }
+
+                double station =
+                    ((pickedPoint.X - start.X) * dx +
+                     (pickedPoint.Y - start.Y) * dy) /
+                    lengthSquared;
+                return station <= 0.5 ? 0 : 1;
+            }
+
+            var direction = Direction(start, end, "selecionado");
+            double along = (pickedPoint - start).DotProduct(direction);
+            return along <= line.Length * 0.5 ? 0 : 1;
+        }
+
+        internal static RoundedCornerPlan CreatePlan(
+            Document document,
+            RoundedCornerRequest request,
+            double radiusMm)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            return CreatePlan(
+                document,
+                request,
+                radiusMm,
+                document.Application.ShortCurveTolerance,
+                true);
+        }
+
+        private static RoundedCornerPlan CreatePlan(
+            Document document,
+            RoundedCornerRequest request,
+            double radiusMm,
+            double shortCurveTolerance,
+            bool validateExtension)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+            if (radiusMm <= 0 || double.IsNaN(radiusMm) || double.IsInfinity(radiusMm))
+                throw new InvalidOperationException("Informe um raio maior que zero.");
+
+            var first = RoundedCornerMember.Get(document, request.FirstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, request.SecondId, "segundo");
+            ValidatePair(first, second);
+
+            var firstLine = first.GetAxis();
+            var secondLine = second.GetAxis();
+            var solution = Calculate(
+                firstLine,
+                secondLine,
+                radiusMm / MillimetersPerFoot,
+                shortCurveTolerance,
+                validateExtension,
+                GetVertexAnchor(first, second),
+                request.FirstCornerEnd,
+                request.SecondCornerEnd);
+
+            first.EnsureCornerEndEditable(solution.FirstCornerEnd);
+            second.EnsureCornerEndEditable(solution.SecondCornerEnd);
+            RoundedCornerStore.EnsureEndpointsAreAvailable(
+                document,
+                first.Instance,
+                solution.FirstCornerEnd,
+                second.Instance,
+                solution.SecondCornerEnd);
+
+            return new RoundedCornerPlan
+            {
+                FirstId = request.FirstId,
+                SecondId = request.SecondId,
+                OriginalFirstLine = firstLine,
+                OriginalSecondLine = secondLine,
+                FirstCornerEnd = solution.FirstCornerEnd,
+                SecondCornerEnd = solution.SecondCornerEnd,
+                Vertex = solution.Vertex,
+                FirstTangent = solution.FirstTangent,
+                SecondTangent = solution.SecondTangent,
+                PointOnArc = solution.PointOnArc,
+                RadiusMm = radiusMm,
+                RayAngleRadians = solution.RayAngleRadians
+            };
+        }
+
+        internal static RoundedCornerCompoundPlan CreateCompoundPlan(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId middleId,
+            int middleFirstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            double radiusMm)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (firstId == null || middleId == null || secondId == null ||
+                firstId.Equals(middleId) || firstId.Equals(secondId) ||
+                middleId.Equals(secondId))
+            {
+                throw new InvalidOperationException(
+                    "Selecione três corrimãos diferentes para a união pelo patamar.");
+            }
+
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(middleFirstCornerEnd, "trecho horizontal");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+
+            var middle = RoundedCornerMember.Get(document, middleId, "intermediário");
+            if (!middle.IsBeam)
+                throw new InvalidOperationException(
+                    "O trecho intermediário deve ser uma viga estrutural reta.");
+            EnsureHorizontal(middle.GetAxis());
+
+            var firstPlan = CreatePlan(
+                document,
+                new RoundedCornerRequest(
+                    firstId,
+                    middleId,
+                    firstCornerEnd,
+                    middleFirstCornerEnd),
+                radiusMm);
+            var secondPlan = CreatePlan(
+                document,
+                new RoundedCornerRequest(
+                    middleId,
+                    secondId,
+                    1 - middleFirstCornerEnd,
+                    secondCornerEnd),
+                radiusMm);
+
+            ValidateCompoundSpacing(
+                document,
+                firstPlan,
+                secondPlan,
+                middleFirstCornerEnd);
+
+            return new RoundedCornerCompoundPlan
+            {
+                FirstCorner = firstPlan,
+                SecondCorner = secondPlan,
+                MiddleId = middleId
+            };
+        }
+
+        internal static void ValidateCompoundSelection(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId middleId,
+            int middleFirstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (firstId == null || middleId == null || secondId == null ||
+                firstId.Equals(middleId) || firstId.Equals(secondId) ||
+                middleId.Equals(secondId))
+            {
+                throw new InvalidOperationException(
+                    "Selecione três corrimãos diferentes para a união pelo patamar.");
+            }
+
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(middleFirstCornerEnd, "trecho horizontal");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+
+            var middle = RoundedCornerMember.Get(document, middleId, "intermediário");
+            if (!middle.IsBeam)
+                throw new InvalidOperationException(
+                    "O trecho intermediário deve ser uma viga estrutural reta.");
+            EnsureHorizontal(middle.GetAxis());
+
+            var firstPlan = CreatePlan(
+                document,
+                new RoundedCornerRequest(
+                    firstId,
+                    middleId,
+                    firstCornerEnd,
+                    middleFirstCornerEnd),
+                0.1,
+                0.0,
+                false);
+            var secondPlan = CreatePlan(
+                document,
+                new RoundedCornerRequest(
+                    middleId,
+                    secondId,
+                    1 - middleFirstCornerEnd,
+                    secondCornerEnd),
+                0.1,
+                0.0,
+                false);
+            ValidateCompoundSpacing(
+                document,
+                firstPlan,
+                secondPlan,
+                middleFirstCornerEnd);
+        }
+
+        internal static void ValidateAutomaticCompoundSelection(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd)
+        {
+            CreateAutomaticCompoundPlan(
+                document,
+                firstId,
+                firstCornerEnd,
+                secondId,
+                secondCornerEnd,
+                0.1,
+                0.0,
+                false);
+        }
+
+        internal static RoundedCornerAutomaticCompoundPlan CreateAutomaticCompoundPlan(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            double radiusMm)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            return CreateAutomaticCompoundPlan(
+                document,
+                firstId,
+                firstCornerEnd,
+                secondId,
+                secondCornerEnd,
+                radiusMm,
+                document.Application.ShortCurveTolerance,
+                true);
+        }
+
+        private static RoundedCornerAutomaticCompoundPlan CreateAutomaticCompoundPlan(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            double radiusMm,
+            double shortCurveTolerance,
+            bool validateExtension)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (radiusMm <= 0 || double.IsNaN(radiusMm) || double.IsInfinity(radiusMm))
+                throw new InvalidOperationException("Informe um raio maior que zero.");
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+
+            var first = RoundedCornerMember.Get(document, firstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, secondId, "segundo");
+            if (!first.IsBeam || !second.IsBeam)
+                throw new InvalidOperationException(
+                    "O patamar automático aceita somente vigas estruturais retas.");
+            ValidatePair(first, second);
+
+            var firstLine = first.GetAxis();
+            var secondLine = second.GetAxis();
+            var middleAxis = CalculateAutomaticMiddleAxis(
+                document,
+                firstLine,
+                firstCornerEnd,
+                secondLine,
+                secondCornerEnd);
+
+            var firstSolution = Calculate(
+                firstLine,
+                middleAxis,
+                radiusMm / MillimetersPerFoot,
+                shortCurveTolerance,
+                validateExtension,
+                -1,
+                firstCornerEnd,
+                0);
+            var secondSolution = Calculate(
+                middleAxis,
+                secondLine,
+                radiusMm / MillimetersPerFoot,
+                shortCurveTolerance,
+                validateExtension,
+                -1,
+                1,
+                secondCornerEnd);
+
+            first.EnsureCornerEndEditable(firstSolution.FirstCornerEnd);
+            second.EnsureCornerEndEditable(secondSolution.SecondCornerEnd);
+            RoundedCornerStore.EnsureEndpointsAreAvailable(
+                document,
+                first.Instance,
+                firstSolution.FirstCornerEnd,
+                second.Instance,
+                secondSolution.SecondCornerEnd);
+            ValidateCompoundSpacing(
+                document,
+                middleAxis,
+                firstSolution.SecondTangent,
+                secondSolution.FirstTangent,
+                0);
+
+            return new RoundedCornerAutomaticCompoundPlan
+            {
+                FirstId = firstId,
+                SecondId = secondId,
+                FirstCornerEnd = firstCornerEnd,
+                SecondCornerEnd = secondCornerEnd,
+                MiddleAxis = middleAxis,
+                RadiusMm = radiusMm
+            };
+        }
+
         internal static RoundedCornerResult Apply(
             Document document,
             ElementId firstId,
@@ -176,6 +619,8 @@ namespace SAGAStructuralTools.Core.Rail
             // ajuste automático de cutback feito durante a criação da viga.
             if (curved.Location is LocationCurve curvedLocation)
                 curvedLocation.Curve = arc;
+            document.Regenerate();
+            EnsureArcWasApplied(curved, arc);
 
             RoundedCornerStore.RegisterIfNeeded(
                 document,
@@ -199,6 +644,287 @@ namespace SAGAStructuralTools.Core.Rail
                 RadiusMm = radiusMm,
                 TurnAngleDegrees = (Math.PI - solution.RayAngleRadians) * 180.0 / Math.PI
             };
+        }
+
+        internal static RoundedCornerResult Apply(
+            Document document,
+            RoundedCornerPlan plan,
+            string operationId = null,
+            bool forceRegistration = false,
+            string ownedIntermediateElementUniqueId = null)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (plan == null)
+                throw new ArgumentNullException(nameof(plan));
+
+            var first = RoundedCornerMember.Get(document, plan.FirstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, plan.SecondId, "segundo");
+            ValidatePair(first, second);
+
+            first.EnsureCornerEndEditable(plan.FirstCornerEnd);
+            second.EnsureCornerEndEditable(plan.SecondCornerEnd);
+            RoundedCornerStore.EnsureEndpointsAreAvailable(
+                document,
+                first.Instance,
+                plan.FirstCornerEnd,
+                second.Instance,
+                plan.SecondCornerEnd);
+
+            bool firstJoinWasAllowed = first.IsJoinAllowedAtEnd(plan.FirstCornerEnd);
+            bool secondJoinWasAllowed = second.IsJoinAllowedAtEnd(plan.SecondCornerEnd);
+            first.DisallowJoinAtEnd(plan.FirstCornerEnd);
+            second.DisallowJoinAtEnd(plan.SecondCornerEnd);
+
+            first.SetCornerEndpoint(plan.FirstCornerEnd, plan.FirstTangent);
+            second.SetCornerEndpoint(plan.SecondCornerEnd, plan.SecondTangent);
+            document.Regenerate();
+            EnsureEndpointWasApplied(first, plan.FirstCornerEnd, plan.FirstTangent);
+            EnsureEndpointWasApplied(second, plan.SecondCornerEnd, plan.SecondTangent);
+
+            var beam = first.IsBeam ? first : second;
+            var symbol = beam.Instance.Symbol;
+            if (!symbol.IsActive) symbol.Activate();
+
+            var level = GetReferenceLevel(document, beam.Instance, plan.Vertex.Z);
+            var arc = Arc.Create(
+                plan.FirstTangent,
+                plan.SecondTangent,
+                plan.PointOnArc);
+            var curved = document.Create.NewFamilyInstance(
+                arc,
+                symbol,
+                level,
+                StructuralType.Beam);
+            if (curved == null)
+                throw new InvalidOperationException(
+                    "A família selecionada não aceitou a criação sobre um arco.");
+
+            CopyPlacementParameters(beam.Instance, curved);
+            document.Regenerate();
+            StructuralFramingUtils.DisallowJoinAtEnd(curved, 0);
+            StructuralFramingUtils.DisallowJoinAtEnd(curved, 1);
+
+            if (curved.Location is LocationCurve curvedLocation)
+                curvedLocation.Curve = arc;
+            document.Regenerate();
+            EnsureArcWasApplied(curved, arc);
+
+            RoundedCornerStore.RegisterIfNeeded(
+                document,
+                first,
+                plan.OriginalFirstLine,
+                plan.FirstCornerEnd,
+                firstJoinWasAllowed,
+                second,
+                plan.OriginalSecondLine,
+                plan.SecondCornerEnd,
+                secondJoinWasAllowed,
+                curved,
+                plan.RadiusMm,
+                operationId,
+                forceRegistration,
+                ownedIntermediateElementUniqueId);
+
+            return new RoundedCornerResult
+            {
+                CurvedElementId = curved.Id,
+                Vertex = plan.Vertex,
+                FirstTangent = plan.FirstTangent,
+                SecondTangent = plan.SecondTangent,
+                RadiusMm = plan.RadiusMm,
+                TurnAngleDegrees =
+                    (Math.PI - plan.RayAngleRadians) * 180.0 / Math.PI
+            };
+        }
+
+        internal static RoundedCornerResult[] ApplyCompound(
+            Document document,
+            RoundedCornerCompoundPlan plan,
+            string ownedIntermediateElementUniqueId = null)
+        {
+            if (plan == null)
+                throw new ArgumentNullException(nameof(plan));
+
+            string operationId = Guid.NewGuid().ToString("N");
+            bool registerWholeOperation =
+                HasRegisteredAssembly(document, plan.FirstCorner.FirstId) ||
+                HasRegisteredAssembly(document, plan.MiddleId) ||
+                HasRegisteredAssembly(document, plan.SecondCorner.SecondId);
+            var firstResult = Apply(
+                document,
+                plan.FirstCorner,
+                operationId,
+                registerWholeOperation,
+                ownedIntermediateElementUniqueId);
+            var secondResult = Apply(
+                document,
+                plan.SecondCorner,
+                operationId,
+                registerWholeOperation,
+                ownedIntermediateElementUniqueId);
+            EnsureCompoundTangency(
+                document,
+                plan,
+                firstResult,
+                secondResult);
+            return new[] { firstResult, secondResult };
+        }
+
+        /// <summary>
+        /// Cria o trecho horizontal calculado e os dois cantos em uma única
+        /// transação já aberta pelo chamador. Qualquer falha deve provocar o
+        /// rollback da operação inteira.
+        /// </summary>
+        internal static RoundedCornerAutomaticCompoundResult ApplyAutomaticCompound(
+            Document document,
+            RoundedCornerAutomaticCompoundPlan plan)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (plan == null)
+                throw new ArgumentNullException(nameof(plan));
+
+            // Recalcula sobre os eixos atuais para não aplicar uma proposta que
+            // tenha ficado obsoleta enquanto a janela do raio estava aberta.
+            var currentPlan = CreateAutomaticCompoundPlan(
+                document,
+                plan.FirstId,
+                plan.FirstCornerEnd,
+                plan.SecondId,
+                plan.SecondCornerEnd,
+                plan.RadiusMm);
+
+            var first = RoundedCornerMember.Get(
+                document,
+                currentPlan.FirstId,
+                "primeiro");
+            var symbol = first.Instance.Symbol;
+            if (symbol == null)
+                throw new InvalidOperationException(
+                    "O primeiro corrimão não possui um tipo válido para criar o patamar.");
+            if (!symbol.IsActive) symbol.Activate();
+
+            var level = GetReferenceLevel(
+                document,
+                first.Instance,
+                currentPlan.MiddleAxis.GetEndPoint(0).Z);
+            var middle = document.Create.NewFamilyInstance(
+                currentPlan.MiddleAxis,
+                symbol,
+                level,
+                StructuralType.Beam);
+            if (middle == null)
+                throw new InvalidOperationException(
+                    "A família selecionada não aceitou a criação do trecho horizontal.");
+
+            CopyPlacementParameters(first.Instance, middle);
+            document.Regenerate();
+            StructuralFramingUtils.DisallowJoinAtEnd(middle, 0);
+            StructuralFramingUtils.DisallowJoinAtEnd(middle, 1);
+
+            if (!(middle.Location is LocationCurve middleLocation))
+                throw new InvalidOperationException(
+                    "O trecho horizontal criado não possui um eixo editável.");
+            middleLocation.Curve = currentPlan.MiddleAxis;
+            document.Regenerate();
+            EnsureLineWasApplied(middle, currentPlan.MiddleAxis);
+
+            var actualMiddle = RoundedCornerMember.Get(
+                document,
+                middle.Id,
+                "intermediário automático");
+            var actualMiddleAxis = actualMiddle.GetAxis();
+            int middleFirstCornerEnd = NearestEnd(
+                actualMiddleAxis,
+                currentPlan.MiddleAxis.GetEndPoint(0));
+
+            var compoundPlan = CreateCompoundPlan(
+                document,
+                currentPlan.FirstId,
+                currentPlan.FirstCornerEnd,
+                middle.Id,
+                middleFirstCornerEnd,
+                currentPlan.SecondId,
+                currentPlan.SecondCornerEnd,
+                currentPlan.RadiusMm);
+            var results = ApplyCompound(
+                document,
+                compoundPlan,
+                middle.UniqueId);
+
+            return new RoundedCornerAutomaticCompoundResult
+            {
+                MiddleElementId = middle.Id,
+                CornerResults = results
+            };
+        }
+
+        private static bool HasRegisteredAssembly(
+            Document document,
+            ElementId elementId)
+        {
+            return document != null &&
+                   elementId != null &&
+                   RoundedCornerStore.TryGetRegisteredAssemblyId(
+                       document.GetElement(elementId),
+                       out _);
+        }
+
+        private static void EnsureCompoundTangency(
+            Document document,
+            RoundedCornerCompoundPlan plan,
+            RoundedCornerResult firstResult,
+            RoundedCornerResult secondResult)
+        {
+            var middle = RoundedCornerMember.Get(
+                document,
+                plan.MiddleId,
+                "intermediário");
+            var middleLine = middle.GetAxis();
+            var middleDirection = Direction(
+                middleLine.GetEndPoint(0),
+                middleLine.GetEndPoint(1),
+                "intermediário");
+
+            EnsureArcTangentToDirection(
+                document,
+                firstResult.CurvedElementId,
+                plan.FirstCorner.SecondTangent,
+                middleDirection);
+            EnsureArcTangentToDirection(
+                document,
+                secondResult.CurvedElementId,
+                plan.SecondCorner.FirstTangent,
+                middleDirection);
+        }
+
+        private static void EnsureArcTangentToDirection(
+            Document document,
+            ElementId curvedElementId,
+            XYZ connectionPoint,
+            XYZ expectedDirection)
+        {
+            var curved = document.GetElement(curvedElementId) as FamilyInstance;
+            var arc = (curved?.Location as LocationCurve)?.Curve as Arc;
+            if (arc == null)
+                throw new InvalidOperationException(
+                    "Não foi possível verificar a tangência de um dos arcos.");
+
+            int endpoint = arc.GetEndPoint(0).DistanceTo(connectionPoint) <=
+                           arc.GetEndPoint(1).DistanceTo(connectionPoint)
+                ? 0
+                : 1;
+            var tangent = arc.ComputeDerivatives(endpoint, true).BasisX.Normalize();
+            double dot = Math.Abs(tangent.DotProduct(expectedDirection));
+            dot = Math.Max(-1.0, Math.Min(1.0, dot));
+            double angleDegrees = Math.Acos(dot) * 180.0 / Math.PI;
+            if (angleDegrees > 0.1)
+            {
+                throw new InvalidOperationException(
+                    $"Os eixos do patamar não produziram uma tangência contínua " +
+                    $"({angleDegrees:F2} graus de desvio). Alinhe melhor os perfis e tente novamente.");
+            }
         }
 
         private static void ValidatePair(
@@ -309,6 +1035,73 @@ namespace SAGAStructuralTools.Core.Rail
             }
         }
 
+        private static void EnsureArcWasApplied(
+            FamilyInstance curved,
+            Arc expectedArc)
+        {
+            var actualArc = (curved?.Location as LocationCurve)?.Curve as Arc;
+            if (actualArc == null)
+                throw new InvalidOperationException(
+                    "O Revit não manteve o conector como um arco estrutural.");
+
+            double toleranceFt = Math.Max(
+                0.5 / MillimetersPerFoot,
+                curved.Document.Application.VertexTolerance);
+            var expectedStart = expectedArc.GetEndPoint(0);
+            var expectedEnd = expectedArc.GetEndPoint(1);
+            var actualStart = actualArc.GetEndPoint(0);
+            var actualEnd = actualArc.GetEndPoint(1);
+            bool sameDirection =
+                actualStart.DistanceTo(expectedStart) <= toleranceFt &&
+                actualEnd.DistanceTo(expectedEnd) <= toleranceFt;
+            bool reverseDirection =
+                actualStart.DistanceTo(expectedEnd) <= toleranceFt &&
+                actualEnd.DistanceTo(expectedStart) <= toleranceFt;
+            double radiusDifference = Math.Abs(actualArc.Radius - expectedArc.Radius);
+            double middleDifference = actualArc.Evaluate(0.5, true)
+                .DistanceTo(expectedArc.Evaluate(0.5, true));
+            if ((!sameDirection && !reverseDirection) ||
+                radiusDifference > toleranceFt ||
+                middleDifference > toleranceFt)
+            {
+                throw new InvalidOperationException(
+                    "O Revit alterou a geometria do arco após a criação. " +
+                    "A operação foi cancelada para não deixar uma união desalinhada.");
+            }
+        }
+
+        private static void EnsureLineWasApplied(
+            FamilyInstance instance,
+            Line expectedLine)
+        {
+            var actualLine = (instance?.Location as LocationCurve)?.Curve as Line;
+            if (actualLine == null)
+                throw new InvalidOperationException(
+                    "O Revit não manteve o patamar como uma viga estrutural reta.");
+
+            double toleranceFt = Math.Max(
+                0.5 / MillimetersPerFoot,
+                instance.Document.Application.VertexTolerance);
+            var expectedStart = expectedLine.GetEndPoint(0);
+            var expectedEnd = expectedLine.GetEndPoint(1);
+            var actualStart = actualLine.GetEndPoint(0);
+            var actualEnd = actualLine.GetEndPoint(1);
+            bool sameDirection =
+                actualStart.DistanceTo(expectedStart) <= toleranceFt &&
+                actualEnd.DistanceTo(expectedEnd) <= toleranceFt;
+            bool reverseDirection =
+                actualStart.DistanceTo(expectedEnd) <= toleranceFt &&
+                actualEnd.DistanceTo(expectedStart) <= toleranceFt;
+            if (!sameDirection && !reverseDirection)
+            {
+                throw new InvalidOperationException(
+                    "O Revit alterou a posição do trecho horizontal após a criação. " +
+                    "A operação foi cancelada para não deixar a união desalinhada.");
+            }
+
+            EnsureHorizontal(actualLine);
+        }
+
         private static CornerSolution Calculate(
             Line first,
             Line second,
@@ -316,6 +1109,27 @@ namespace SAGAStructuralTools.Core.Rail
             double shortCurveTolerance,
             bool validateExtension,
             int vertexAnchor)
+        {
+            return Calculate(
+                first,
+                second,
+                radiusFt,
+                shortCurveTolerance,
+                validateExtension,
+                vertexAnchor,
+                null,
+                null);
+        }
+
+        private static CornerSolution Calculate(
+            Line first,
+            Line second,
+            double radiusFt,
+            double shortCurveTolerance,
+            bool validateExtension,
+            int vertexAnchor,
+            int? requestedFirstCornerEnd,
+            int? requestedSecondCornerEnd)
         {
             var p0 = first.GetEndPoint(0);
             var p1 = first.GetEndPoint(1);
@@ -329,7 +1143,7 @@ namespace SAGAStructuralTools.Core.Rail
                 Math.Min(1.0, firstDirection.DotProduct(secondDirection)));
             double denominator = 1.0 - directionDot * directionDot;
             if (denominator < 1e-12)
-                throw new InvalidOperationException(
+                throw new RoundedCornerTransitionRequiredException(
                     "Os perfis são paralelos ou quase paralelos e não formam um canto válido.");
 
             // Pontos mais próximos das duas retas infinitas. Quando a distância entre
@@ -350,7 +1164,7 @@ namespace SAGAStructuralTools.Core.Rail
             double axesTolerance = AxisIntersectionToleranceMm / MillimetersPerFoot;
             if (axesDistance > axesTolerance)
             {
-                throw new InvalidOperationException(
+                throw new RoundedCornerTransitionRequiredException(
                     $"Os eixos dos dois membros não se encontram " +
                     $"({axesDistance * MillimetersPerFoot:F1} mm de afastamento). " +
                     "Alinhe os eixos antes de arredondar o canto.");
@@ -362,8 +1176,16 @@ namespace SAGAStructuralTools.Core.Rail
                     ? secondIntersection
                     : (firstIntersection + secondIntersection) * 0.5;
 
-            int firstCornerEnd = NearestEnd(first, vertex);
-            int secondCornerEnd = NearestEnd(second, vertex);
+            int firstCornerEnd = ResolveCornerEnd(
+                first,
+                vertex,
+                requestedFirstCornerEnd,
+                "primeiro");
+            int secondCornerEnd = ResolveCornerEnd(
+                second,
+                vertex,
+                requestedSecondCornerEnd,
+                "segundo");
             var firstNear = first.GetEndPoint(firstCornerEnd);
             var secondNear = second.GetEndPoint(secondCornerEnd);
             var firstFar = first.GetEndPoint(1 - firstCornerEnd);
@@ -490,6 +1312,153 @@ namespace SAGAStructuralTools.Core.Rail
             }
         }
 
+        private static void EnsureHorizontal(Line line)
+        {
+            var direction = Direction(
+                line.GetEndPoint(0),
+                line.GetEndPoint(1),
+                "intermediário");
+            double inclinationDegrees =
+                Math.Asin(Math.Min(1.0, Math.Abs(direction.Z))) * 180.0 / Math.PI;
+            if (inclinationDegrees > 0.5)
+            {
+                throw new InvalidOperationException(
+                    $"O trecho intermediário deve ser horizontal. " +
+                    $"A inclinação encontrada foi {inclinationDegrees:F2} graus.");
+            }
+        }
+
+        private static Line CalculateAutomaticMiddleAxis(
+            Document document,
+            Line firstLine,
+            int firstCornerEnd,
+            Line secondLine,
+            int secondCornerEnd)
+        {
+            var firstPoint = firstLine.GetEndPoint(firstCornerEnd);
+            var secondPoint = secondLine.GetEndPoint(secondCornerEnd);
+            var firstDirection = Direction(
+                firstPoint,
+                firstLine.GetEndPoint(1 - firstCornerEnd),
+                "primeiro");
+            var secondDirection = Direction(
+                secondPoint,
+                secondLine.GetEndPoint(1 - secondCornerEnd),
+                "segundo");
+
+            double firstVertical = firstDirection.Z;
+            double secondVertical = secondDirection.Z;
+            double elevationDelta = secondPoint.Z - firstPoint.Z;
+            double denominator =
+                firstVertical * firstVertical +
+                secondVertical * secondVertical;
+
+            XYZ firstVertex;
+            XYZ secondVertex;
+            if (denominator < 1e-12)
+            {
+                double elevationTolerance = Math.Max(
+                    document.Application.VertexTolerance,
+                    0.01 / MillimetersPerFoot);
+                if (Math.Abs(elevationDelta) > elevationTolerance)
+                {
+                    throw new InvalidOperationException(
+                        $"Os dois eixos são horizontais e estão em cotas diferentes " +
+                        $"({Math.Abs(elevationDelta) * MillimetersPerFoot:F1} mm). " +
+                        "Selecione um trecho existente para definir a transição.");
+                }
+
+                firstVertex = firstPoint;
+                secondVertex = secondPoint;
+            }
+            else
+            {
+                double firstShift =
+                    firstVertical * elevationDelta / denominator;
+                double secondShift =
+                    -secondVertical * elevationDelta / denominator;
+                firstVertex = firstPoint + firstDirection * firstShift;
+                secondVertex = secondPoint + secondDirection * secondShift;
+            }
+
+            if (!IsFinite(firstVertex) || !IsFinite(secondVertex))
+                throw new InvalidOperationException(
+                    "Não foi possível calcular uma cota horizontal finita para o patamar.");
+
+            // Neutraliza apenas o resíduo numérico da solução da restrição Z1 = Z2.
+            double commonZ = (firstVertex.Z + secondVertex.Z) * 0.5;
+            firstVertex = new XYZ(firstVertex.X, firstVertex.Y, commonZ);
+            secondVertex = new XYZ(secondVertex.X, secondVertex.Y, commonZ);
+
+            double minimumLength = Math.Max(
+                document.Application.ShortCurveTolerance,
+                1.0 / MillimetersPerFoot);
+            if (firstVertex.DistanceTo(secondVertex) <= minimumLength)
+            {
+                throw new InvalidOperationException(
+                    "O trecho horizontal automático ficaria curto demais. " +
+                    "Use a união direta ou selecione um trecho existente.");
+            }
+
+            return Line.CreateBound(firstVertex, secondVertex);
+        }
+
+        private static void ValidateCompoundSpacing(
+            Document document,
+            RoundedCornerPlan firstPlan,
+            RoundedCornerPlan secondPlan,
+            int middleFirstCornerEnd)
+        {
+            if (firstPlan == null || secondPlan == null)
+                throw new ArgumentNullException(nameof(firstPlan));
+            if (!firstPlan.SecondId.Equals(secondPlan.FirstId))
+                throw new InvalidOperationException(
+                    "Os dois cantos não compartilham o mesmo trecho intermediário.");
+            if (firstPlan.SecondCornerEnd == secondPlan.FirstCornerEnd)
+                throw new InvalidOperationException(
+                    "Os dois cantos tentariam usar a mesma extremidade do trecho horizontal.");
+
+            ValidateCompoundSpacing(
+                document,
+                firstPlan.OriginalSecondLine,
+                firstPlan.SecondTangent,
+                secondPlan.FirstTangent,
+                middleFirstCornerEnd);
+        }
+
+        private static void ValidateCompoundSpacing(
+            Document document,
+            Line middle,
+            XYZ firstTangent,
+            XYZ secondTangent,
+            int middleFirstCornerEnd)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (middle == null || firstTangent == null || secondTangent == null)
+                throw new ArgumentNullException(nameof(middle));
+            ValidateCornerEnd(middleFirstCornerEnd, "trecho horizontal");
+
+            var start = middle.GetEndPoint(0);
+            var direction = Direction(start, middle.GetEndPoint(1), "intermediário");
+            double firstStation =
+                (firstTangent - start).DotProduct(direction);
+            double secondStation =
+                (secondTangent - start).DotProduct(direction);
+            double remainingFt = middleFirstCornerEnd == 0
+                ? secondStation - firstStation
+                : firstStation - secondStation;
+            double minimumRemainingFt = Math.Max(
+                document.Application.ShortCurveTolerance,
+                1.0 / MillimetersPerFoot);
+            if (remainingFt <= minimumRemainingFt)
+            {
+                throw new InvalidOperationException(
+                    "O raio informado faz os dois arredondamentos se sobreporem no " +
+                    "trecho horizontal. Use um raio menor ou um patamar mais longo.");
+            }
+        }
+
         private static XYZ Direction(XYZ start, XYZ end, string label)
         {
             var vector = end - start;
@@ -505,6 +1474,45 @@ namespace SAGAStructuralTools.Core.Rail
                    line.GetEndPoint(1).DistanceTo(point)
                 ? 0
                 : 1;
+        }
+
+        private static int ResolveCornerEnd(
+            Line line,
+            XYZ vertex,
+            int? requestedCornerEnd,
+            string label)
+        {
+            if (!requestedCornerEnd.HasValue)
+                return NearestEnd(line, vertex);
+
+            ValidateCornerEnd(requestedCornerEnd.Value, label);
+            int requested = requestedCornerEnd.Value;
+            double requestedDistance = line.GetEndPoint(requested).DistanceTo(vertex);
+            double oppositeDistance = line.GetEndPoint(1 - requested).DistanceTo(vertex);
+            double toleranceFt = AxisIntersectionToleranceMm / MillimetersPerFoot;
+            if (requestedDistance > oppositeDistance + toleranceFt)
+            {
+                throw new InvalidOperationException(
+                    $"O ponto clicado indica a extremidade oposta do {label} perfil. " +
+                    "Clique mais perto da ponta que deve receber a união.");
+            }
+
+            return requested;
+        }
+
+        private static void ValidateCornerEnd(int cornerEnd, string label)
+        {
+            if (cornerEnd != 0 && cornerEnd != 1)
+                throw new InvalidOperationException(
+                    $"A extremidade informada para {label} é inválida.");
+        }
+
+        private static bool IsFinite(XYZ point)
+        {
+            return point != null &&
+                   !double.IsNaN(point.X) && !double.IsInfinity(point.X) &&
+                   !double.IsNaN(point.Y) && !double.IsInfinity(point.Y) &&
+                   !double.IsNaN(point.Z) && !double.IsInfinity(point.Z);
         }
 
         private static Level GetReferenceLevel(

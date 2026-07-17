@@ -89,6 +89,22 @@ namespace SAGAStructuralTools.Core.Rail
             }
         }
 
+        internal static bool IsBeamSelectable(Element element)
+        {
+            var instance = element as FamilyInstance;
+            if (instance == null) return false;
+
+            try
+            {
+                return DetermineKind(instance, "selecionado") ==
+                       RoundedCornerMemberKind.BeamCurve;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static RoundedCornerMember Create(
             FamilyInstance instance,
             string label,

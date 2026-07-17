@@ -80,6 +80,17 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(panel, new PushButtonData(
+                    name:         "JoinHandrails",
+                    text:         "Unir\nCorrimãos",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.JoinHandrailsCommand")
+                {
+                    ToolTip    = "Une perfis estruturais retos usados como corrimão, com um arco direto ou dois arcos através de um patamar horizontal.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
+                TryAddButton(panel, new PushButtonData(
                     name:         "RoundRailCorner",
                     text:         "Arredondar\nCanto",
                     assemblyName: assemblyPath,

@@ -98,11 +98,15 @@ namespace SAGAStructuralTools.Core.Rail
             int secondCornerEnd,
             bool secondJoinWasAllowed,
             FamilyInstance curved,
-            double radiusMm)
+            double radiusMm,
+            string operationId = null,
+            bool forceRegistration = false,
+            string ownedIntermediateElementUniqueId = null)
         {
             TryGetRegisteredAssemblyId(first.Instance, out string firstAssemblyId);
             TryGetRegisteredAssemblyId(second.Instance, out string secondAssemblyId);
-            if (string.IsNullOrWhiteSpace(firstAssemblyId) &&
+            if (!forceRegistration &&
+                string.IsNullOrWhiteSpace(firstAssemblyId) &&
                 string.IsNullOrWhiteSpace(secondAssemblyId))
                 return;
 
@@ -110,11 +114,13 @@ namespace SAGAStructuralTools.Core.Rail
             {
                 Version = CurrentVersion,
                 CornerId = Guid.NewGuid().ToString("N"),
+                OperationId = operationId,
                 FirstAssemblyId = firstAssemblyId,
                 SecondAssemblyId = secondAssemblyId,
                 FirstElementUniqueId = first.Instance.UniqueId,
                 SecondElementUniqueId = second.Instance.UniqueId,
                 CurvedElementUniqueId = curved.UniqueId,
+                OwnedIntermediateElementUniqueId = ownedIntermediateElementUniqueId,
                 FirstMemberKind = first.StoredKind,
                 SecondMemberKind = second.StoredKind,
                 FirstStart = RailPointData.FromXyz(originalFirstLine.GetEndPoint(0)),
@@ -155,27 +161,71 @@ namespace SAGAStructuralTools.Core.Rail
         {
             if (document == null || string.IsNullOrWhiteSpace(assemblyId)) return 0;
 
-            var matching = ReadEntries(document)
+            var allEntries = ReadEntries(document).ToList();
+            var directlyMatching = allEntries
                 .Where(entry =>
                     string.Equals(entry.Data.FirstAssemblyId, assemblyId,
                                   StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(entry.Data.SecondAssemblyId, assemblyId,
                                   StringComparison.OrdinalIgnoreCase))
                 .ToList();
+            if (directlyMatching.Count == 0) return 0;
 
+            var operationIds = new HashSet<string>(
+                directlyMatching
+                    .Select(entry => entry.Data.OperationId)
+                    .Where(id => !string.IsNullOrWhiteSpace(id)),
+                StringComparer.OrdinalIgnoreCase);
+
+            var matching = allEntries
+                .Where(entry =>
+                    directlyMatching.Contains(entry) ||
+                    (!string.IsNullOrWhiteSpace(entry.Data.OperationId) &&
+                     operationIds.Contains(entry.Data.OperationId)))
+                .ToList();
+
+            var ownedIntermediateIds = new HashSet<string>(
+                matching
+                    .Select(entry => entry.Data.OwnedIntermediateElementUniqueId)
+                    .Where(id => !string.IsNullOrWhiteSpace(id)),
+                StringComparer.Ordinal);
+            foreach (string uniqueId in ownedIntermediateIds)
+                EnsureOwnedIntermediateUnchanged(document, uniqueId, matching);
+
+            // Primeiro remove todos os arcos da operação. Isso evita que joins ou
+            // a geometria de um segundo fillet interfiram na restauração das retas.
             foreach (var entry in matching)
             {
                 var curved = document.GetElement(entry.Data.CurvedElementUniqueId);
                 if (curved != null)
-                {
                     document.Delete(curved.Id);
-                    document.Regenerate();
-                }
+            }
+            document.Regenerate();
 
+            // O patamar criado automaticamente pertence à operação composta. Ele
+            // não deve sobreviver quando um dos guarda-corpos ligados for refeito.
+            foreach (string uniqueId in ownedIntermediateIds)
+            {
+                var ownedIntermediate = document.GetElement(uniqueId);
+                if (ownedIntermediate != null)
+                    document.Delete(ownedIntermediate.Id);
+            }
+            document.Regenerate();
+
+            // Uma união composta pode mencionar o mesmo membro central em dois
+            // registros. A chave por elemento+extremidade permite restaurar as duas
+            // pontas, mas impede repetir destrutivamente a mesma ponta.
+            var restoredEndpoints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in matching)
+            {
                 // O membro do conjunto em edição será excluído e reconstruído logo
                 // depois. Somente o lado externo (ou de outro conjunto) precisa voltar
                 // à geometria reta original.
-                if (!AssemblyMatches(entry.Data.FirstAssemblyId, assemblyId))
+                if (!ownedIntermediateIds.Contains(entry.Data.FirstElementUniqueId) &&
+                    !AssemblyMatches(entry.Data.FirstAssemblyId, assemblyId) &&
+                    restoredEndpoints.Add(EndpointKey(
+                        entry.Data.FirstElementUniqueId,
+                        entry.Data.FirstCornerEnd)))
                 {
                     RestoreProfile(
                         document,
@@ -187,7 +237,11 @@ namespace SAGAStructuralTools.Core.Rail
                         entry.Data.FirstJoinWasAllowed,
                         entry.Data.FirstMemberKind);
                 }
-                if (!AssemblyMatches(entry.Data.SecondAssemblyId, assemblyId))
+                if (!ownedIntermediateIds.Contains(entry.Data.SecondElementUniqueId) &&
+                    !AssemblyMatches(entry.Data.SecondAssemblyId, assemblyId) &&
+                    restoredEndpoints.Add(EndpointKey(
+                        entry.Data.SecondElementUniqueId,
+                        entry.Data.SecondCornerEnd)))
                 {
                     RestoreProfile(
                         document,
@@ -199,11 +253,124 @@ namespace SAGAStructuralTools.Core.Rail
                         entry.Data.SecondJoinWasAllowed,
                         entry.Data.SecondMemberKind);
                 }
-                document.Delete(entry.Storage.Id);
             }
+
+            foreach (var entry in matching)
+                document.Delete(entry.Storage.Id);
 
             return matching.Count;
         }
+
+        private static void EnsureOwnedIntermediateUnchanged(
+            Document document,
+            string uniqueId,
+            IReadOnlyCollection<CornerEntry> entries)
+        {
+            var element = document.GetElement(uniqueId);
+            if (element == null) return;
+
+            var instance = element as FamilyInstance;
+            if (instance == null)
+            {
+                throw new InvalidOperationException(
+                    "O trecho horizontal automático não é mais um perfil estrutural válido.");
+            }
+
+            var references = entries
+                .Where(entry =>
+                    string.Equals(
+                        entry.Data.FirstElementUniqueId,
+                        uniqueId,
+                        StringComparison.Ordinal) ||
+                    string.Equals(
+                        entry.Data.SecondElementUniqueId,
+                        uniqueId,
+                        StringComparison.Ordinal))
+                .ToList();
+            if (references.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "O registro do trecho horizontal automático está incompleto.");
+            }
+
+            var firstReference = references[0].Data;
+            string storedKind = string.Equals(
+                firstReference.FirstElementUniqueId,
+                uniqueId,
+                StringComparison.Ordinal)
+                ? firstReference.FirstMemberKind
+                : firstReference.SecondMemberKind;
+            var member = RoundedCornerMember.GetStored(
+                instance,
+                storedKind,
+                "trecho horizontal automático");
+            var axis = member.GetAxis();
+            bool checkedEndpoint = false;
+            double toleranceFt = Math.Max(
+                1.0 / 304.8,
+                document.Application.VertexTolerance);
+
+            foreach (var entry in references)
+            {
+                var data = entry.Data;
+                if (string.Equals(
+                        data.FirstElementUniqueId,
+                        uniqueId,
+                        StringComparison.Ordinal))
+                {
+                    EnsureOwnedEndpointUnchanged(
+                        axis,
+                        data.FirstCornerEnd,
+                        data.FirstTrimmedCornerPoint,
+                        toleranceFt);
+                    checkedEndpoint = true;
+                }
+                if (string.Equals(
+                        data.SecondElementUniqueId,
+                        uniqueId,
+                        StringComparison.Ordinal))
+                {
+                    EnsureOwnedEndpointUnchanged(
+                        axis,
+                        data.SecondCornerEnd,
+                        data.SecondTrimmedCornerPoint,
+                        toleranceFt);
+                    checkedEndpoint = true;
+                }
+            }
+
+            if (!checkedEndpoint)
+            {
+                throw new InvalidOperationException(
+                    "O registro do trecho horizontal automático não possui extremidades válidas.");
+            }
+        }
+
+        private static void EnsureOwnedEndpointUnchanged(
+            Line currentAxis,
+            int cornerEnd,
+            RailPointData expectedPoint,
+            double toleranceFt)
+        {
+            if ((cornerEnd != 0 && cornerEnd != 1) || expectedPoint == null)
+            {
+                throw new InvalidOperationException(
+                    "O registro do trecho horizontal automático está incompleto.");
+            }
+
+            double differenceFt = currentAxis
+                .GetEndPoint(cornerEnd)
+                .DistanceTo(expectedPoint.ToXyz());
+            if (differenceFt > toleranceFt)
+            {
+                throw new InvalidOperationException(
+                    "O trecho horizontal automático foi alterado depois da criação da união. " +
+                    "Desfaça essa alteração antes de editar o guarda-corpo.");
+            }
+        }
+
+        private static string EndpointKey(string elementUniqueId, int cornerEnd) =>
+            $"{elementUniqueId ?? ""}\u001F{cornerEnd}";
 
         private static bool AssemblyMatches(string first, string second) =>
             !string.IsNullOrWhiteSpace(first) &&
@@ -335,11 +502,13 @@ namespace SAGAStructuralTools.Core.Rail
     {
         public int Version { get; set; }
         public string CornerId { get; set; }
+        public string OperationId { get; set; }
         public string FirstAssemblyId { get; set; }
         public string SecondAssemblyId { get; set; }
         public string FirstElementUniqueId { get; set; }
         public string SecondElementUniqueId { get; set; }
         public string CurvedElementUniqueId { get; set; }
+        public string OwnedIntermediateElementUniqueId { get; set; }
         public string FirstMemberKind { get; set; }
         public string SecondMemberKind { get; set; }
         public RailPointData FirstStart { get; set; }
