@@ -80,6 +80,17 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(panel, new PushButtonData(
+                    name:         "EditRail",
+                    text:         "Editar\nGuarda-Corpo",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.EditRailCommand")
+                {
+                    ToolTip    = "Edita o guarda-corpo SAGA pré-selecionado ou solicita um membro. Também disponível com Alt+clique.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
+                TryAddButton(panel, new PushButtonData(
                     name:         "JoinHandrails",
                     text:         "Unir\nCorrimãos",
                     assemblyName: assemblyPath,

@@ -5,6 +5,7 @@ using Autodesk.Revit.UI.Selection;
 using SAGAStructuralTools.Core;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SAGAStructuralTools.Core.Rail
 {
@@ -43,20 +44,26 @@ namespace SAGAStructuralTools.Core.Rail
     }
 
     /// <summary>
-    /// No modo padrão seleciona um eixo reto por vez e preserva o comportamento
-    /// histórico de aceitar CurveElement. No modo inclinado aceita a seleção múltipla
-    /// de linhas e vigas estruturais retas, validando cada uma antes de publicá-la.
+    /// Nos dois modos aceita seleção múltipla. O modo padrão preserva o suporte a
+    /// CurveElement; o inclinado também aceita vigas estruturais retas e valida o
+    /// desnível antes de publicar cada eixo.
     /// </summary>
     public class LinePickHandler : IExternalEventHandler
     {
         private const double MinimumDimensionMm = 1.0;
         private const double ParallelToleranceDegrees = 1.0;
         private readonly RailLinePickMode _mode;
+        private readonly bool _singleSelection;
+        private readonly List<ElementId> _highlightedElementIds =
+            new List<ElementId>();
         private bool _mirrorAxisPickQueued;
 
-        public LinePickHandler(RailLinePickMode mode = RailLinePickMode.Standard)
+        public LinePickHandler(
+            RailLinePickMode mode = RailLinePickMode.Standard,
+            bool singleSelection = false)
         {
             _mode = mode;
+            _singleSelection = singleSelection;
         }
 
         public event Action<RailLinePickResult> LinePicked;
@@ -75,41 +82,66 @@ namespace SAGAStructuralTools.Core.Rail
 
         public void CancelMirrorAxisPick() => _mirrorAxisPickQueued = false;
 
+        public void ClearPickedLines() => _highlightedElementIds.Clear();
+
         public void Execute(UIApplication app)
         {
             try
             {
                 var uidoc = app.ActiveUIDocument;
+                if (_mode == RailLinePickMode.Inclined && _mirrorAxisPickQueued)
+                {
+                    _mirrorAxisPickQueued = false;
+                    PickMirrorAxes(uidoc);
+                    return;
+                }
+
+                if (_singleSelection)
+                {
+                    PickSingleLine(uidoc);
+                    return;
+                }
+
                 if (_mode == RailLinePickMode.Inclined)
                 {
-                    if (_mirrorAxisPickQueued)
-                    {
-                        _mirrorAxisPickQueued = false;
-                        PickMirrorAxes(uidoc);
-                        return;
-                    }
-
                     PickInclinedLines(uidoc);
                     return;
                 }
 
-                var reference = uidoc.Selection.PickObject(
+                var references = uidoc.Selection.PickObjects(
                     ObjectType.Element,
                     new RailLineSelectionFilter(_mode),
-                    "Clique em UMA linha do perímetro (ESC para cancelar). ");
+                    "Selecione uma ou mais linhas do perímetro e clique em Concluir (ESC para cancelar). ");
 
-                var element = uidoc.Document.GetElement(reference.ElementId);
-                if (!TryGetBoundLine(element, out var line))
-                {
-                    TaskDialog.Show(
-                        "SAGA — Guarda-Corpo",
-                        "O elemento selecionado não possui um eixo reto válido.");
+                if (references == null || references.Count == 0)
                     return;
+
+                int invalidCount = 0;
+                foreach (var reference in references)
+                {
+                    var element = uidoc.Document.GetElement(reference.ElementId);
+                    if (!TryGetBoundLine(element, out var line))
+                    {
+                        invalidCount++;
+                        continue;
+                    }
+
+                    var result = BuildResult(reference.ElementId, line);
+                    if (result.LengthMm > MinimumDimensionMm)
+                    {
+                        LinePicked?.Invoke(result);
+                        AddHighlighted(reference.ElementId);
+                    }
+                    else
+                        invalidCount++;
                 }
 
-                var result = BuildResult(reference.ElementId, line);
-                if (result.LengthMm > MinimumDimensionMm)
-                    LinePicked?.Invoke(result);
+                uidoc.Selection.SetElementIds(_highlightedElementIds);
+
+                if (invalidCount > 0)
+                    TaskDialog.Show(
+                        "SAGA — Guarda-Corpo",
+                        $"{invalidCount} linha(s) inválida(s) ou menores que 1 mm foram ignoradas.");
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
@@ -122,6 +154,39 @@ namespace SAGAStructuralTools.Core.Rail
                     "SAGA — Guarda-Corpo",
                     $"Não foi possível selecionar o eixo:\n\n{ex.Message}");
             }
+        }
+
+        private void PickSingleLine(UIDocument uidoc)
+        {
+            var reference = uidoc.Selection.PickObject(
+                ObjectType.Element,
+                new RailLineSelectionFilter(_mode),
+                "Selecione a nova linha-base do guarda-corpo (ESC para cancelar). ");
+            var element = uidoc.Document.GetElement(reference.ElementId);
+            if (!TryGetBoundLine(element, out var line))
+                throw new InvalidOperationException(
+                    "O elemento selecionado não possui um eixo reto válido.");
+
+            var result = BuildResult(reference.ElementId, line);
+            if (result.LengthMm <= MinimumDimensionMm)
+                throw new InvalidOperationException(
+                    "A linha selecionada possui comprimento menor ou igual a 1 mm.");
+            if (_mode == RailLinePickMode.Inclined &&
+                result.ElevationChangeMm <= MinimumDimensionMm)
+                throw new InvalidOperationException(
+                    "Selecione uma linha com desnível para o guarda-corpo inclinado.");
+
+            AddHighlighted(reference.ElementId);
+            uidoc.Selection.SetElementIds(_highlightedElementIds);
+            LinePicked?.Invoke(result);
+        }
+
+        private void AddHighlighted(ElementId elementId)
+        {
+            if (elementId == null ||
+                _highlightedElementIds.Any(id => id.GetId() == elementId.GetId()))
+                return;
+            _highlightedElementIds.Add(elementId);
         }
 
         private void PickInclinedLines(UIDocument uidoc)

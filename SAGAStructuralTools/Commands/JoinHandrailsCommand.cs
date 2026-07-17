@@ -130,6 +130,7 @@ namespace SAGAStructuralTools.Commands
                 double referenceHeightMm = 0.0;
                 double horizontalOffsetMm = 0.0;
                 XYZ offsetSidePoint = null;
+                bool automaticFromSelectedMembers = false;
                 var modeDecision = AskForConnectionMode();
                 if (modeDecision == IntermediateDecision.End)
                 {
@@ -189,20 +190,31 @@ namespace SAGAStructuralTools.Commands
                 {
                     try
                     {
-                        referenceBaseAxis = PickHorizontalReferenceEdge(
-                            uiDocument,
+                        automaticFromSelectedMembers =
+                            RoundedCornerService.TryCreateMixedAutomaticReferenceAxis(
                             document,
-                            first,
-                            second,
-                            out referenceHeightMm,
-                            "Selecione a aresta de um perfil horizontal do patamar; ela definirá a cota-base e o plano da união (Esc reinicia o par)");
-                        offsetSidePoint = uiDocument.Selection.PickPoint(
-                            "Clique no lado da aresta para onde o eixo horizontal deve ser deslocado");
-                        referenceAxis = BuildReferenceAxis(
-                            referenceBaseAxis,
-                            referenceHeightMm,
-                            horizontalOffsetMm,
-                            offsetSidePoint);
+                            first.Id,
+                            first.CornerEnd,
+                            second.Id,
+                            second.CornerEnd,
+                            out referenceAxis);
+                        if (!automaticFromSelectedMembers)
+                        {
+                            referenceBaseAxis = PickHorizontalReferenceEdge(
+                                uiDocument,
+                                document,
+                                first,
+                                second,
+                                out referenceHeightMm,
+                                "Selecione a aresta de um perfil horizontal do patamar; ela definirá a cota-base e o plano da união (Esc reinicia o par)");
+                            offsetSidePoint = uiDocument.Selection.PickPoint(
+                                "Clique no lado da aresta para onde o eixo horizontal deve ser deslocado");
+                            referenceAxis = BuildReferenceAxis(
+                                referenceBaseAxis,
+                                referenceHeightMm,
+                                horizontalOffsetMm,
+                                offsetSidePoint);
+                        }
                         RoundedCornerService.ValidateAutomaticCompoundSelection(
                             document,
                             first.Id,
@@ -353,9 +365,13 @@ namespace SAGAStructuralTools.Commands
                         activeRadiusMm,
                         hasSagaMember && !sagaWarningAcknowledged,
                         validateRadius,
-                        automatic ? (double?)referenceHeightMm : null,
-                        automatic ? (double?)horizontalOffsetMm : null,
-                        automatic
+                        automatic && !automaticFromSelectedMembers
+                            ? (double?)referenceHeightMm
+                            : null,
+                        automatic && !automaticFromSelectedMembers
+                            ? (double?)horizontalOffsetMm
+                            : null,
+                        automatic && !automaticFromSelectedMembers
                             ? (Action<double, double>)((height, offset) =>
                             {
                                 referenceHeightMm = height;
@@ -363,10 +379,12 @@ namespace SAGAStructuralTools.Commands
                                 referenceAxis = BuildReferenceAxis(
                                     referenceBaseAxis,
                                     referenceHeightMm,
-                                    horizontalOffsetMm,
-                                    offsetSidePoint);
+                                horizontalOffsetMm,
+                                offsetSidePoint);
                             })
-                            : null);
+                            : null,
+                        automaticFromSelectedMembers:
+                            automaticFromSelectedMembers);
                     if (!selectedRadius.HasValue)
                         continue;
 
@@ -757,7 +775,8 @@ namespace SAGAStructuralTools.Commands
             double? initialHorizontalOffsetMm = null,
             Action<double, double> referencePlacementChanged = null,
             int batchIndex = 0,
-            int batchCount = 0)
+            int batchCount = 0,
+            bool automaticFromSelectedMembers = false)
         {
             double requestedRadiusMm = initialRadiusMm;
             bool automatic = mode == IntermediateDecision.AutomaticMiddle;
@@ -768,13 +787,18 @@ namespace SAGAStructuralTools.Commands
                 var dialog = new HandrailJoinWindow(
                     Describe(first?.Instance, "Trecho 1"),
                     automatic
-                        ? "Patamar no plano da aresta — será criado após confirmar"
+                        ? automaticFromSelectedMembers
+                            ? "Patamar calculado pelos dois eixos — será criado após confirmar"
+                            : "Patamar no plano da aresta — será criado após confirmar"
                         : compound
                         ? Describe(middle?.Instance, "Patamar")
                         : Describe(second?.Instance, "Trecho 2"),
                     compound ? Describe(second?.Instance, "Trecho 3") : null,
                     automatic
-                        ? $"{DescribeOrientation(first?.Instance)} → patamar no plano da aresta → " +
+                        ? $"{DescribeOrientation(first?.Instance)} → " +
+                          (automaticFromSelectedMembers
+                              ? "patamar na altura do corrimão horizontal → "
+                              : "patamar no plano da aresta → ") +
                           $"{DescribeOrientation(second?.Instance)} (2 arcos)"
                         : compound
                         ? $"{DescribeOrientation(first?.Instance)} → patamar existente → " +

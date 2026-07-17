@@ -441,6 +441,76 @@ namespace SAGAStructuralTools.Core.Rail
                 false);
         }
 
+        internal static bool TryCreateMixedAutomaticReferenceAxis(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            out Line referenceAxis)
+        {
+            referenceAxis = null;
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+
+            var first = RoundedCornerMember.Get(document, firstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, secondId, "segundo");
+            if (!first.IsBeam || !second.IsBeam)
+                return false;
+
+            var firstLine = first.GetAxis();
+            var secondLine = second.GetAxis();
+            bool firstHorizontal = IsHorizontalAxis(firstLine);
+            bool secondHorizontal = IsHorizontalAxis(secondLine);
+            if (firstHorizontal == secondHorizontal)
+                return false;
+
+            var horizontalLine = firstHorizontal ? firstLine : secondLine;
+            var inclinedLine = firstHorizontal ? secondLine : firstLine;
+            int horizontalEnd = firstHorizontal ? firstCornerEnd : secondCornerEnd;
+            var selectedHorizontalEnd = horizontalLine.GetEndPoint(horizontalEnd);
+            var inclinedDirection = inclinedLine.Direction;
+            if (Math.Abs(inclinedDirection.Z) <= 1e-9)
+                return false;
+
+            var inclinedStart = inclinedLine.GetEndPoint(0);
+            double inclinedParameter =
+                (selectedHorizontalEnd.Z - inclinedStart.Z) /
+                inclinedDirection.Z;
+            var inclinedVertex = inclinedStart +
+                                 inclinedDirection * inclinedParameter;
+            if (!IsFinite(inclinedVertex))
+                throw new InvalidOperationException(
+                    "Não foi possível prolongar o corrimão inclinado até a altura " +
+                    "do corrimão horizontal.");
+
+            // O encontro no membro horizontal não depende da posição atual de sua
+            // ponta. Usa a projeção ortogonal do ponto alcançado pelo inclinado sobre
+            // o eixo horizontal infinito; o membro pode então ser recortado ou
+            // prolongado sem girar, e o patamar não fica diagonal arbitrariamente.
+            var horizontalStart = horizontalLine.GetEndPoint(0);
+            var horizontalDirection = horizontalLine.Direction;
+            var horizontalVertex = horizontalStart + horizontalDirection *
+                (inclinedVertex - horizontalStart)
+                    .DotProduct(horizontalDirection);
+
+            double minimumLength = Math.Max(
+                document.Application.ShortCurveTolerance,
+                1.0 / MillimetersPerFoot);
+            if (inclinedVertex.DistanceTo(horizontalVertex) <= minimumLength)
+                throw new InvalidOperationException(
+                    "Os eixos já se encontram na altura do corrimão horizontal. " +
+                    "Use a união direta.");
+
+            referenceAxis = firstHorizontal
+                ? Line.CreateBound(horizontalVertex, inclinedVertex)
+                : Line.CreateBound(inclinedVertex, horizontalVertex);
+            EnsureHorizontal(referenceAxis);
+            return true;
+        }
+
         internal static RoundedCornerAutomaticCompoundPlan CreateAutomaticCompoundPlan(
             Document document,
             ElementId firstId,
@@ -903,6 +973,14 @@ namespace SAGAStructuralTools.Core.Rail
                 document,
                 compoundPlan,
                 middle.UniqueId);
+            EnsureOriginalAxisWasPreserved(
+                first,
+                originalFirstAxis,
+                "primeiro corrimão");
+            EnsureOriginalAxisWasPreserved(
+                second,
+                originalSecondAxis,
+                "segundo corrimão");
 
             return new RoundedCornerAutomaticCompoundResult
             {
@@ -1414,12 +1492,18 @@ namespace SAGAStructuralTools.Core.Rail
             ValidateHorizontalReference(referenceAxis);
             var firstPoint = firstLine.GetEndPoint(firstCornerEnd);
             var secondPoint = secondLine.GetEndPoint(secondCornerEnd);
-            var referenceStart = referenceAxis.GetEndPoint(0);
-            var referenceDirection = referenceAxis.Direction;
-            XYZ firstVertex = referenceStart + referenceDirection *
-                (firstPoint - referenceStart).DotProduct(referenceDirection);
-            XYZ secondVertex = referenceStart + referenceDirection *
-                (secondPoint - referenceStart).DotProduct(referenceDirection);
+            XYZ firstVertex = CalculateAxisIntersectionOnReference(
+                document,
+                firstLine,
+                referenceAxis,
+                firstPoint,
+                "primeiro corrimão");
+            XYZ secondVertex = CalculateAxisIntersectionOnReference(
+                document,
+                secondLine,
+                referenceAxis,
+                secondPoint,
+                "segundo corrimão");
 
             if (!IsFinite(firstVertex) || !IsFinite(secondVertex))
                 throw new InvalidOperationException(
@@ -1436,6 +1520,103 @@ namespace SAGAStructuralTools.Core.Rail
             }
 
             return Line.CreateBound(firstVertex, secondVertex);
+        }
+
+        private static bool IsHorizontalAxis(Line line)
+        {
+            if (line == null || line.Length <= 1e-9) return false;
+            double inclinationDegrees =
+                Math.Asin(Math.Min(1.0, Math.Abs(line.Direction.Z))) *
+                180.0 / Math.PI;
+            return inclinationDegrees <= 0.5;
+        }
+
+        private static XYZ CalculateAxisIntersectionOnReference(
+            Document document,
+            Line memberAxis,
+            Line referenceAxis,
+            XYZ selectedEnd,
+            string label)
+        {
+            var memberStart = memberAxis.GetEndPoint(0);
+            var referenceStart = referenceAxis.GetEndPoint(0);
+            var memberDirection = memberAxis.Direction;
+            var referenceDirection = referenceAxis.Direction;
+            double directionDot = Math.Max(
+                -1.0,
+                Math.Min(1.0, memberDirection.DotProduct(referenceDirection)));
+            double denominator = 1.0 - directionDot * directionDot;
+            double toleranceFt = Math.Max(
+                AxisIntersectionToleranceMm / MillimetersPerFoot,
+                document.Application.VertexTolerance);
+
+            if (denominator < 1e-12)
+            {
+                var projected = referenceStart + referenceDirection *
+                    (selectedEnd - referenceStart).DotProduct(referenceDirection);
+                double distanceFt = selectedEnd.DistanceTo(projected);
+                if (distanceFt <= toleranceFt)
+                    return selectedEnd;
+
+                throw new InvalidOperationException(
+                    $"O eixo do {label} é paralelo ao patamar e está afastado " +
+                    $"{distanceFt * MillimetersPerFoot:F1} mm. Ajuste a altura ou o " +
+                    "deslocamento do patamar sem alterar o eixo original do corrimão.");
+            }
+
+            var delta = memberStart - referenceStart;
+            double memberDeltaProjection = memberDirection.DotProduct(delta);
+            double referenceDeltaProjection = referenceDirection.DotProduct(delta);
+            double memberParameter =
+                (directionDot * referenceDeltaProjection - memberDeltaProjection) /
+                denominator;
+            double referenceParameter =
+                (referenceDeltaProjection -
+                 directionDot * memberDeltaProjection) /
+                denominator;
+            var pointOnMember = memberStart + memberDirection * memberParameter;
+            var pointOnReference = referenceStart +
+                                   referenceDirection * referenceParameter;
+            double axesDistanceFt = pointOnMember.DistanceTo(pointOnReference);
+            if (axesDistanceFt > toleranceFt)
+            {
+                throw new InvalidOperationException(
+                    $"O eixo do {label} não encontra o eixo horizontal do patamar " +
+                    $"({axesDistanceFt * MillimetersPerFoot:F1} mm de afastamento). " +
+                    "Ajuste a referência; a inclinação e a altura originais serão preservadas.");
+            }
+
+            // Usa o ponto pertencente ao eixo do membro. A diferença para o ponto da
+            // referência está limitada à tolerância e nunca reposiciona a ponta fora
+            // da direção original do corrimão.
+            return pointOnMember;
+        }
+
+        private static void EnsureOriginalAxisWasPreserved(
+            RoundedCornerMember member,
+            Line originalAxis,
+            string label)
+        {
+            var currentAxis = member.GetAxis();
+            var originalStart = originalAxis.GetEndPoint(0);
+            var originalDirection = originalAxis.Direction;
+            double toleranceFt = Math.Max(
+                0.1 / MillimetersPerFoot,
+                member.Instance.Document.Application.VertexTolerance);
+            double maximumDistanceFt = Math.Max(
+                (currentAxis.GetEndPoint(0) - originalStart)
+                    .CrossProduct(originalDirection)
+                    .GetLength(),
+                (currentAxis.GetEndPoint(1) - originalStart)
+                    .CrossProduct(originalDirection)
+                    .GetLength());
+            if (maximumDistanceFt > toleranceFt)
+            {
+                throw new InvalidOperationException(
+                    $"A operação alteraria o eixo original do {label} em " +
+                    $"{maximumDistanceFt * MillimetersPerFoot:F1} mm. " +
+                    "A união foi cancelada para preservar inclinação e altura.");
+            }
         }
 
         private static void ValidateHorizontalReference(Line referenceAxis)
