@@ -546,20 +546,53 @@ namespace SAGAStructuralTools.Commands
             }
 
             double commonOffsetMm = 0.0;
-            var plans = new List<RoundedCornerAutomaticCompoundPlan>();
+            var initialHeightsMm = new double[pairs.Count];
+            var pairDescriptions = new string[pairs.Count];
             for (int index = 0; index < pairs.Count; index++)
             {
                 var pair = pairs[index];
-                double pairHeightMm =
+                initialHeightsMm[index] =
                     GetStoredHandrailElevationOffsetMm(pair[0].Instance) ??
                     GetStoredHandrailElevationOffsetMm(pair[1].Instance) ??
                     suggestedHeightMm;
-                Line pairReferenceAxis = BuildReferenceAxis(
+                pairDescriptions[index] =
+                    $"{Describe(pair[0].Instance, "Trecho 1")}  ↔  " +
+                    Describe(pair[1].Instance, "Trecho 2");
+            }
+
+            Line BuildBatchReferenceAxis(int index, double heightMm, double offsetMm)
+            {
+                var pair = pairs[index];
+                var elevationReference = BuildReferenceAxis(
                     referenceBaseAxis,
-                    pairHeightMm,
-                    commonOffsetMm,
+                    heightMm,
+                    offsetMm,
                     sidePoint);
-                Action<double> validateRadius = radius =>
+                return RoundedCornerService.TryCreateInclinedPairReferenceAxis(
+                    document,
+                    pair[0].Id,
+                    pair[0].CornerEnd,
+                    pair[1].Id,
+                    pair[1].CornerEnd,
+                    elevationReference,
+                    out Line automaticReference)
+                    ? automaticReference
+                    : elevationReference;
+            }
+
+            string ValidateBatchPair(
+                int index,
+                double heightMm,
+                double offsetMm,
+                double radiusMm)
+            {
+                try
+                {
+                    var pair = pairs[index];
+                    var pairReferenceAxis = BuildBatchReferenceAxis(
+                        index,
+                        heightMm,
+                        offsetMm);
                     RoundedCornerService.CreateAutomaticCompoundPlan(
                         document,
                         pair[0].Id,
@@ -567,39 +600,37 @@ namespace SAGAStructuralTools.Commands
                         pair[1].Id,
                         pair[1].CornerEnd,
                         pairReferenceAxis,
-                        radius);
+                        radiusMm);
+                    return null;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return ex.Message;
+                }
+            }
 
-                double? selectedRadius = PromptForValidRadius(
-                    document,
-                    pair[0],
-                    pair[1],
-                    null,
-                    IntermediateDecision.AutomaticMiddle,
-                    activeRadiusMm,
-                    HasSagaMember(pair[0], pair[1], null) &&
-                        !sagaWarningAcknowledged,
-                    validateRadius,
-                    pairHeightMm,
-                    commonOffsetMm,
-                    (height, offset) =>
-                    {
-                        pairHeightMm = height;
-                        commonOffsetMm = offset;
-                        pairReferenceAxis = BuildReferenceAxis(
-                            referenceBaseAxis,
-                            pairHeightMm,
-                            commonOffsetMm,
-                            sidePoint);
-                    },
+            var batchDialog = new BatchHandrailJoinWindow(
+                pairDescriptions,
+                initialHeightsMm,
+                activeRadiusMm,
+                commonOffsetMm,
+                ValidateBatchPair);
+            new WindowInteropHelper(batchDialog).Owner =
+                Process.GetCurrentProcess().MainWindowHandle;
+            if (batchDialog.ShowDialog() != true)
+                return 0;
+
+            activeRadiusMm = batchDialog.RadiusMm;
+            commonOffsetMm = batchDialog.OffsetMm;
+            radiusConfirmed = true;
+            var plans = new List<RoundedCornerAutomaticCompoundPlan>();
+            for (int index = 0; index < pairs.Count; index++)
+            {
+                var pair = pairs[index];
+                var pairReferenceAxis = BuildBatchReferenceAxis(
                     index,
-                    pairs.Count);
-                if (!selectedRadius.HasValue)
-                    return 0;
-
-                activeRadiusMm = selectedRadius.Value;
-                radiusConfirmed = true;
-                if (HasSagaMember(pair[0], pair[1], null))
-                    sagaWarningAcknowledged = true;
+                    batchDialog.HeightsMm[index],
+                    commonOffsetMm);
                 plans.Add(RoundedCornerService.CreateAutomaticCompoundPlan(
                     document,
                     pair[0].Id,
@@ -608,6 +639,8 @@ namespace SAGAStructuralTools.Commands
                     pair[1].CornerEnd,
                     pairReferenceAxis,
                     activeRadiusMm));
+                if (HasSagaMember(pair[0], pair[1], null))
+                    sagaWarningAcknowledged = true;
             }
 
             using (var group = new TransactionGroup(

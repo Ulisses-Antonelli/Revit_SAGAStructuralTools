@@ -511,6 +511,62 @@ namespace SAGAStructuralTools.Core.Rail
             return true;
         }
 
+        internal static bool TryCreateInclinedPairReferenceAxis(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            Line elevationReference,
+            out Line referenceAxis)
+        {
+            referenceAxis = null;
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+            ValidateHorizontalReference(elevationReference);
+
+            var first = RoundedCornerMember.Get(document, firstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, secondId, "segundo");
+            if (!first.IsBeam || !second.IsBeam)
+                return false;
+
+            var firstLine = first.GetAxis();
+            var secondLine = second.GetAxis();
+            if (IsHorizontalAxis(firstLine) || IsHorizontalAxis(secondLine))
+                return false;
+
+            double targetElevation = elevationReference.GetEndPoint(0).Z;
+            XYZ PointAtElevation(Line line, string label)
+            {
+                var direction = line.Direction;
+                if (Math.Abs(direction.Z) <= 1e-9)
+                    throw new InvalidOperationException(
+                        $"O eixo do {label} não alcança a altura informada.");
+                var start = line.GetEndPoint(0);
+                double parameter = (targetElevation - start.Z) / direction.Z;
+                var point = start + direction * parameter;
+                if (!IsFinite(point))
+                    throw new InvalidOperationException(
+                        $"Não foi possível calcular o encontro do {label} na altura informada.");
+                return point;
+            }
+
+            var firstVertex = PointAtElevation(firstLine, "primeiro corrimão");
+            var secondVertex = PointAtElevation(secondLine, "segundo corrimão");
+            double minimumLength = Math.Max(
+                document.Application.ShortCurveTolerance,
+                1.0 / MillimetersPerFoot);
+            if (firstVertex.DistanceTo(secondVertex) <= minimumLength)
+                throw new InvalidOperationException(
+                    "O trecho horizontal automático ficaria curto demais nessa altura.");
+
+            referenceAxis = Line.CreateBound(firstVertex, secondVertex);
+            EnsureHorizontal(referenceAxis);
+            return true;
+        }
+
         internal static RoundedCornerAutomaticCompoundPlan CreateAutomaticCompoundPlan(
             Document document,
             ElementId firstId,
