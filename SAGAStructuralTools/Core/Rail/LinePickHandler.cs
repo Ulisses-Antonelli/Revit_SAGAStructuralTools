@@ -44,9 +44,8 @@ namespace SAGAStructuralTools.Core.Rail
     }
 
     /// <summary>
-    /// Nos dois modos aceita seleção múltipla. O modo padrão preserva o suporte a
-    /// CurveElement; o inclinado também aceita vigas estruturais retas e valida o
-    /// desnível antes de publicar cada eixo.
+    /// Nos dois modos aceita seleção múltipla de CurveElement ou vigas estruturais
+    /// retas. O modo inclinado também valida o desnível antes de publicar cada eixo.
     /// </summary>
     public class LinePickHandler : IExternalEventHandler
     {
@@ -111,7 +110,7 @@ namespace SAGAStructuralTools.Core.Rail
                 var references = uidoc.Selection.PickObjects(
                     ObjectType.Element,
                     new RailLineSelectionFilter(_mode),
-                    "Selecione uma ou mais linhas do perímetro e clique em Concluir (ESC para cancelar). ");
+                    "Selecione uma ou mais linhas ou vigas retas e clique em Concluir (ESC para cancelar). ");
 
                 if (references == null || references.Count == 0)
                     return;
@@ -141,7 +140,7 @@ namespace SAGAStructuralTools.Core.Rail
                 if (invalidCount > 0)
                     TaskDialog.Show(
                         "SAGA — Guarda-Corpo",
-                        $"{invalidCount} linha(s) inválida(s) ou menores que 1 mm foram ignoradas.");
+                        $"{invalidCount} eixo(s) inválido(s) ou menor(es) que 1 mm foram ignorados.");
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
@@ -412,7 +411,6 @@ namespace SAGAStructuralTools.Core.Rail
         public bool AllowElement(Element element)
         {
             if (element == null) return false;
-            if (_mode == RailLinePickMode.Standard) return element is CurveElement;
             if (!LinePickHandler.TryGetBoundLine(element, out _)) return false;
             if (element is CurveElement) return true;
 

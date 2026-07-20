@@ -75,18 +75,18 @@ namespace SAGAStructuralTools
 
                 TryAddButton(railPanel, new PushButtonData(
                     name:         "GenerateRail",
-                    text:         "Guarda-Corpo",
+                    text:         "Horizontal",
                     assemblyName: assemblyPath,
                     className:    "SAGAStructuralTools.Commands.GenerateRailCommand")
                 {
-                    ToolTip    = "Gera automaticamente guarda-corpos metálicos com montantes e corrimão estruturais.",
+                    ToolTip    = "Gera guarda-corpos horizontais a partir de linhas ou vigas estruturais retas.",
                     LargeImage = LoadIcon("rail_generate_32.png", 32),
                     Image      = LoadIcon("rail_generate_16.png", 16)
                 });
 
                 TryAddButton(railPanel, new PushButtonData(
                     name:         "GenerateInclinedRail",
-                    text:         "Guarda-Corpo\nInclinado",
+                    text:         "Inclinado",
                     assemblyName: assemblyPath,
                     className:    "SAGAStructuralTools.Commands.GenerateInclinedRailCommand")
                 {

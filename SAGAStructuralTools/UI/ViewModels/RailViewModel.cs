@@ -143,10 +143,10 @@ namespace SAGAStructuralTools.UI.ViewModels
             ? (MirrorPairEnabled
                 ? "Selecione uma ou mais longarinas inclinadas de um lado da escada e clique em Concluir. Depois use “Definir eixos do espelho” para indicar uma longarina de origem e a correspondente do outro lado."
                 : "Clique em \"Selecionar vigas/trechos\", selecione as longarinas/vigas estruturais inclinadas da escada e clique em Concluir no Revit. Também são aceitas linhas 3D retas.")
-            : "Clique em \"Selecionar linhas\", marque uma ou mais linhas no desenho e clique em Concluir no Revit. Cada linha vira um guarda-corpo independente.";
+            : "Clique em \"Selecionar linhas/vigas\", marque uma ou mais linhas ou vigas estruturais retas e clique em Concluir no Revit. Cada eixo vira um guarda-corpo independente.";
         public string AddLineActionText => IsInclinedMode
             ? (IsEditMode ? "Substituir linha-base" : "+ Selecionar vigas/trechos")
-            : (IsEditMode ? "Substituir linha-base" : "+ Selecionar linhas");
+            : (IsEditMode ? "Substituir linha-base" : "+ Selecionar linhas/vigas");
 
         private void RequestLinePick()
         {
@@ -195,14 +195,14 @@ namespace SAGAStructuralTools.UI.ViewModels
                     ? (MirrorPairEnabled
                         ? "Par espelhado: selecione uma ou mais longarinas inclinadas de um lado da escada."
                         : "Nenhum trecho inclinado adicionado.")
-                    : "Nenhuma linha adicionada.")
+                    : "Nenhum eixo adicionado.")
                 : IsInclinedMode
                     ? (MirrorPairEnabled
                         ? $"{_segments.Count} longarina(s) · {_segments.Count * 2} guarda-corpo(s) · comprimento selecionado {SelectedLinesTotal:F0} mm · total gerado {SelectedLinesTotal * 2:F0} mm"
                         : _segments.Count == 1
                         ? $"Trecho inclinado · comprimento {SelectedLinesTotal:F0} mm · desnível {SelectedElevationChangeTotal:F0} mm · ângulo {_segments[0].AngleDegrees:F1}° · cota baixa → alta"
                         : $"{_segments.Count} trechos inclinados · comprimento {SelectedLinesTotal:F0} mm · desnível acumulado {SelectedElevationChangeTotal:F0} mm")
-                    : $"{_segments.Count} linha(s)  ·  total {SelectedLinesTotal:F0} mm";
+                    : $"{_segments.Count} eixo(s)  ·  total {SelectedLinesTotal:F0} mm";
 
         // Disparado pelo LinePickHandler para cada elemento válido da seleção.
         // Roda no contexto de ExternalEvent (thread da API = thread da UI); o padrão
