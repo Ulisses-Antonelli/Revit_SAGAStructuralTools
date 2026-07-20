@@ -1,0 +1,838 @@
+<Window x:Class="SAGAStructuralTools.UI.LadderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:SAGAStructuralTools.UI.Converters"
+        Title="SAGA — Gerar Escada Marinheiro"
+        Width="560" MinWidth="520" Height="780"
+        ResizeMode="CanResizeWithGrip" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8F9FB"
+        FontFamily="Segoe UI" FontSize="13">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <converters:FlexibleDoubleConverter x:Key="FlexibleDouble"/>
+
+        <!-- ── Identidade visual compartilhada (mesmos estilos do guarda-corpo) ── -->
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius"    Value="4"/>
+            <Setter Property="Padding"         Value="16"/>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="Foreground" Value="#6B778C"/>
+            <Setter Property="Margin"     Value="0,0,0,4"/>
+        </Style>
+
+        <Style x:Key="CleanInput" TargetType="TextBox">
+            <Setter Property="BorderThickness"   Value="0"/>
+            <Setter Property="Background"        Value="Transparent"/>
+            <Setter Property="Padding"           Value="8,5,4,5"/>
+            <Setter Property="Foreground"        Value="#172B4D"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize"          Value="13"/>
+        </Style>
+        <Style x:Key="CleanInputRO" TargetType="TextBox" BasedOn="{StaticResource CleanInput}">
+            <Setter Property="Foreground" Value="#5E6C84"/>
+        </Style>
+
+        <Style x:Key="BtnPrimary" TargetType="Button">
+            <Setter Property="Background"      Value="#0052CC"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="16,7"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled"   Value="False"><Setter Property="Background" Value="#AABDD8"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"> <Setter Property="Background" Value="#0747A6"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="BtnSecondary" TargetType="Button">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="Foreground"      Value="#344563"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#F4F5F7"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PvLabel" TargetType="TextBlock">
+            <Setter Property="Foreground"        Value="#5E6C84"/>
+            <Setter Property="FontSize"          Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="PvValue" TargetType="TextBlock">
+            <Setter Property="Foreground"          Value="#0052CC"/>
+            <Setter Property="FontWeight"          Value="SemiBold"/>
+            <Setter Property="FontSize"            Value="13"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment"   Value="Center"/>
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground"               Value="#344563"/>
+            <Setter Property="FontSize"                 Value="12"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="RoundedComboBox" TargetType="ComboBox">
+            <Setter Property="Background"        Value="White"/>
+            <Setter Property="BorderBrush"       Value="#DFE1E6"/>
+            <Setter Property="BorderThickness"   Value="1"/>
+            <Setter Property="Foreground"        Value="#172B4D"/>
+            <Setter Property="FontSize"          Value="12"/>
+            <Setter Property="Height"            Value="32"/>
+            <Setter Property="Padding"           Value="8,0,0,0"/>
+            <Setter Property="MaxDropDownHeight" Value="200"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="border" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="22" MinWidth="22"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter x:Name="contentPresenter" Grid.Column="0"
+                                        Margin="{TemplateBinding Padding}"
+                                        Content="{TemplateBinding SelectionBoxItem}"
+                                        ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                    <Path x:Name="arrow" Grid.Column="1"
+                                          Data="M 0 0 L 5 5 L 10 0" Stroke="#6B778C" StrokeThickness="1.5"
+                                          Fill="Transparent" StrokeLineJoin="Round"
+                                          Width="10" Height="5"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <ToggleButton Background="Transparent" BorderThickness="0"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Rectangle Fill="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" AllowsTransparency="False" Focusable="False"
+                                   IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Bottom"
+                                   MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                                <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="0,0,4,4">
+                                    <ScrollViewer CanContentScroll="True" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                        <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush"  Value="#0052CC"/>
+                                <Setter TargetName="border" Property="CornerRadius" Value="4,4,0,0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border"           Property="Background" Value="#F4F5F7"/>
+                                <Setter TargetName="contentPresenter" Property="Opacity"    Value="0.45"/>
+                                <Setter TargetName="arrow"            Property="Stroke"     Value="#BFC2C9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Padding"    Value="8,5"/>
+                        <Setter Property="FontSize"   Value="12"/>
+                        <Setter Property="Foreground" Value="#172B4D"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"> <Setter Property="Background" Value="#F4F5F7"/></Trigger>
+                                        <Trigger Property="IsSelected"  Value="True"> <Setter Property="Background" Value="#EDF3FF"/><Setter Property="Foreground" Value="#0052CC"/></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RailTabControl" TargetType="TabControl">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Top" Background="White"
+                                    BorderBrush="#DFE1E6" BorderThickness="0,0,0,1" Margin="20,14,20,0">
+                                <TabPanel IsItemsHost="True" Background="Transparent"/>
+                            </Border>
+                            <ContentPresenter ContentSource="SelectedContent" Margin="0"/>
+                        </DockPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RailTabItem" TargetType="TabItem">
+            <Setter Property="Background"   Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"      Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="tabBorder" Background="Transparent" Margin="0,0,4,0"
+                                BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="12,10,12,9">
+                            <TextBlock x:Name="tabText" Text="{TemplateBinding Header}"
+                                       FontSize="13" FontWeight="SemiBold" Foreground="#6B778C"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="#0052CC"/>
+                                <Setter TargetName="tabText"   Property="Foreground"  Value="#0052CC"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabText" Property="Foreground" Value="#172B4D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="440"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Faixa de presets (salvar/carregar configurações) ──────── -->
+        <Border Grid.Row="0" Background="White" BorderBrush="#DFE1E6" BorderThickness="0,0,0,1" Padding="20,10">
+            <DockPanel>
+                <TextBlock Text="Configuração:" VerticalAlignment="Center"
+                           Foreground="#42526E" FontSize="12" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                <Button DockPanel.Dock="Right" Style="{StaticResource BtnSecondary}"
+                        Content="Excluir" Margin="6,0,0,0" Command="{Binding DeletePresetCommand}"/>
+                <Button DockPanel.Dock="Right" Style="{StaticResource BtnSecondary}"
+                        Content="Salvar" Margin="6,0,0,0" Command="{Binding SavePresetCommand}"/>
+                <Button DockPanel.Dock="Right" Style="{StaticResource BtnPrimary}"
+                        Content="Carregar" Margin="6,0,0,0" Command="{Binding LoadPresetCommand}"/>
+                <ComboBox IsEditable="True" Height="30" VerticalContentAlignment="Center"
+                          IsTextSearchEnabled="True"
+                          ItemsSource="{Binding Presets}"
+                          Text="{Binding PresetName, UpdateSourceTrigger=PropertyChanged}"
+                          ToolTip="Digite um nome e clique em Salvar, ou escolha um salvo e clique em Carregar."/>
+            </DockPanel>
+        </Border>
+
+        <!-- ── TabControl ────────────────────────────────────────────── -->
+        <TabControl Grid.Row="1" Style="{StaticResource RailTabControl}">
+
+            <!-- ╔══════════════════════════════════════╗ -->
+            <!-- ║  ABA ENTRADA                         ║ -->
+            <!-- ╚══════════════════════════════════════╝ -->
+            <TabItem Header="Entrada" Style="{StaticResource RailTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,16,20,8">
+
+                        <!-- 01 — Referência superior -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="01" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Referência superior (viga de desembarque)" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap"
+                                           Text="Clique na viga superior PELO LADO onde a escada será instalada. O topo da viga define o desembarque e o nível-base é identificado automaticamente abaixo."
+                                           Margin="0,0,0,8"/>
+                                <Button Style="{StaticResource BtnSecondary}" HorizontalAlignment="Left"
+                                        Content="{Binding PickReferenceActionText}"
+                                        Command="{Binding PickReferenceCommand}"/>
+                                <Border Background="#EEF2FF" BorderBrush="#DFE1E6" BorderThickness="1"
+                                        CornerRadius="4" Padding="10,7" Margin="0,10,0,0">
+                                    <TextBlock Text="{Binding PlacementSummary, Mode=OneWay}"
+                                               FontSize="12" FontWeight="SemiBold" Foreground="#172B4D"
+                                               TextWrapping="Wrap"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 02 — Níveis e afastamentos -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="02" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Níveis e afastamentos" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Offset desembarque"/>
+                                    <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Style="{StaticResource CleanInput}"
+                                                     Text="{Binding TopLevelOffset, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                     ToolTip="Ajuste sobre a face superior da viga (ex.: espessura do piso)."/>
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Offset da base"/>
+                                    <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Style="{StaticResource CleanInput}"
+                                                     Text="{Binding BaseOffset, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                     ToolTip="Ajuste sobre o nível-base identificado."/>
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Afastamento estrutura"/>
+                                    <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Style="{StaticResource CleanInput}"
+                                                     Text="{Binding WallOffset, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                     ToolTip="Da face da viga até o eixo do degrau (mínimo normativo 150–200 mm)."/>
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 03 — Corpo da escada -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="03" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Corpo da escada" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Largura útil (face a face)"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}"
+                                                         Text="{Binding Width, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Passo entre degraus"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}"
+                                                         Text="{Binding RungSpacing, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Família do montante (.rfa)"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding StringerFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                    </Border>
+                                    <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                            Content="Procurar..." Command="{Binding BrowseStringerCommand}"/>
+                                </Grid>
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do montante"/>
+                                <ComboBox Style="{StaticResource RoundedComboBox}" Margin="0,0,0,10"
+                                          ItemsSource="{Binding StringerAvailableTypes}"
+                                          SelectedItem="{Binding StringerFamilyType}"/>
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Família do degrau (.rfa)"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding RungFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                    </Border>
+                                    <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                            Content="Procurar..." Command="{Binding BrowseRungCommand}"/>
+                                </Grid>
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do degrau"/>
+                                <ComboBox Style="{StaticResource RoundedComboBox}"
+                                          ItemsSource="{Binding RungAvailableTypes}"
+                                          SelectedItem="{Binding RungFamilyType}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 04 — Suportes de fixação -->
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,8">
+                            <TextBlock Text="04" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Suportes de fixação" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Família do suporte (.rfa) — opcional"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding SupportFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                    </Border>
+                                    <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                            Content="Procurar..." Command="{Binding BrowseSupportCommand}"/>
+                                    <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                            Content="×" FontSize="14" Padding="8,4"
+                                            Command="{Binding ClearSupportCommand}"
+                                            ToolTip="Remover família do suporte"/>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do suporte"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding SupportAvailableTypes}"
+                                                  SelectedItem="{Binding SupportFamilyType}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Vão máximo entre suportes"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}"
+                                                         Text="{Binding SupportMaxSpacing, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                         ToolTip="A quantidade de suportes é calculada automaticamente em função da altura."/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 05 — Preview -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="05" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Pré-visualização" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4"
+                                Background="#EEF2FF" Padding="16" Margin="0,0,0,12">
+                            <Grid>
+                                <TextBlock Text="Selecione a referência e clique em Calcular Preview."
+                                           Foreground="#6B778C" FontSize="12"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCalculated}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Grid Visibility="{Binding IsCalculated, Converter={StaticResource BoolToVis}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="24"/>
+                                        <RowDefinition Height="24"/>
+                                        <RowDefinition Height="24"/>
+                                    </Grid.RowDefinitions>
+                                    <DockPanel Grid.Row="0" Grid.Column="0">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Altura total:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewHeight, StringFormat={}{0:F0} mm}"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Row="1" Grid.Column="0">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Nº de degraus:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewRungCount, StringFormat={}{0} un}"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Row="2" Grid.Column="0">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Folga na base:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewBottomGap, StringFormat={}{0:F0} mm}"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Row="0" Grid.Column="2">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Nº de suportes:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewSupportCount, StringFormat={}{0} un}"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Row="1" Grid.Column="2">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Nº de anéis:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewRingCount, StringFormat={}{0} un}"/>
+                                    </DockPanel>
+                                    <DockPanel Grid.Row="2" Grid.Column="2">
+                                        <TextBlock Style="{StaticResource PvLabel}" Text="Barras da gaiola:"/>
+                                        <TextBlock Style="{StaticResource PvValue}" Text="{Binding PreviewStrapCount, StringFormat={}{0} un}"/>
+                                    </DockPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ╔══════════════════════════════════════╗ -->
+            <!-- ║  ABA GAIOLA & PROTEÇÃO               ║ -->
+            <!-- ╚══════════════════════════════════════╝ -->
+            <TabItem Header="Gaiola &amp; Proteção" Style="{StaticResource RailTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,16,20,8">
+
+                        <!-- 01 — Gaiola -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="01" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Gaiola de proteção" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <CheckBox Content="Ativar gaiola de proteção" IsChecked="{Binding HasCage}" Margin="0,0,0,12"/>
+
+                                <StackPanel IsEnabled="{Binding IsCageEnabled}">
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Altura do início (da base)"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding CageStartHeight, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Projeção (do eixo do degrau)"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding CageProjection, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Distribuição dos anéis"/>
+                                            <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                      SelectedIndex="{Binding RingModeIndex, Mode=TwoWay}">
+                                                <ComboBoxItem Content="Equidistante (fecha no topo)"/>
+                                                <ComboBoxItem Content="Passo fixo (a partir do 1º anel)"/>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Espaçamento entre anéis"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding RingSpacing, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Família do anel (.rfa)"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding RingFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                        </Border>
+                                        <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                Content="Procurar..." Command="{Binding BrowseRingCommand}"/>
+                                        <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                                Content="×" FontSize="14" Padding="8,4"
+                                                Command="{Binding ClearRingCommand}"/>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do anel"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}" Margin="0,0,0,10"
+                                              ItemsSource="{Binding RingAvailableTypes}"
+                                              SelectedItem="{Binding RingFamilyType}"/>
+
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="2*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Barras verticais"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="un" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding StrapCount, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Família da barra vertical (.rfa)"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="8"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                    <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding StrapFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                                </Border>
+                                                <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                        Content="Procurar..." Command="{Binding BrowseStrapCommand}"/>
+                                                <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                                        Content="×" FontSize="14" Padding="8,4"
+                                                        Command="{Binding ClearStrapCommand}"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo da barra vertical"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                                              ItemsSource="{Binding StrapAvailableTypes}"
+                                              SelectedItem="{Binding StrapFamilyType}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 02 — Linha de vida -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="02" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Linha de vida" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <CheckBox Content="Incluir linha de vida vertical (central)" IsChecked="{Binding HasLifeline}" Margin="0,0,0,12"/>
+                                <StackPanel IsEnabled="{Binding IsLifelineEnabled}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Família da linha de vida (.rfa)"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding LifelineFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                        </Border>
+                                        <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                Content="Procurar..." Command="{Binding BrowseLifelineCommand}"/>
+                                        <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                                Content="×" FontSize="14" Padding="8,4"
+                                                Command="{Binding ClearLifelineCommand}"/>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                                              ItemsSource="{Binding LifelineAvailableTypes}"
+                                              SelectedItem="{Binding LifelineFamilyType}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ╔══════════════════════════════════════╗ -->
+            <!-- ║  ABA DESEMBARQUE                     ║ -->
+            <!-- ╚══════════════════════════════════════╝ -->
+            <TabItem Header="Desembarque" Style="{StaticResource RailTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,16,20,8">
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="01" Foreground="#0052CC" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text=" — " Foreground="#0052CC" FontSize="13"/>
+                            <TextBlock Text="Prolongamento e saída" Foreground="#191C1E" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="O prolongamento dos montantes acima do piso permite segurar com firmeza na transição. O alargamento abre os montantes na saída para a passagem do torso."/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Altura do prolongamento"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}"
+                                                         Text="{Binding ExtensionHeight, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                         ToolTip="Mínimo normativo: 1100 mm acima do piso de desembarque."/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Alargamento da saída (por lado)"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}"
+                                                         Text="{Binding ExitFlare, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                         ToolTip="Abertura de cada montante no prolongamento, para passagem do torso."/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock FontSize="11" Foreground="#6B778C" TextWrapping="Wrap" Margin="0,10,0,0"
+                                           Text="Guarda-corpo do vão de desembarque: use o comando 'Gerar Guarda-Corpo Metálico' sobre as linhas do vão."/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+        </TabControl>
+
+        <!-- ── Avisos ───────────────────────────────────────────────── -->
+        <ListBox Grid.Row="2" ItemsSource="{Binding Warnings}"
+                 Margin="20,0,20,0" MaxHeight="76"
+                 FontFamily="Consolas" FontSize="10"
+                 Background="#FFF8E1" Foreground="#7B4400"
+                 BorderThickness="1" BorderBrush="#FFD54F">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.Style>
+                <Style TargetType="ListBox">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <Trigger Property="HasItems" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.Style>
+        </ListBox>
+
+        <!-- ── Footer ───────────────────────────────────────────────── -->
+        <Grid Grid.Row="3" Margin="20,10,20,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="1" Style="{StaticResource BtnSecondary}"
+                    Content="Cancelar" IsCancel="True" Click="OnCancel"/>
+            <Button Grid.Column="3" Style="{StaticResource BtnSecondary}"
+                    Content="Calcular Preview" Command="{Binding CalculatePreviewCommand}"/>
+            <Button Grid.Column="5" Style="{StaticResource BtnPrimary}"
+                    Content="{Binding CreateActionText}" Command="{Binding CreateCommand}"/>
+        </Grid>
+
+    </Grid>
+</Window>

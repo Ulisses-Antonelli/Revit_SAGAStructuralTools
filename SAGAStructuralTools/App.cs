@@ -12,6 +12,7 @@ namespace SAGAStructuralTools
     public class App : IExternalApplication
     {
         private RailSelectionController _railSelectionController;
+        private LadderSelectionController _ladderSelectionController;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -66,6 +67,17 @@ namespace SAGAStructuralTools
                     ToolTip    = "Gera automaticamente guarda-corpos metálicos com montantes e corrimão estruturais.",
                     LargeImage = LoadIcon("railing_32.png", 32),
                     Image      = LoadIcon("railing_16.png", 16)
+                });
+
+                TryAddButton(panel, new PushButtonData(
+                    name:         "GenerateLadder",
+                    text:         "Escada\nMarinheiro",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateLadderCommand")
+                {
+                    ToolTip    = "Gera escadas marinheiro a partir da viga superior: montantes, degraus, suportes, gaiola e prolongamento. Edite com Alt+clique.",
+                    LargeImage = LoadIcon("stairs_32.png", 32),
+                    Image      = LoadIcon("stairs_16.png", 16)
                 });
 
                 TryAddButton(panel, new PushButtonData(
@@ -124,6 +136,7 @@ namespace SAGAStructuralTools
                 });
 
                 _railSelectionController = new RailSelectionController(application);
+                _ladderSelectionController = new LadderSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
                 return Result.Succeeded;
@@ -149,6 +162,8 @@ namespace SAGAStructuralTools
         {
             _railSelectionController?.Dispose();
             _railSelectionController = null;
+            _ladderSelectionController?.Dispose();
+            _ladderSelectionController = null;
             return Result.Succeeded;
         }
 
