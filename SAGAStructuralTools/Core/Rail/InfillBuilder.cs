@@ -351,19 +351,7 @@ namespace SAGAStructuralTools.Core.Rail
             string key = familyName + "|" + typeName;
             if (_symbolCache.TryGetValue(key, out var cached)) return cached;
 
-            var symbol = new FilteredElementCollector(_doc)
-                .OfClass(typeof(FamilySymbol))
-                .Cast<FamilySymbol>()
-                .FirstOrDefault(s =>
-                    s.Family.Name.Equals(familyName, StringComparison.OrdinalIgnoreCase) &&
-                    s.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
-
-            if (symbol == null)
-            {
-                if (!_doc.LoadFamilySymbol(path, typeName, out symbol) || symbol == null)
-                    throw new InvalidOperationException(
-                        $"Não foi possível carregar '{familyName}' tipo '{typeName}'.");
-            }
+            var symbol = RailFamilySymbolResolver.Resolve(_doc, path, typeName);
 
             var catId = symbol.Family.FamilyCategory?.Id.GetId();
             if (catId != (int)BuiltInCategory.OST_StructuralFraming)
@@ -392,19 +380,7 @@ namespace SAGAStructuralTools.Core.Rail
                 return cached;
             }
 
-            var symbol = new FilteredElementCollector(_doc)
-                .OfClass(typeof(FamilySymbol))
-                .Cast<FamilySymbol>()
-                .FirstOrDefault(s =>
-                    s.Family.Name.Equals(familyName, StringComparison.OrdinalIgnoreCase) &&
-                    s.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
-
-            if (symbol == null)
-            {
-                if (!_doc.LoadFamilySymbol(path, typeName, out symbol) || symbol == null)
-                    throw new InvalidOperationException(
-                        $"Não foi possível carregar '{familyName}' tipo '{typeName}'.");
-            }
+            var symbol = RailFamilySymbolResolver.Resolve(_doc, path, typeName);
 
             var catId  = symbol.Family.FamilyCategory?.Id.GetId();
             bool framing = catId == (int)BuiltInCategory.OST_StructuralFraming;
