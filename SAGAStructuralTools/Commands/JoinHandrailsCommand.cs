@@ -124,6 +124,7 @@ namespace SAGAStructuralTools.Commands
                     second.Id,
                     first.CornerEnd,
                     second.CornerEnd);
+                bool horizontalPair = IsHorizontalPair(first, second);
                 PickedMember middle = null;
                 Line referenceAxis = null;
                 Line referenceBaseAxis = null;
@@ -177,7 +178,7 @@ namespace SAGAStructuralTools.Commands
                         try
                         {
                             automaticReferenceCreated =
-                                RoundedCornerService.TryCreateMixedAutomaticReferenceAxis(
+                                RoundedCornerService.TryCreateAutomaticReferenceAxis(
                                     document,
                                     first.Id,
                                     first.CornerEnd,
@@ -222,7 +223,7 @@ namespace SAGAStructuralTools.Commands
                     try
                     {
                         if (referenceAxis == null &&
-                            !RoundedCornerService.TryCreateMixedAutomaticReferenceAxis(
+                            !RoundedCornerService.TryCreateAutomaticReferenceAxis(
                                 document,
                                 first.Id,
                                 first.CornerEnd,
@@ -231,8 +232,8 @@ namespace SAGAStructuralTools.Commands
                                 out referenceAxis))
                         {
                             throw new InvalidOperationException(
-                                "A ligação automática exige um corrimão inclinado " +
-                                "e outro horizontal.");
+                                "Não foi possível determinar automaticamente um trecho " +
+                                "de ligação para os corrimãos selecionados.");
                         }
                         RoundedCornerService.ValidateAutomaticCompoundSelection(
                             document,
@@ -287,13 +288,10 @@ namespace SAGAStructuralTools.Commands
                             referenceBaseAxis,
                             horizontalOffsetMm,
                             offsetSidePoint);
-                        RoundedCornerService.ValidateReferenceRouteSelection(
-                            document,
-                            first.Id,
-                            first.CornerEnd,
-                            second.Id,
-                            second.CornerEnd,
-                            referenceAxis);
+                        // A geometria dependente do afastamento é validada somente
+                        // depois que a janela permitir editar o valor. Validar aqui
+                        // com zero impediria o usuário de corrigir uma referência
+                        // inicialmente distante, curta ou atrás da ponta escolhida.
                     }
                     catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                     {
@@ -393,14 +391,30 @@ namespace SAGAStructuralTools.Commands
                 else if (referenceRoute)
                 {
                     validateRadius = radius =>
-                        RoundedCornerService.CreateReferenceRoutePlan(
-                            document,
-                            first.Id,
-                            first.CornerEnd,
-                            second.Id,
-                            second.CornerEnd,
-                            referenceAxis,
-                            radius);
+                    {
+                        if (horizontalPair)
+                        {
+                            RoundedCornerService.CreateAutomaticCompoundPlan(
+                                document,
+                                first.Id,
+                                first.CornerEnd,
+                                second.Id,
+                                second.CornerEnd,
+                                referenceAxis,
+                                radius);
+                        }
+                        else
+                        {
+                            RoundedCornerService.CreateReferenceRoutePlan(
+                                document,
+                                first.Id,
+                                first.CornerEnd,
+                                second.Id,
+                                second.CornerEnd,
+                                referenceAxis,
+                                radius);
+                        }
+                    };
                 }
                 else if (compound)
                 {
@@ -491,17 +505,36 @@ namespace SAGAStructuralTools.Commands
                     }
                     else if (referenceRoute)
                     {
-                        var plan = RoundedCornerService.CreateReferenceRoutePlan(
-                            document,
-                            first.Id,
-                            first.CornerEnd,
-                            second.Id,
-                            second.CornerEnd,
-                            referenceAxis,
-                            activeRadiusMm);
-                        var result = ApplyReferenceRoute(document, plan);
-                        createdArcs = result.CornerResults?.Length ?? 0;
-                        modeLabel = "trajeto pela aresta";
+                        if (horizontalPair)
+                        {
+                            var plan =
+                                RoundedCornerService.CreateAutomaticCompoundPlan(
+                                    document,
+                                    first.Id,
+                                    first.CornerEnd,
+                                    second.Id,
+                                    second.CornerEnd,
+                                    referenceAxis,
+                                    activeRadiusMm);
+                            var result = ApplyAutomaticCompound(document, plan);
+                            createdArcs = result.CornerResults?.Length ?? 0;
+                            modeLabel = "ligação horizontal pela aresta";
+                        }
+                        else
+                        {
+                            var plan =
+                                RoundedCornerService.CreateReferenceRoutePlan(
+                                    document,
+                                    first.Id,
+                                    first.CornerEnd,
+                                    second.Id,
+                                    second.CornerEnd,
+                                    referenceAxis,
+                                    activeRadiusMm);
+                            var result = ApplyReferenceRoute(document, plan);
+                            createdArcs = result.CornerResults?.Length ?? 0;
+                            modeLabel = "trajeto pela aresta";
+                        }
                     }
                     else if (compound)
                     {
@@ -639,10 +672,18 @@ namespace SAGAStructuralTools.Commands
 
             double commonOffsetMm = 0.0;
             var initialHeightsMm = new double[pairs.Count];
+            var heightEditable = new bool[pairs.Count];
             var pairDescriptions = new string[pairs.Count];
             for (int index = 0; index < pairs.Count; index++)
             {
                 var pair = pairs[index];
+                var firstAxis =
+                    (pair[0].Instance?.Location as LocationCurve)?.Curve as Line;
+                var secondAxis =
+                    (pair[1].Instance?.Location as LocationCurve)?.Curve as Line;
+                heightEditable[index] =
+                    !IsHorizontal(firstAxis) &&
+                    !IsHorizontal(secondAxis);
                 initialHeightsMm[index] =
                     GetStoredHandrailElevationOffsetMm(pair[0].Instance) ??
                     GetStoredHandrailElevationOffsetMm(pair[1].Instance) ??
@@ -665,10 +706,19 @@ namespace SAGAStructuralTools.Commands
                 return IsHorizontal(firstAxis) != IsHorizontal(secondAxis);
             }
 
+            bool UsesHorizontalPair(int index)
+            {
+                var pair = pairs[index];
+                return IsHorizontalPair(pair[0], pair[1]);
+            }
+
             Line BuildBatchReferenceAxis(int index, double heightMm, double offsetMm)
             {
                 var pair = pairs[index];
-                if (UsesReferenceRoute(index))
+                // Pares mistos e horizontal-horizontal preservam a cota do membro
+                // horizontal existente. A altura editável do lote só controla pares
+                // formados por dois trechos inclinados.
+                if (UsesReferenceRoute(index) || UsesHorizontalPair(index))
                 {
                     return BuildReferenceRouteAxis(
                         pair[0],
@@ -743,6 +793,7 @@ namespace SAGAStructuralTools.Commands
                 initialHeightsMm,
                 activeRadiusMm,
                 commonOffsetMm,
+                heightEditable,
                 ValidateBatchPair);
             new WindowInteropHelper(batchDialog).Owner =
                 Process.GetCurrentProcess().MainWindowHandle;
@@ -906,19 +957,21 @@ namespace SAGAStructuralTools.Commands
                 $"{rawReference.GetEndPoint(0).Z * 304.8:F1}) mm.");
 
             // Em pares com dois inclinados, a altura configurada ainda define a cota
-            // sugerida. Em um par misto, a rota usa diretamente o Z do corrimão
-            // horizontal, portanto diferenças entre configurações não impedem a união.
+            // sugerida. Quando existe ao menos um horizontal, a rota usa diretamente
+            // a cota real dos eixos, portanto diferenças de configuração não impedem
+            // a união.
             double? heightOffsetMm = GetStoredHandrailElevationOffsetMm(first?.Instance);
             double? secondOffsetMm = GetStoredHandrailElevationOffsetMm(second?.Instance);
             var firstSelectedAxis =
                 (first?.Instance?.Location as LocationCurve)?.Curve as Line;
             var secondSelectedAxis =
                 (second?.Instance?.Location as LocationCurve)?.Curve as Line;
-            bool mixedInclinedHorizontal =
+            bool hasHorizontalMember =
                 firstSelectedAxis != null &&
                 secondSelectedAxis != null &&
-                IsHorizontal(firstSelectedAxis) != IsHorizontal(secondSelectedAxis);
-            if (!mixedInclinedHorizontal &&
+                (IsHorizontal(firstSelectedAxis) ||
+                 IsHorizontal(secondSelectedAxis));
+            if (!hasHorizontalMember &&
                 heightOffsetMm.HasValue && secondOffsetMm.HasValue &&
                 Math.Abs(heightOffsetMm.Value - secondOffsetMm.Value) > 1.0)
             {
@@ -1049,17 +1102,31 @@ namespace SAGAStructuralTools.Commands
                 (second?.Instance?.Location as LocationCurve)?.Curve as Line;
             bool firstHorizontal = IsHorizontal(firstAxis);
             bool secondHorizontal = IsHorizontal(secondAxis);
-            if (firstHorizontal == secondHorizontal)
+            if (!firstHorizontal && !secondHorizontal)
             {
                 throw new InvalidOperationException(
-                    "A rota pela aresta exige exatamente um corrimão inclinado " +
-                    "e um horizontal.");
+                    "A rota posicionada pela aresta exige ao menos um corrimão horizontal.");
             }
 
-            Line horizontalAxis = firstHorizontal ? firstAxis : secondAxis;
-            double targetElevation =
-                (horizontalAxis.GetEndPoint(0).Z +
-                 horizontalAxis.GetEndPoint(1).Z) * 0.5;
+            double targetElevation;
+            string elevationSource;
+            if (firstHorizontal && secondHorizontal)
+            {
+                targetElevation =
+                    (firstAxis.GetEndPoint(0).Z +
+                     firstAxis.GetEndPoint(1).Z +
+                     secondAxis.GetEndPoint(0).Z +
+                     secondAxis.GetEndPoint(1).Z) * 0.25;
+                elevationSource = "corrimãos horizontais";
+            }
+            else
+            {
+                Line horizontalAxis = firstHorizontal ? firstAxis : secondAxis;
+                targetElevation =
+                    (horizontalAxis.GetEndPoint(0).Z +
+                     horizontalAxis.GetEndPoint(1).Z) * 0.5;
+                elevationSource = "corrimão horizontal";
+            }
             Line offsetReference = BuildReferenceAxis(
                 baseAxis,
                 0.0,
@@ -1078,12 +1145,24 @@ namespace SAGAStructuralTools.Commands
             SagaLog.Write(
                 $"JoinHandrails: posição e direção da aresta aplicadas; " +
                 $"primeiro={first.Id.GetId()}, segundo={second.Id.GetId()}, " +
-                $"cotaDoHorizontal={targetElevation * 304.8:F1} mm, " +
+                $"fonteDaCota={elevationSource}, " +
+                $"cota={targetElevation * 304.8:F1} mm, " +
                 $"afastamento={horizontalOffsetMm:F3} mm, " +
                 $"início=({positionedReference.GetEndPoint(0).X * 304.8:F1}," +
                 $"{positionedReference.GetEndPoint(0).Y * 304.8:F1}," +
                 $"{positionedReference.GetEndPoint(0).Z * 304.8:F1}) mm.");
             return positionedReference;
+        }
+
+        private static bool IsHorizontalPair(
+            PickedMember first,
+            PickedMember second)
+        {
+            var firstAxis =
+                (first?.Instance?.Location as LocationCurve)?.Curve as Line;
+            var secondAxis =
+                (second?.Instance?.Location as LocationCurve)?.Curve as Line;
+            return IsHorizontal(firstAxis) && IsHorizontal(secondAxis);
         }
 
         private static double? GetStoredHandrailElevationOffsetMm(Element element)
@@ -1151,22 +1230,34 @@ namespace SAGAStructuralTools.Commands
             bool compound =
                 automatic || referenceRoute ||
                 mode == IntermediateDecision.SelectMiddle;
+            bool horizontalPair = IsHorizontalPair(first, second);
+            bool horizontalAutomatic = automatic && horizontalPair;
+            bool horizontalReferenceRoute =
+                referenceRoute && horizontalPair;
             while (true)
             {
                 var dialog = new HandrailJoinWindow(
                     Describe(first?.Instance, "Trecho 1"),
                     automatic
                         ? "Patamar calculado pelos dois eixos — será criado após confirmar"
+                        : horizontalReferenceRoute
+                        ? "Trecho intermediário posicionado pela aresta — será criado após confirmar"
                         : referenceRoute
                         ? "Trecho nivelado + transversal pela aresta — serão criados após confirmar"
                         : compound
                         ? Describe(middle?.Instance, "Patamar")
                         : Describe(second?.Instance, "Trecho 2"),
                     compound ? Describe(second?.Instance, "Trecho 3") : null,
-                    automatic
+                    horizontalAutomatic
+                        ? "Horizontal → ligação perpendicular automática → " +
+                          "Horizontal (2 arcos)"
+                        : automatic
                         ? $"{DescribeOrientation(first?.Instance)} → " +
                           "patamar na altura do corrimão horizontal → " +
                           $"{DescribeOrientation(second?.Instance)} (2 arcos)"
+                        : horizontalReferenceRoute
+                        ? "Horizontal → paralelo e posicionado pela aresta → " +
+                          "Horizontal (2 arcos)"
                         : referenceRoute
                         ? $"{DescribeOrientation(first?.Instance)} → nivelado → " +
                           "paralelo e posicionado pela aresta → " +
@@ -1369,7 +1460,7 @@ namespace SAGAStructuralTools.Commands
                     "A união direta usa um único arco quando os eixos se encontram. " +
                     "A ligação automática usa somente os eixos dos corrimãos. " +
                     "A opção por aresta usa também a posição da referência para " +
-                    "nivelar o inclinado e criar o trecho transversal.",
+                    "posicionar o trecho de ligação.",
                 CommonButtons = TaskDialogCommonButtons.Cancel
             };
             dialog.AddCommandLink(
@@ -1379,7 +1470,7 @@ namespace SAGAStructuralTools.Commands
             dialog.AddCommandLink(
                 TaskDialogCommandLinkId.CommandLink2,
                 "Criar patamar por aresta (recomendado)",
-                "Nivela o trecho inclinado, alcança a posição da aresta e cria um trecho paralelo a ela.");
+                "Posiciona a ligação pela aresta; em pares mistos, também nivela o trecho inclinado.");
             dialog.AddCommandLink(
                 TaskDialogCommandLinkId.CommandLink3,
                 "Criar várias uniões pela mesma aresta",
