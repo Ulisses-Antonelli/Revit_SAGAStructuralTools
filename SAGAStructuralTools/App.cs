@@ -73,6 +73,28 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("railing_16.png", 16)
                 });
 
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "MoveToCoordinate",
+                    text:         "Mover para\nCoordenada",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.MoveToCoordinateCommand")
+                {
+                    ToolTip    = "Move um elemento fazendo um ponto de referência atingir coordenadas X, Y e Z específicas.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "AlignAnnotationRotation",
+                    text:         "Rotacionar Texto\npor Referência",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.AlignAnnotationRotationCommand")
+                {
+                    ToolTip    = "Rotaciona um texto ou uma tag conforme uma linha ou aresta reta de referência.",
+                    LargeImage = LoadIcon("rail_real_align_32.png", 32),
+                    Image      = LoadIcon("rail_real_align_16.png", 16)
+                });
+
                 TryAddButton(railPanel, new PushButtonData(
                     name:         "GenerateRail",
                     text:         "Horizontal",

@@ -480,6 +480,34 @@ namespace SAGAStructuralTools.Core.Rail
                 false);
         }
 
+        internal static bool TryCreateAutomaticReferenceAxis(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            out Line referenceAxis)
+        {
+            if (TryCreateMixedAutomaticReferenceAxis(
+                document,
+                firstId,
+                firstCornerEnd,
+                secondId,
+                secondCornerEnd,
+                out referenceAxis))
+            {
+                return true;
+            }
+
+            return TryCreateHorizontalAutomaticReferenceAxis(
+                document,
+                firstId,
+                firstCornerEnd,
+                secondId,
+                secondCornerEnd,
+                out referenceAxis);
+        }
+
         internal static bool TryCreateMixedAutomaticReferenceAxis(
             Document document,
             ElementId firstId,
@@ -547,6 +575,78 @@ namespace SAGAStructuralTools.Core.Rail
                 ? Line.CreateBound(horizontalVertex, inclinedVertex)
                 : Line.CreateBound(inclinedVertex, horizontalVertex);
             EnsureHorizontal(referenceAxis);
+            return true;
+        }
+
+        private static bool TryCreateHorizontalAutomaticReferenceAxis(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            out Line referenceAxis)
+        {
+            referenceAxis = null;
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+
+            var first = RoundedCornerMember.Get(document, firstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, secondId, "segundo");
+            if (!first.IsBeam || !second.IsBeam)
+                return false;
+
+            var firstLine = first.GetAxis();
+            var secondLine = second.GetAxis();
+            if (!IsHorizontalAxis(firstLine) ||
+                !IsHorizontalAxis(secondLine))
+            {
+                return false;
+            }
+
+            double commonElevation = GetCommonHorizontalElevation(
+                document,
+                firstLine,
+                secondLine);
+            var firstDirection = HorizontalDirection(
+                firstLine,
+                "primeiro corrimão");
+            var secondDirection = HorizontalDirection(
+                secondLine,
+                "segundo corrimão");
+            double parallelCross = Math.Abs(
+                firstDirection.X * secondDirection.Y -
+                firstDirection.Y * secondDirection.X);
+            if (parallelCross > 1e-8)
+                return false;
+
+            var firstPoint = firstLine.GetEndPoint(firstCornerEnd);
+            var secondPoint = secondLine.GetEndPoint(secondCornerEnd);
+            double stationDelta =
+                (secondPoint - firstPoint).DotProduct(firstDirection);
+            var referenceOrigin =
+                firstPoint + firstDirection * (stationDelta * 0.5);
+            referenceOrigin = new XYZ(
+                referenceOrigin.X,
+                referenceOrigin.Y,
+                commonElevation);
+
+            var perpendicular =
+                XYZ.BasisZ.CrossProduct(firstDirection).Normalize();
+            double separation = Math.Abs(
+                (secondPoint - firstPoint).DotProduct(perpendicular));
+            double halfLength = Math.Max(1.0, separation * 0.5 + 1.0);
+            referenceAxis = Line.CreateBound(
+                referenceOrigin - perpendicular * halfLength,
+                referenceOrigin + perpendicular * halfLength);
+
+            SagaLog.Write(
+                $"Patamar horizontal automático: primeiro={firstId.GetId()}, " +
+                $"segundo={secondId.GetId()}, " +
+                $"ajusteDeEstação={stationDelta * MillimetersPerFoot * 0.5:F1}mm, " +
+                $"separação={separation * MillimetersPerFoot:F1}mm, " +
+                $"direção=({perpendicular.X:F6},{perpendicular.Y:F6},0).");
             return true;
         }
 
@@ -2182,6 +2282,18 @@ namespace SAGAStructuralTools.Core.Rail
             Line referenceAxis)
         {
             ValidateHorizontalReference(referenceAxis);
+            if (IsHorizontalAxis(firstLine) &&
+                IsHorizontalAxis(secondLine))
+            {
+                return CalculatePositionedHorizontalMiddleAxis(
+                    document,
+                    firstLine,
+                    firstCornerEnd,
+                    secondLine,
+                    secondCornerEnd,
+                    referenceAxis);
+            }
+
             var firstPoint = firstLine.GetEndPoint(firstCornerEnd);
             var secondPoint = secondLine.GetEndPoint(secondCornerEnd);
             var firstDirection = Direction(
@@ -2328,6 +2440,166 @@ namespace SAGAStructuralTools.Core.Rail
                 $"{secondVertex.Y * MillimetersPerFoot:F1}," +
                 $"{secondVertex.Z * MillimetersPerFoot:F1}).");
             return Line.CreateBound(firstVertex, secondVertex);
+        }
+
+        private static Line CalculatePositionedHorizontalMiddleAxis(
+            Document document,
+            Line firstLine,
+            int firstCornerEnd,
+            Line secondLine,
+            int secondCornerEnd,
+            Line referenceAxis)
+        {
+            double commonElevation = GetCommonHorizontalElevation(
+                document,
+                firstLine,
+                secondLine);
+            double toleranceFt = Math.Max(
+                document.Application.VertexTolerance,
+                0.1 / MillimetersPerFoot);
+            double referenceElevation =
+                (referenceAxis.GetEndPoint(0).Z +
+                 referenceAxis.GetEndPoint(1).Z) * 0.5;
+            if (Math.Abs(referenceElevation - commonElevation) > toleranceFt)
+            {
+                throw new InvalidOperationException(
+                    $"A referência posicionada está em uma cota diferente dos " +
+                    $"corrimãos horizontais " +
+                    $"({Math.Abs(referenceElevation - commonElevation) * MillimetersPerFoot:F1} mm).");
+            }
+
+            var referenceDirection = HorizontalDirection(
+                referenceAxis,
+                "aresta de referência");
+            var firstDirection = HorizontalDirection(
+                firstLine,
+                "primeiro corrimão");
+            var secondDirection = HorizontalDirection(
+                secondLine,
+                "segundo corrimão");
+            if (AreParallelInPlan(firstDirection, referenceDirection))
+            {
+                throw new InvalidOperationException(
+                    "A aresta de referência é paralela ao primeiro corrimão horizontal. " +
+                    "Selecione uma referência que cruze os dois eixos.");
+            }
+            if (AreParallelInPlan(secondDirection, referenceDirection))
+            {
+                throw new InvalidOperationException(
+                    "A aresta de referência é paralela ao segundo corrimão horizontal. " +
+                    "Selecione uma referência que cruze os dois eixos.");
+            }
+
+            var referenceOrigin = new XYZ(
+                referenceAxis.GetEndPoint(0).X,
+                referenceAxis.GetEndPoint(0).Y,
+                commonElevation);
+            var firstOrigin = new XYZ(
+                firstLine.GetEndPoint(0).X,
+                firstLine.GetEndPoint(0).Y,
+                commonElevation);
+            var secondOrigin = new XYZ(
+                secondLine.GetEndPoint(0).X,
+                secondLine.GetEndPoint(0).Y,
+                commonElevation);
+            var firstVertex = IntersectHorizontalSupportingLines(
+                firstOrigin,
+                firstDirection,
+                referenceOrigin,
+                referenceDirection,
+                commonElevation,
+                "A aresta de referência é paralela ao primeiro corrimão horizontal.");
+            var secondVertex = IntersectHorizontalSupportingLines(
+                secondOrigin,
+                secondDirection,
+                referenceOrigin,
+                referenceDirection,
+                commonElevation,
+                "A aresta de referência é paralela ao segundo corrimão horizontal.");
+
+            ResolveCornerEnd(
+                firstLine,
+                firstVertex,
+                firstCornerEnd,
+                "primeiro horizontal");
+            ResolveCornerEnd(
+                secondLine,
+                secondVertex,
+                secondCornerEnd,
+                "segundo horizontal");
+
+            double minimumLength = Math.Max(
+                document.Application.ShortCurveTolerance,
+                1.0 / MillimetersPerFoot);
+            if (firstVertex.DistanceTo(secondVertex) <= minimumLength)
+            {
+                throw new InvalidOperationException(
+                    "O trecho horizontal sobre a referência ficaria curto demais. " +
+                    "Use a união direta ou escolha outra aresta.");
+            }
+
+            var middleAxis = Line.CreateBound(firstVertex, secondVertex);
+            EnsureHorizontal(middleAxis);
+            SagaLog.Write(
+                $"Patamar horizontal posicionado: " +
+                $"comprimento={middleAxis.Length * MillimetersPerFoot:F1}mm, " +
+                $"cota={commonElevation * MillimetersPerFoot:F1}mm, " +
+                $"primeiro=({firstVertex.X * MillimetersPerFoot:F1}," +
+                $"{firstVertex.Y * MillimetersPerFoot:F1}), " +
+                $"segundo=({secondVertex.X * MillimetersPerFoot:F1}," +
+                $"{secondVertex.Y * MillimetersPerFoot:F1}), " +
+                $"direçãoRef=({referenceDirection.X:F6}," +
+                $"{referenceDirection.Y:F6}).");
+            return middleAxis;
+        }
+
+        private static bool AreParallelInPlan(
+            XYZ firstDirection,
+            XYZ secondDirection)
+        {
+            return Math.Abs(
+                firstDirection.X * secondDirection.Y -
+                firstDirection.Y * secondDirection.X) <= 1e-8;
+        }
+
+        private static double GetCommonHorizontalElevation(
+            Document document,
+            Line firstLine,
+            Line secondLine)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (!IsHorizontalAxis(firstLine) ||
+                !IsHorizontalAxis(secondLine))
+            {
+                throw new InvalidOperationException(
+                    "Esta ligação exige dois corrimãos horizontais.");
+            }
+
+            double firstStartZ = firstLine.GetEndPoint(0).Z;
+            double firstEndZ = firstLine.GetEndPoint(1).Z;
+            double secondStartZ = secondLine.GetEndPoint(0).Z;
+            double secondEndZ = secondLine.GetEndPoint(1).Z;
+            double minimumElevation = Math.Min(
+                Math.Min(firstStartZ, firstEndZ),
+                Math.Min(secondStartZ, secondEndZ));
+            double maximumElevation = Math.Max(
+                Math.Max(firstStartZ, firstEndZ),
+                Math.Max(secondStartZ, secondEndZ));
+            double toleranceFt = Math.Max(
+                document.Application.VertexTolerance,
+                0.1 / MillimetersPerFoot);
+            if (maximumElevation - minimumElevation > toleranceFt)
+            {
+                throw new InvalidOperationException(
+                    $"Os dois corrimãos horizontais precisam estar na mesma cota. " +
+                    $"A variação encontrada entre os eixos foi " +
+                    $"{(maximumElevation - minimumElevation) * MillimetersPerFoot:F1} mm. " +
+                    "A ferramenta preserva os eixos e não desloca um corrimão verticalmente.");
+            }
+
+            return
+                (firstStartZ + firstEndZ + secondStartZ + secondEndZ) * 0.25;
         }
 
         private static bool IsHorizontalAxis(Line line)

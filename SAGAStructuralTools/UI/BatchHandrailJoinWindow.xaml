@@ -18,8 +18,9 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
             <TextBlock Text="SAGA - Configurar uniões de corrimãos"
                        FontSize="18" FontWeight="SemiBold" Foreground="#172B4D"/>
-            <TextBlock Text="Revise a altura de cada par antes de validar e criar todas as uniões."
-                       Margin="0,5,0,0" Foreground="#5E6C84"/>
+            <TextBlock Text="A altura é aplicada somente a pares com dois inclinados; o deslocamento, somente a pares com trecho horizontal. As demais cotas são preservadas."
+                       Margin="0,5,0,0" Foreground="#5E6C84"
+                       TextWrapping="Wrap"/>
         </StackPanel>
 
         <Border Grid.Row="1" Padding="12" Margin="0,0,0,12"
@@ -50,8 +51,18 @@
                     <DataGridTextColumn Header="Par" Binding="{Binding Number}" Width="52" IsReadOnly="True"/>
                     <DataGridTextColumn Header="Corrimãos selecionados" Binding="{Binding Description}"
                                         Width="*" IsReadOnly="True"/>
-                    <DataGridTextColumn Header="Altura (mm)" Binding="{Binding HeightText, UpdateSourceTrigger=PropertyChanged}"
-                                        Width="120"/>
+                    <DataGridTemplateColumn Header="Altura (mm)" Width="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{Binding HeightText, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding IsHeightEditable}"
+                                         Padding="4,2"
+                                         BorderThickness="0"
+                                         Background="Transparent"
+                                         ToolTip="Editável somente quando os dois trechos do par são inclinados."/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Validação" Binding="{Binding Error}" Width="180" IsReadOnly="True"/>
                 </DataGrid.Columns>
             </DataGrid>

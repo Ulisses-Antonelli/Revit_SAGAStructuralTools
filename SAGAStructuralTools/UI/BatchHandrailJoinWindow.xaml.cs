@@ -2,6 +2,7 @@ using SAGAStructuralTools.UI.Converters;
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 
 namespace SAGAStructuralTools.UI
@@ -11,6 +12,7 @@ namespace SAGAStructuralTools.UI
         public int Number { get; set; }
         public string Description { get; set; }
         public string HeightText { get; set; }
+        public bool IsHeightEditable { get; set; }
         public string Error { get; set; }
     }
 
@@ -29,6 +31,7 @@ namespace SAGAStructuralTools.UI
             double[] initialHeightsMm,
             double initialRadiusMm,
             double initialOffsetMm,
+            bool[] heightEditable,
             Func<int, double, double, double, string> validatePair)
         {
             InitializeComponent();
@@ -40,16 +43,22 @@ namespace SAGAStructuralTools.UI
                 {
                     Number = index + 1,
                     Description = descriptions[index],
-                    HeightText = initialHeightsMm[index].ToString("0.########", _culture)
+                    HeightText = initialHeightsMm[index].ToString("0.########", _culture),
+                    IsHeightEditable =
+                        heightEditable == null ||
+                        index >= heightEditable.Length ||
+                        heightEditable[index]
                 });
             }
 
             DataContext = this;
             RadiusTextBox.Text = initialRadiusMm.ToString("0.########", _culture);
             OffsetTextBox.Text = initialOffsetMm.ToString("0.########", _culture);
-            CommonHeightTextBox.Text = initialHeightsMm.Length > 0
-                ? initialHeightsMm[0].ToString("0.########", _culture)
-                : "0";
+            var firstEditableHeight =
+                Rows.FirstOrDefault(row => row.IsHeightEditable);
+            CommonHeightTextBox.Text =
+                firstEditableHeight?.HeightText ?? "0";
+            SameHeightCheckBox.IsEnabled = firstEditableHeight != null;
         }
 
         private void SameHeight_Checked(object sender, RoutedEventArgs e)
@@ -76,7 +85,10 @@ namespace SAGAStructuralTools.UI
 
             string text = heightMm.ToString("0.########", _culture);
             foreach (var row in Rows)
-                row.HeightText = text;
+            {
+                if (row.IsHeightEditable)
+                    row.HeightText = text;
+            }
             PairsGrid.Items.Refresh();
             ValidationText.Text = null;
         }
