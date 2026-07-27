@@ -8,6 +8,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAGAStructuralTools.Strap.D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAGAStructuralTools.Strap.Domain.Tests", "SAGAStructuralTools.Strap.Domain.Tests\SAGAStructuralTools.Strap.Domain.Tests.csproj", "{98FCE7C6-B147-4CF5-9857-6717642A3C4A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAGAStructuralTools.Strap.Application", "SAGAStructuralTools.Strap.Application\SAGAStructuralTools.Strap.Application.csproj", "{31E3A2A7-A4A3-452C-B267-86209847D74A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAGAStructuralTools.Strap.Application.Tests", "SAGAStructuralTools.Strap.Application.Tests\SAGAStructuralTools.Strap.Application.Tests.csproj", "{C18B8CE3-A8FC-458E-BA85-2DB15CDDD6D3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,5 +30,13 @@ Global
 		{98FCE7C6-B147-4CF5-9857-6717642A3C4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{98FCE7C6-B147-4CF5-9857-6717642A3C4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{98FCE7C6-B147-4CF5-9857-6717642A3C4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{31E3A2A7-A4A3-452C-B267-86209847D74A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31E3A2A7-A4A3-452C-B267-86209847D74A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{31E3A2A7-A4A3-452C-B267-86209847D74A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{31E3A2A7-A4A3-452C-B267-86209847D74A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C18B8CE3-A8FC-458E-BA85-2DB15CDDD6D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C18B8CE3-A8FC-458E-BA85-2DB15CDDD6D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C18B8CE3-A8FC-458E-BA85-2DB15CDDD6D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C18B8CE3-A8FC-458E-BA85-2DB15CDDD6D3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

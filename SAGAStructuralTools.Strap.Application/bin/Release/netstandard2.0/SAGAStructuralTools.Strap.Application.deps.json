@@ -1,0 +1,40 @@
+{
+  "runtimeTarget": {
+    "name": ".NETStandard,Version=v2.0/",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETStandard,Version=v2.0": {},
+    ".NETStandard,Version=v2.0/": {
+      "SAGAStructuralTools.Strap.Application/1.0.0": {
+        "dependencies": {
+          "SAGAStructuralTools.Strap.Domain": "1.0.0"
+        },
+        "runtime": {
+          "SAGAStructuralTools.Strap.Application.dll": {}
+        }
+      },
+      "SAGAStructuralTools.Strap.Domain/1.0.0": {
+        "runtime": {
+          "SAGAStructuralTools.Strap.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "SAGAStructuralTools.Strap.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "SAGAStructuralTools.Strap.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

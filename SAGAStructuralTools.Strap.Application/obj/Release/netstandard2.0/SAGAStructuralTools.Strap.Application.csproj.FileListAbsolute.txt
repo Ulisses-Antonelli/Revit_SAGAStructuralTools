@@ -1,0 +1,14 @@
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.deps.json
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.dll
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.pdb
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.dll
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.pdb
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.csproj.AssemblyReference.cache
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.AssemblyInfoInputs.cache
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.AssemblyInfo.cs
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.csproj.CoreCompileInputs.cache
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.sourcelink.json
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStru.94BA0210.Up2Date
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.dll
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Application\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Application.pdb
