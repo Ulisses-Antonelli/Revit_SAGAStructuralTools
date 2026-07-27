@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "hjcA+EDr+DU=",
+  "success": true,
+  "projectFilePath": "C:\\BIM_AUTOMACAO\\REVIT_API\\Revit_SAGAStructuralTools\\SAGAStructuralTools.Strap.Domain\\SAGAStructuralTools.Strap.Domain.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\CodexSandboxOffline\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
+    "C:\\Users\\CodexSandboxOffline\\.nuget\\packages\\netstandard.library\\2.0.3\\netstandard.library.2.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

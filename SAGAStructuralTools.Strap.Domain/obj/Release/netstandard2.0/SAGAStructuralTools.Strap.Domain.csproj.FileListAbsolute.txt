@@ -1,0 +1,11 @@
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.deps.json
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.dll
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\bin\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.pdb
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.csproj.AssemblyReference.cache
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.AssemblyInfoInputs.cache
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.AssemblyInfo.cs
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.csproj.CoreCompileInputs.cache
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.sourcelink.json
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.dll
+C:\BIM_AUTOMACAO\REVIT_API\Revit_SAGAStructuralTools\SAGAStructuralTools.Strap.Domain\obj\Release\netstandard2.0\SAGAStructuralTools.Strap.Domain.pdb
