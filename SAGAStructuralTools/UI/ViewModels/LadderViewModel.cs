@@ -217,8 +217,10 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private double _extensionHeight = LadderDefaults.ExtensionHeight;
         private double _exitFlare       = LadderDefaults.ExitFlare;
+        private double _exitKinkHeight  = LadderDefaults.ExitKinkHeight;
         public double ExtensionHeight { get => _extensionHeight; set { if (Set(ref _extensionHeight, value)) IsCalculated = false; } }
         public double ExitFlare       { get => _exitFlare;       set { if (Set(ref _exitFlare, value)) IsCalculated = false; } }
+        public double ExitKinkHeight  { get => _exitKinkHeight;  set { if (Set(ref _exitKinkHeight, value)) IsCalculated = false; } }
 
         // ── Preview ────────────────────────────────────────────────────────
 
@@ -394,7 +396,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             LifelineFamilyType = _lifelineFamilyType,
 
             ExtensionHeight    = ExtensionHeight,
-            ExitFlare          = ExitFlare
+            ExitFlare          = ExitFlare,
+            ExitKinkHeight     = ExitKinkHeight
         };
 
         private void ApplyConfig(LadderConfig c)
@@ -433,6 +436,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             ExtensionHeight = c.ExtensionHeight;
             ExitFlare       = c.ExitFlare;
+            ExitKinkHeight  = c.ExitKinkHeight;
         }
 
         // ── Helpers de família (mesmos padrões do RailViewModel) ───────────

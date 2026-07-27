@@ -46,7 +46,8 @@ namespace SAGAStructuralTools.Core.Models
         public string LifelineFamilyType  { get; set; }
 
         // ── Desembarque (prolongamento + alargamento) ─────────────────────
-        public double ExtensionHeight     { get; set; } = LadderDefaults.ExtensionHeight;     // acima do desembarque
+        public double ExtensionHeight     { get; set; } = LadderDefaults.ExtensionHeight;     // acima do desembarque (trecho quebrado + reto)
         public double ExitFlare           { get; set; } = LadderDefaults.ExitFlare;           // abertura por lado
+        public double ExitKinkHeight      { get; set; } = LadderDefaults.ExitKinkHeight;       // altura do trecho quebrado (base do alargamento)
     }
 }

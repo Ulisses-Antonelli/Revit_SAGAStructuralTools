@@ -758,6 +758,8 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="8"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Style="{StaticResource FieldLabel}" Text="Altura do prolongamento"/>
@@ -766,7 +768,7 @@
                                                 <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                 <TextBox Style="{StaticResource CleanInput}"
                                                          Text="{Binding ExtensionHeight, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                                         ToolTip="Mínimo normativo: 1100 mm acima do piso de desembarque."/>
+                                                         ToolTip="Mínimo normativo: 1100 mm acima do piso de desembarque. Altura total (trecho quebrado + trecho reto)."/>
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>
@@ -778,6 +780,17 @@
                                                 <TextBox Style="{StaticResource CleanInput}"
                                                          Text="{Binding ExitFlare, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                                          ToolTip="Abertura de cada montante no prolongamento, para passagem do torso."/>
+                                            </DockPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Altura da quebra"/>
+                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Style="{StaticResource CleanInput}"
+                                                         Text="{Binding ExitKinkHeight, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                         ToolTip="Altura do trecho inclinado na base do alargamento (o restante do prolongamento sobe reto, já na largura alargada)."/>
                                             </DockPanel>
                                         </Border>
                                     </StackPanel>

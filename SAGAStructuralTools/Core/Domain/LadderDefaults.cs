@@ -29,6 +29,8 @@ namespace SAGAStructuralTools.Core.Domain
         // Desembarque (mm)
         public const double ExtensionHeight   = 1100.0;
         public const double ExitFlare         = 150.0;
+        // Altura do trecho quebrado na base do alargamento (ângulo ~53° com ExitFlare padrão).
+        public const double ExitKinkHeight    = 200.0;
 
         // Limites normativos usados nos avisos do preview (mm)
         public const double MinWidth          = 400.0;

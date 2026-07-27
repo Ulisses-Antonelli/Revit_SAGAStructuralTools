@@ -81,18 +81,33 @@ namespace SAGAStructuralTools.Core.Ladder
                 $"eixos=±{axisHalfFt * 304.8:F1}mm | h={(topZ - baseZ) * 304.8:F0}mm");
 
             // ── Prolongamento com alargamento na saída ───────────────────────────
+            // Não é uma única diagonal do desembarque ao topo: primeiro um trecho
+            // quebrado curto (kinkFt) leva da largura da escada até a largura já
+            // alargada da saída; dali, um trecho reto vertical (o restante de extFt)
+            // sobe nessa largura alargada até o topo do prolongamento.
             double extFt = Math.Max(config.ExtensionHeight, 0) / 304.8;
             if (extFt > 0.01)
             {
                 double flareFt = Math.Max(config.ExitFlare, 0) / 304.8;
-                CreateBeam(stringerSym, Line.CreateBound(
-                    At(posA, topZ),
-                    At(Pos(center, across, -(axisHalfFt + flareFt)), topZ + extFt)),
-                    "prolongamento A", createdIds);
-                CreateBeam(stringerSym, Line.CreateBound(
-                    At(posB, topZ),
-                    At(Pos(center, across, +(axisHalfFt + flareFt)), topZ + extFt)),
-                    "prolongamento B", createdIds);
+                double kinkFt  = Math.Min(Math.Max(config.ExitKinkHeight, 0) / 304.8, extFt);
+                double flaredHalfFt = axisHalfFt + flareFt;
+                double kinkZ = topZ + kinkFt;
+
+                var flaredA = Pos(center, across, -flaredHalfFt);
+                var flaredB = Pos(center, across, +flaredHalfFt);
+
+                CreateBeam(stringerSym, Line.CreateBound(At(posA, topZ), At(flaredA, kinkZ)),
+                    "prolongamento A (quebra)", createdIds);
+                CreateBeam(stringerSym, Line.CreateBound(At(posB, topZ), At(flaredB, kinkZ)),
+                    "prolongamento B (quebra)", createdIds);
+
+                if (extFt - kinkFt > 0.01)
+                {
+                    CreateBeam(stringerSym, Line.CreateBound(At(flaredA, kinkZ), At(flaredA, topZ + extFt)),
+                        "prolongamento A (reto)", createdIds);
+                    CreateBeam(stringerSym, Line.CreateBound(At(flaredB, kinkZ), At(flaredB, topZ + extFt)),
+                        "prolongamento B (reto)", createdIds);
+                }
             }
 
             // ── Degraus: de eixo a eixo dos montantes, cotas vindas do cálculo ───
