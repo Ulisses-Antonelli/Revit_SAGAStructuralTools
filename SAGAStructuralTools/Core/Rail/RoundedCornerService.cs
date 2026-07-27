@@ -73,6 +73,25 @@ namespace SAGAStructuralTools.Core.Rail
         internal RoundedCornerResult[] CornerResults { get; set; }
     }
 
+    internal sealed class RoundedCornerReferenceRoutePlan
+    {
+        internal ElementId InclinedId { get; set; }
+        internal ElementId HorizontalId { get; set; }
+        internal int InclinedCornerEnd { get; set; }
+        internal int HorizontalCornerEnd { get; set; }
+        internal Line ReferenceAxis { get; set; }
+        internal Line LevelAxis { get; set; }
+        internal Line ConnectorAxis { get; set; }
+        internal double RadiusMm { get; set; }
+    }
+
+    internal sealed class RoundedCornerReferenceRouteResult
+    {
+        internal ElementId LevelElementId { get; set; }
+        internal ElementId ConnectorElementId { get; set; }
+        internal RoundedCornerResult[] CornerResults { get; set; }
+    }
+
     internal sealed class RoundedCornerResult
     {
         internal ElementId CurvedElementId { get; set; }
@@ -441,6 +460,26 @@ namespace SAGAStructuralTools.Core.Rail
                 false);
         }
 
+        internal static void ValidateReferenceRouteSelection(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            Line referenceAxis)
+        {
+            CreateReferenceRoutePlan(
+                document,
+                firstId,
+                firstCornerEnd,
+                secondId,
+                secondCornerEnd,
+                referenceAxis,
+                0.1,
+                0.0,
+                false);
+        }
+
         internal static bool TryCreateMixedAutomaticReferenceAxis(
             Document document,
             ElementId firstId,
@@ -507,6 +546,62 @@ namespace SAGAStructuralTools.Core.Rail
             referenceAxis = firstHorizontal
                 ? Line.CreateBound(horizontalVertex, inclinedVertex)
                 : Line.CreateBound(inclinedVertex, horizontalVertex);
+            EnsureHorizontal(referenceAxis);
+            return true;
+        }
+
+        internal static bool TryCreateInclinedPairReferenceAxis(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            Line elevationReference,
+            out Line referenceAxis)
+        {
+            referenceAxis = null;
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+            ValidateHorizontalReference(elevationReference);
+
+            var first = RoundedCornerMember.Get(document, firstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, secondId, "segundo");
+            if (!first.IsBeam || !second.IsBeam)
+                return false;
+
+            var firstLine = first.GetAxis();
+            var secondLine = second.GetAxis();
+            if (IsHorizontalAxis(firstLine) || IsHorizontalAxis(secondLine))
+                return false;
+
+            double targetElevation = elevationReference.GetEndPoint(0).Z;
+            XYZ PointAtElevation(Line line, string label)
+            {
+                var direction = line.Direction;
+                if (Math.Abs(direction.Z) <= 1e-9)
+                    throw new InvalidOperationException(
+                        $"O eixo do {label} não alcança a altura informada.");
+                var start = line.GetEndPoint(0);
+                double parameter = (targetElevation - start.Z) / direction.Z;
+                var point = start + direction * parameter;
+                if (!IsFinite(point))
+                    throw new InvalidOperationException(
+                        $"Não foi possível calcular o encontro do {label} na altura informada.");
+                return point;
+            }
+
+            var firstVertex = PointAtElevation(firstLine, "primeiro corrimão");
+            var secondVertex = PointAtElevation(secondLine, "segundo corrimão");
+            double minimumLength = Math.Max(
+                document.Application.ShortCurveTolerance,
+                1.0 / MillimetersPerFoot);
+            if (firstVertex.DistanceTo(secondVertex) <= minimumLength)
+                throw new InvalidOperationException(
+                    "O trecho horizontal automático ficaria curto demais nessa altura.");
+
+            referenceAxis = Line.CreateBound(firstVertex, secondVertex);
             EnsureHorizontal(referenceAxis);
             return true;
         }
@@ -627,6 +722,267 @@ namespace SAGAStructuralTools.Core.Rail
                 FirstCornerEnd = firstCornerEnd,
                 SecondCornerEnd = secondCornerEnd,
                 MiddleAxis = middleAxis,
+                RadiusMm = radiusMm
+            };
+        }
+
+        internal static RoundedCornerReferenceRoutePlan CreateReferenceRoutePlan(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            Line referenceAxis,
+            double radiusMm)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            return CreateReferenceRoutePlan(
+                document,
+                firstId,
+                firstCornerEnd,
+                secondId,
+                secondCornerEnd,
+                referenceAxis,
+                radiusMm,
+                document.Application.ShortCurveTolerance,
+                true);
+        }
+
+        private static RoundedCornerReferenceRoutePlan CreateReferenceRoutePlan(
+            Document document,
+            ElementId firstId,
+            int firstCornerEnd,
+            ElementId secondId,
+            int secondCornerEnd,
+            Line referenceAxis,
+            double radiusMm,
+            double shortCurveTolerance,
+            bool validateExtension)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (radiusMm <= 0 || double.IsNaN(radiusMm) || double.IsInfinity(radiusMm))
+                throw new InvalidOperationException("Informe um raio maior que zero.");
+            ValidateHorizontalReference(referenceAxis);
+            ValidateCornerEnd(firstCornerEnd, "primeiro corrimão");
+            ValidateCornerEnd(secondCornerEnd, "segundo corrimão");
+
+            var first = RoundedCornerMember.Get(document, firstId, "primeiro");
+            var second = RoundedCornerMember.Get(document, secondId, "segundo");
+            if (!first.IsBeam || !second.IsBeam)
+                throw new InvalidOperationException(
+                    "A rota pela aresta aceita somente vigas estruturais retas.");
+            ValidatePair(first, second);
+
+            var firstLine = first.GetAxis();
+            var secondLine = second.GetAxis();
+            bool firstHorizontal = IsHorizontalAxis(firstLine);
+            bool secondHorizontal = IsHorizontalAxis(secondLine);
+            if (firstHorizontal == secondHorizontal)
+            {
+                throw new InvalidOperationException(
+                    "A rota pela aresta exige exatamente um corrimão inclinado e um horizontal.");
+            }
+
+            var inclined = firstHorizontal ? second : first;
+            var horizontal = firstHorizontal ? first : second;
+            var inclinedLine = firstHorizontal ? secondLine : firstLine;
+            var horizontalLine = firstHorizontal ? firstLine : secondLine;
+            int inclinedCornerEnd = firstHorizontal ? secondCornerEnd : firstCornerEnd;
+            int horizontalCornerEnd = firstHorizontal ? firstCornerEnd : secondCornerEnd;
+
+            var referenceStart = referenceAxis.GetEndPoint(0);
+            var referenceEnd = referenceAxis.GetEndPoint(1);
+            double elevationToleranceFt = Math.Max(
+                AxisIntersectionToleranceMm / MillimetersPerFoot,
+                document.Application.VertexTolerance);
+            if (Math.Abs(referenceEnd.Z - referenceStart.Z) > elevationToleranceFt)
+            {
+                throw new InvalidOperationException(
+                    "A aresta de referência precisa definir uma única cota horizontal.");
+            }
+
+            // Em um par misto, a cota funcional da união vem sempre do corrimão
+            // horizontal. A aresta selecionada controla somente posição em planta,
+            // direção e afastamento lateral.
+            double referenceElevation =
+                (horizontalLine.GetEndPoint(0).Z +
+                 horizontalLine.GetEndPoint(1).Z) * 0.5;
+            var normalizedReferenceAxis = Line.CreateBound(
+                new XYZ(referenceStart.X, referenceStart.Y, referenceElevation),
+                new XYZ(referenceEnd.X, referenceEnd.Y, referenceElevation));
+
+            var inclinedSelectedPoint =
+                inclinedLine.GetEndPoint(inclinedCornerEnd);
+            var inclinedInteriorDirection = Direction(
+                inclinedSelectedPoint,
+                inclinedLine.GetEndPoint(1 - inclinedCornerEnd),
+                "inclinado");
+            var levelDirection = new XYZ(
+                -inclinedInteriorDirection.X,
+                -inclinedInteriorDirection.Y,
+                0.0);
+            if (!IsFinite(levelDirection) || levelDirection.GetLength() <= 1e-9)
+            {
+                throw new InvalidOperationException(
+                    "O corrimão inclinado não possui uma direção válida em planta.");
+            }
+            levelDirection = levelDirection.Normalize();
+
+            var inclinedVertex = PointOnAxisAtElevation(
+                inclinedLine,
+                referenceElevation,
+                "corrimão inclinado");
+            ResolveCornerEnd(
+                inclinedLine,
+                inclinedVertex,
+                inclinedCornerEnd,
+                "inclinado");
+
+            var referenceDirection = HorizontalDirection(
+                referenceAxis,
+                "aresta de referência");
+            var referenceOrigin = new XYZ(
+                referenceStart.X,
+                referenceStart.Y,
+                referenceElevation);
+            var referenceVertex = IntersectHorizontalSupportingLines(
+                inclinedVertex,
+                levelDirection,
+                referenceOrigin,
+                referenceDirection,
+                referenceElevation,
+                "O trecho nivelado é paralelo à aresta de referência.");
+
+            double minimumLengthFt = Math.Max(
+                document.Application.ShortCurveTolerance,
+                1.0 / MillimetersPerFoot);
+            double levelStation =
+                (referenceVertex - inclinedVertex).DotProduct(levelDirection);
+            SagaLog.Write(
+                $"Rota por aresta - direção: cornerEnd={inclinedCornerEnd}, " +
+                $"estação={levelStation * MillimetersPerFoot:F1}mm, " +
+                $"selecionado=({inclinedSelectedPoint.X * MillimetersPerFoot:F1}," +
+                $"{inclinedSelectedPoint.Y * MillimetersPerFoot:F1}," +
+                $"{inclinedSelectedPoint.Z * MillimetersPerFoot:F1}), " +
+                $"vérticeInclinado=({inclinedVertex.X * MillimetersPerFoot:F1}," +
+                $"{inclinedVertex.Y * MillimetersPerFoot:F1}," +
+                $"{inclinedVertex.Z * MillimetersPerFoot:F1}), " +
+                $"vérticeReferência=({referenceVertex.X * MillimetersPerFoot:F1}," +
+                $"{referenceVertex.Y * MillimetersPerFoot:F1}," +
+                $"{referenceVertex.Z * MillimetersPerFoot:F1}), " +
+                $"direçãoNivelada=({levelDirection.X:F6}," +
+                $"{levelDirection.Y:F6},0).");
+            if (levelStation <= minimumLengthFt)
+            {
+                throw new InvalidOperationException(
+                    "A aresta de referência fica atrás da continuação nivelada do " +
+                    "corrimão inclinado. Selecione a aresta do outro lado da união.");
+            }
+
+            var horizontalDirection = HorizontalDirection(
+                horizontalLine,
+                "corrimão horizontal");
+            var horizontalOrigin = new XYZ(
+                horizontalLine.GetEndPoint(0).X,
+                horizontalLine.GetEndPoint(0).Y,
+                referenceElevation);
+            var horizontalVertex = IntersectHorizontalSupportingLines(
+                referenceOrigin,
+                referenceDirection,
+                horizontalOrigin,
+                horizontalDirection,
+                referenceElevation,
+                "A aresta de referência é paralela ao corrimão horizontal.");
+            ResolveCornerEnd(
+                horizontalLine,
+                horizontalVertex,
+                horizontalCornerEnd,
+                "horizontal");
+
+            if (inclinedVertex.DistanceTo(referenceVertex) <= minimumLengthFt)
+            {
+                throw new InvalidOperationException(
+                    "O trecho nivelado entre o inclinado e a referência ficaria curto demais.");
+            }
+            if (referenceVertex.DistanceTo(horizontalVertex) <= minimumLengthFt)
+            {
+                throw new InvalidOperationException(
+                    "O trecho paralelo à aresta de referência ficaria curto demais.");
+            }
+
+            var levelAxis = Line.CreateBound(inclinedVertex, referenceVertex);
+            var connectorAxis = Line.CreateBound(referenceVertex, horizontalVertex);
+            EnsureHorizontal(levelAxis);
+            EnsureHorizontal(connectorAxis);
+
+            var firstSolution = Calculate(
+                inclinedLine,
+                levelAxis,
+                radiusMm / MillimetersPerFoot,
+                shortCurveTolerance,
+                validateExtension,
+                -1,
+                inclinedCornerEnd,
+                0);
+            var secondSolution = Calculate(
+                levelAxis,
+                connectorAxis,
+                radiusMm / MillimetersPerFoot,
+                shortCurveTolerance,
+                validateExtension,
+                -1,
+                1,
+                0);
+            var thirdSolution = Calculate(
+                connectorAxis,
+                horizontalLine,
+                radiusMm / MillimetersPerFoot,
+                shortCurveTolerance,
+                validateExtension,
+                -1,
+                1,
+                horizontalCornerEnd);
+
+            ValidateCompoundSpacing(
+                document,
+                levelAxis,
+                firstSolution.SecondTangent,
+                secondSolution.FirstTangent,
+                0);
+            ValidateCompoundSpacing(
+                document,
+                connectorAxis,
+                secondSolution.SecondTangent,
+                thirdSolution.FirstTangent,
+                0);
+
+            inclined.EnsureCornerEndEditable(inclinedCornerEnd);
+            horizontal.EnsureCornerEndEditable(horizontalCornerEnd);
+            RoundedCornerStore.EnsureEndpointsAreAvailable(
+                document,
+                inclined.Instance,
+                inclinedCornerEnd,
+                horizontal.Instance,
+                horizontalCornerEnd);
+
+            SagaLog.Write(
+                $"Rota por aresta: inclinado={inclined.Instance.Id.GetId()}, " +
+                $"horizontal={horizontal.Instance.Id.GetId()}, " +
+                $"nivelado={levelAxis.Length * MillimetersPerFoot:F1}mm, " +
+                $"referência={connectorAxis.Length * MillimetersPerFoot:F1}mm, " +
+                $"cota={referenceElevation * MillimetersPerFoot:F1}mm.");
+
+            return new RoundedCornerReferenceRoutePlan
+            {
+                InclinedId = inclined.Instance.Id,
+                HorizontalId = horizontal.Instance.Id,
+                InclinedCornerEnd = inclinedCornerEnd,
+                HorizontalCornerEnd = horizontalCornerEnd,
+                ReferenceAxis = normalizedReferenceAxis,
+                LevelAxis = levelAxis,
+                ConnectorAxis = connectorAxis,
                 RadiusMm = radiusMm
             };
         }
@@ -989,6 +1345,216 @@ namespace SAGAStructuralTools.Core.Rail
             };
         }
 
+        internal static RoundedCornerReferenceRouteResult ApplyReferenceRoute(
+            Document document,
+            RoundedCornerReferenceRoutePlan plan)
+        {
+            if (document == null)
+                throw new ArgumentNullException(nameof(document));
+            if (plan == null)
+                throw new ArgumentNullException(nameof(plan));
+
+            // Recalcula a rota sobre os eixos atuais. A referência mantém sua posição
+            // e direção em planta; sua cota já foi normalizada pelo corrimão horizontal.
+            var currentPlan = CreateReferenceRoutePlan(
+                document,
+                plan.InclinedId,
+                plan.InclinedCornerEnd,
+                plan.HorizontalId,
+                plan.HorizontalCornerEnd,
+                plan.ReferenceAxis,
+                plan.RadiusMm);
+
+            var inclined = RoundedCornerMember.Get(
+                document,
+                currentPlan.InclinedId,
+                "inclinado");
+            var horizontal = RoundedCornerMember.Get(
+                document,
+                currentPlan.HorizontalId,
+                "horizontal");
+            var originalInclinedAxis = CloneBoundLine(inclined.GetAxis());
+            var originalHorizontalAxis = CloneBoundLine(horizontal.GetAxis());
+            var symbol = inclined.Instance.Symbol;
+            if (symbol == null)
+                throw new InvalidOperationException(
+                    "O corrimão inclinado não possui um tipo válido para criar a rota.");
+            if (!symbol.IsActive) symbol.Activate();
+
+            var level = GetReferenceLevel(
+                document,
+                inclined.Instance,
+                currentPlan.LevelAxis.GetEndPoint(0).Z);
+            var levelMember = CreateReferenceRouteMember(
+                document,
+                inclined.Instance,
+                symbol,
+                level,
+                currentPlan.LevelAxis,
+                "trecho nivelado");
+            var connectorMember = CreateReferenceRouteMember(
+                document,
+                inclined.Instance,
+                symbol,
+                level,
+                currentPlan.ConnectorAxis,
+                "trecho paralelo à referência");
+
+            // A criação do segundo perfil pode provocar um ajuste automático de join.
+            // Reaplica e verifica os dois eixos antes de calcular as tangências.
+            SetMemberAxis(levelMember, currentPlan.LevelAxis);
+            SetMemberAxis(connectorMember, currentPlan.ConnectorAxis);
+            document.Regenerate();
+            EnsureLineWasApplied(levelMember, currentPlan.LevelAxis);
+            EnsureLineWasApplied(connectorMember, currentPlan.ConnectorAxis);
+
+            var actualLevel = RoundedCornerMember.Get(
+                document,
+                levelMember.Id,
+                "nivelado");
+            var actualConnector = RoundedCornerMember.Get(
+                document,
+                connectorMember.Id,
+                "paralelo à referência");
+            var actualLevelAxis = actualLevel.GetAxis();
+            var actualConnectorAxis = actualConnector.GetAxis();
+            int levelInclinedEnd = NearestEnd(
+                actualLevelAxis,
+                currentPlan.LevelAxis.GetEndPoint(0));
+            int levelReferenceEnd = 1 - levelInclinedEnd;
+            int connectorReferenceEnd = NearestEnd(
+                actualConnectorAxis,
+                currentPlan.ConnectorAxis.GetEndPoint(0));
+            int connectorHorizontalEnd = 1 - connectorReferenceEnd;
+
+            var firstCorner = CreatePlan(
+                document,
+                new RoundedCornerRequest(
+                    currentPlan.InclinedId,
+                    levelMember.Id,
+                    currentPlan.InclinedCornerEnd,
+                    levelInclinedEnd),
+                currentPlan.RadiusMm);
+            var secondCorner = CreatePlan(
+                document,
+                new RoundedCornerRequest(
+                    levelMember.Id,
+                    connectorMember.Id,
+                    levelReferenceEnd,
+                    connectorReferenceEnd),
+                currentPlan.RadiusMm);
+            var thirdCorner = CreatePlan(
+                document,
+                new RoundedCornerRequest(
+                    connectorMember.Id,
+                    currentPlan.HorizontalId,
+                    connectorHorizontalEnd,
+                    currentPlan.HorizontalCornerEnd),
+                currentPlan.RadiusMm);
+
+            ValidateCompoundSpacing(
+                document,
+                firstCorner,
+                secondCorner,
+                levelInclinedEnd);
+            ValidateCompoundSpacing(
+                document,
+                secondCorner,
+                thirdCorner,
+                connectorReferenceEnd);
+
+            string operationId = Guid.NewGuid().ToString("N");
+            bool registerWholeOperation =
+                HasRegisteredAssembly(document, currentPlan.InclinedId) ||
+                HasRegisteredAssembly(document, currentPlan.HorizontalId);
+            var firstResult = Apply(
+                document,
+                firstCorner,
+                operationId,
+                registerWholeOperation,
+                levelMember.UniqueId);
+            var secondResult = Apply(
+                document,
+                secondCorner,
+                operationId,
+                registerWholeOperation,
+                connectorMember.UniqueId);
+            var thirdResult = Apply(
+                document,
+                thirdCorner,
+                operationId,
+                registerWholeOperation,
+                connectorMember.UniqueId);
+
+            EnsureReferenceRouteTangency(
+                document,
+                levelMember.Id,
+                connectorMember.Id,
+                firstCorner,
+                secondCorner,
+                thirdCorner,
+                firstResult,
+                secondResult,
+                thirdResult);
+            EnsureOriginalAxisWasPreserved(
+                inclined,
+                originalInclinedAxis,
+                "corrimão inclinado");
+            EnsureOriginalAxisWasPreserved(
+                horizontal,
+                originalHorizontalAxis,
+                "corrimão horizontal");
+
+            return new RoundedCornerReferenceRouteResult
+            {
+                LevelElementId = levelMember.Id,
+                ConnectorElementId = connectorMember.Id,
+                CornerResults = new[]
+                {
+                    firstResult,
+                    secondResult,
+                    thirdResult
+                }
+            };
+        }
+
+        private static FamilyInstance CreateReferenceRouteMember(
+            Document document,
+            FamilyInstance source,
+            FamilySymbol symbol,
+            Level level,
+            Line axis,
+            string label)
+        {
+            var instance = document.Create.NewFamilyInstance(
+                axis,
+                symbol,
+                level,
+                StructuralType.Beam);
+            if (instance == null)
+            {
+                throw new InvalidOperationException(
+                    $"A família selecionada não aceitou a criação do {label}.");
+            }
+
+            CopyPlacementParameters(source, instance);
+            document.Regenerate();
+            StructuralFramingUtils.DisallowJoinAtEnd(instance, 0);
+            StructuralFramingUtils.DisallowJoinAtEnd(instance, 1);
+            SetMemberAxis(instance, axis);
+            document.Regenerate();
+            EnsureLineWasApplied(instance, axis);
+            return instance;
+        }
+
+        private static void SetMemberAxis(FamilyInstance instance, Line axis)
+        {
+            if (!(instance?.Location is LocationCurve location))
+                throw new InvalidOperationException(
+                    "Um dos trechos da rota não possui um eixo editável.");
+            location.Curve = axis;
+        }
+
         private static Line ReplaceEndpoint(Line line, int endpoint, XYZ point)
         {
             ValidateCornerEnd(endpoint, "perfil");
@@ -1050,6 +1616,58 @@ namespace SAGAStructuralTools.Core.Rail
                 secondResult.CurvedElementId,
                 plan.SecondCorner.FirstTangent,
                 middleDirection);
+        }
+
+        private static void EnsureReferenceRouteTangency(
+            Document document,
+            ElementId levelId,
+            ElementId connectorId,
+            RoundedCornerPlan firstCorner,
+            RoundedCornerPlan secondCorner,
+            RoundedCornerPlan thirdCorner,
+            RoundedCornerResult firstResult,
+            RoundedCornerResult secondResult,
+            RoundedCornerResult thirdResult)
+        {
+            var level = RoundedCornerMember.Get(
+                document,
+                levelId,
+                "nivelado");
+            var connector = RoundedCornerMember.Get(
+                document,
+                connectorId,
+                "paralelo à referência");
+            var levelAxis = level.GetAxis();
+            var connectorAxis = connector.GetAxis();
+            var levelDirection = Direction(
+                levelAxis.GetEndPoint(0),
+                levelAxis.GetEndPoint(1),
+                "nivelado");
+            var connectorDirection = Direction(
+                connectorAxis.GetEndPoint(0),
+                connectorAxis.GetEndPoint(1),
+                "paralelo à referência");
+
+            EnsureArcTangentToDirection(
+                document,
+                firstResult.CurvedElementId,
+                firstCorner.SecondTangent,
+                levelDirection);
+            EnsureArcTangentToDirection(
+                document,
+                secondResult.CurvedElementId,
+                secondCorner.FirstTangent,
+                levelDirection);
+            EnsureArcTangentToDirection(
+                document,
+                secondResult.CurvedElementId,
+                secondCorner.SecondTangent,
+                connectorDirection);
+            EnsureArcTangentToDirection(
+                document,
+                thirdResult.CurvedElementId,
+                thirdCorner.FirstTangent,
+                connectorDirection);
         }
 
         private static void EnsureArcTangentToDirection(
@@ -1481,6 +2099,80 @@ namespace SAGAStructuralTools.Core.Rail
             }
         }
 
+        private static XYZ PointOnAxisAtElevation(
+            Line axis,
+            double elevation,
+            string label)
+        {
+            if (axis == null)
+                throw new ArgumentNullException(nameof(axis));
+            var direction = axis.Direction;
+            if (Math.Abs(direction.Z) <= 1e-9)
+            {
+                throw new InvalidOperationException(
+                    $"O eixo do {label} não alcança a cota definida pela referência.");
+            }
+
+            var start = axis.GetEndPoint(0);
+            double parameter = (elevation - start.Z) / direction.Z;
+            var point = start + direction * parameter;
+            if (!IsFinite(point))
+            {
+                throw new InvalidOperationException(
+                    $"Não foi possível calcular o encontro do {label} com a cota da referência.");
+            }
+            return new XYZ(point.X, point.Y, elevation);
+        }
+
+        private static XYZ HorizontalDirection(Line axis, string label)
+        {
+            if (axis == null)
+                throw new ArgumentNullException(nameof(axis));
+            var direction = new XYZ(axis.Direction.X, axis.Direction.Y, 0.0);
+            if (!IsFinite(direction) || direction.GetLength() <= 1e-9)
+            {
+                throw new InvalidOperationException(
+                    $"O eixo do {label} não possui uma direção válida em planta.");
+            }
+            return direction.Normalize();
+        }
+
+        private static XYZ IntersectHorizontalSupportingLines(
+            XYZ firstOrigin,
+            XYZ firstDirection,
+            XYZ secondOrigin,
+            XYZ secondDirection,
+            double elevation,
+            string parallelMessage)
+        {
+            if (!IsFinite(firstOrigin) || !IsFinite(secondOrigin) ||
+                !IsFinite(firstDirection) || !IsFinite(secondDirection))
+            {
+                throw new InvalidOperationException(
+                    "Não foi possível calcular uma interseção horizontal finita para a rota.");
+            }
+
+            double determinant =
+                firstDirection.X * secondDirection.Y -
+                firstDirection.Y * secondDirection.X;
+            if (Math.Abs(determinant) <= 1e-8)
+                throw new InvalidOperationException(parallelMessage);
+
+            var delta = secondOrigin - firstOrigin;
+            double firstParameter =
+                (delta.X * secondDirection.Y -
+                 delta.Y * secondDirection.X) / determinant;
+            var point = firstOrigin + firstDirection * firstParameter;
+            if (!IsFinite(point) ||
+                double.IsNaN(elevation) ||
+                double.IsInfinity(elevation))
+            {
+                throw new InvalidOperationException(
+                    "Não foi possível calcular uma interseção horizontal finita para a rota.");
+            }
+            return new XYZ(point.X, point.Y, elevation);
+        }
+
         private static Line CalculateAutomaticMiddleAxis(
             Document document,
             Line firstLine,
@@ -1492,22 +2184,127 @@ namespace SAGAStructuralTools.Core.Rail
             ValidateHorizontalReference(referenceAxis);
             var firstPoint = firstLine.GetEndPoint(firstCornerEnd);
             var secondPoint = secondLine.GetEndPoint(secondCornerEnd);
-            XYZ firstVertex = CalculateAxisIntersectionOnReference(
-                document,
-                firstLine,
-                referenceAxis,
+            var firstDirection = Direction(
                 firstPoint,
-                "primeiro corrimão");
-            XYZ secondVertex = CalculateAxisIntersectionOnReference(
-                document,
-                secondLine,
-                referenceAxis,
+                firstLine.GetEndPoint(1 - firstCornerEnd),
+                "primeiro");
+            var secondDirection = Direction(
                 secondPoint,
-                "segundo corrimão");
+                secondLine.GetEndPoint(1 - secondCornerEnd),
+                "segundo");
+            var horizontalDirection = new XYZ(
+                referenceAxis.Direction.X,
+                referenceAxis.Direction.Y,
+                0.0);
+            if (!IsFinite(horizontalDirection) ||
+                horizontalDirection.GetLength() <= 1e-9)
+                throw new InvalidOperationException(
+                    "A direção da aresta de referência não é válida em planta.");
+            horizontalDirection = horizontalDirection.Normalize();
 
+            // Solução recuperada do stash 78a71b7: os deslocamentos acontecem
+            // exclusivamente sobre os dois eixos existentes. As duas equações
+            // impõem cota igual e conector paralelo à direção XY da aresta.
+            var horizontalNormal =
+                XYZ.BasisZ.CrossProduct(horizontalDirection);
+            double elevationDelta = secondPoint.Z - firstPoint.Z;
+            double lateralDelta =
+                horizontalNormal.DotProduct(secondPoint - firstPoint);
+            double row1First = firstDirection.Z;
+            double row1Second = -secondDirection.Z;
+            double row2First =
+                horizontalNormal.DotProduct(firstDirection);
+            double row2Second =
+                -horizontalNormal.DotProduct(secondDirection);
+            double row1NormSquared =
+                row1First * row1First + row1Second * row1Second;
+            double row2NormSquared =
+                row2First * row2First + row2Second * row2Second;
+            double determinant =
+                row1First * row2Second - row1Second * row2First;
+            double determinantScale = Math.Max(
+                1.0,
+                Math.Sqrt(row1NormSquared * row2NormSquared));
+            double determinantTolerance = 1e-10 * determinantScale;
+            double constraintTolerance = Math.Max(
+                document.Application.VertexTolerance,
+                0.01 / MillimetersPerFoot);
+
+            double firstShift;
+            double secondShift;
+            if (Math.Abs(determinant) > determinantTolerance)
+            {
+                firstShift =
+                    (elevationDelta * row2Second -
+                     row1Second * lateralDelta) / determinant;
+                secondShift =
+                    (row1First * lateralDelta -
+                     elevationDelta * row2First) / determinant;
+            }
+            else
+            {
+                bool useFirstRow = row1NormSquared >= row2NormSquared;
+                double dominantNormSquared =
+                    useFirstRow ? row1NormSquared : row2NormSquared;
+                if (dominantNormSquared <= 1e-20)
+                {
+                    firstShift = 0.0;
+                    secondShift = 0.0;
+                }
+                else
+                {
+                    double dominantFirst =
+                        useFirstRow ? row1First : row2First;
+                    double dominantSecond =
+                        useFirstRow ? row1Second : row2Second;
+                    double dominantValue =
+                        useFirstRow ? elevationDelta : lateralDelta;
+                    firstShift =
+                        dominantFirst * dominantValue / dominantNormSquared;
+                    secondShift =
+                        dominantSecond * dominantValue / dominantNormSquared;
+                }
+
+                double elevationResidual = Math.Abs(
+                    row1First * firstShift +
+                    row1Second * secondShift -
+                    elevationDelta);
+                double lateralResidual = Math.Abs(
+                    row2First * firstShift +
+                    row2Second * secondShift -
+                    lateralDelta);
+                if (elevationResidual > constraintTolerance ||
+                    lateralResidual > constraintTolerance)
+                    throw new InvalidOperationException(
+                        "A direção horizontal informada não permite ligar os dois " +
+                        "eixos na mesma cota. Escolha outra aresta de referência.");
+            }
+
+            if (double.IsNaN(firstShift) || double.IsInfinity(firstShift) ||
+                double.IsNaN(secondShift) || double.IsInfinity(secondShift))
+                throw new InvalidOperationException(
+                    "Não foi possível calcular deslocamentos finitos para o patamar.");
+
+            XYZ firstVertex =
+                firstPoint + firstDirection * firstShift;
+            XYZ secondVertex =
+                secondPoint + secondDirection * secondShift;
             if (!IsFinite(firstVertex) || !IsFinite(secondVertex))
                 throw new InvalidOperationException(
-                    "Não foi possível calcular uma cota horizontal finita para o patamar.");
+                    "Não foi possível calcular pontos finitos para o patamar.");
+
+            double elevationResidualAfterSolve =
+                Math.Abs(firstVertex.Z - secondVertex.Z);
+            double lateralResidualAfterSolve = Math.Abs(
+                horizontalNormal.DotProduct(secondVertex - firstVertex));
+            if (elevationResidualAfterSolve > constraintTolerance ||
+                lateralResidualAfterSolve > constraintTolerance)
+                throw new InvalidOperationException(
+                    "A solução do patamar não satisfez a direção horizontal informada.");
+
+            double commonZ = (firstVertex.Z + secondVertex.Z) * 0.5;
+            firstVertex = new XYZ(firstVertex.X, firstVertex.Y, commonZ);
+            secondVertex = new XYZ(secondVertex.X, secondVertex.Y, commonZ);
 
             double minimumLength = Math.Max(
                 document.Application.ShortCurveTolerance,
@@ -1519,6 +2316,17 @@ namespace SAGAStructuralTools.Core.Rail
                     "Use a união direta ou selecione um trecho existente.");
             }
 
+            SagaLog.Write(
+                $"Patamar por direção: shift1={firstShift * MillimetersPerFoot:F1}mm, " +
+                $"shift2={secondShift * MillimetersPerFoot:F1}mm, " +
+                $"comprimento={firstVertex.DistanceTo(secondVertex) * MillimetersPerFoot:F1}mm, " +
+                $"direçãoRef=({horizontalDirection.X:F6},{horizontalDirection.Y:F6}), " +
+                $"p1=({firstVertex.X * MillimetersPerFoot:F1}," +
+                $"{firstVertex.Y * MillimetersPerFoot:F1}," +
+                $"{firstVertex.Z * MillimetersPerFoot:F1}), " +
+                $"p2=({secondVertex.X * MillimetersPerFoot:F1}," +
+                $"{secondVertex.Y * MillimetersPerFoot:F1}," +
+                $"{secondVertex.Z * MillimetersPerFoot:F1}).");
             return Line.CreateBound(firstVertex, secondVertex);
         }
 
