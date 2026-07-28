@@ -32,6 +32,8 @@ namespace SAGAStructuralTools.Strap.Application
         public StrapParseResult ParseResult { get; }
         public IReadOnlyCollection<RecognizedNode> Nodes => ParseResult.Nodes;
         public IReadOnlyCollection<string> Units => ParseResult.Units;
+        public IReadOnlyCollection<string> ForceUnits => ParseResult.ForceUnits;
+        public IReadOnlyCollection<string> MomentUnits => ParseResult.MomentUnits;
         public IReadOnlyCollection<string> Combinations { get; }
         public IReadOnlyCollection<ImportDiagnostic> Diagnostics { get; }
         public IReadOnlyCollection<ImportDiagnostic> Warnings =>

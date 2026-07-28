@@ -66,6 +66,30 @@ namespace SAGAStructuralTools.Strap.Application
         public ExtractedLine Source { get; }
     }
 
+    public sealed class ParsedUnitSet
+    {
+        public ParsedUnitSet(
+            string forceUnit,
+            string momentUnit,
+            string rawText,
+            ExtractedLine source)
+        {
+            ForceUnit = forceUnit;
+            MomentUnit = momentUnit;
+            RawText = rawText;
+            Source = source;
+        }
+
+        public string ForceUnit { get; }
+        public string MomentUnit { get; }
+        public string RawText { get; }
+        public ExtractedLine Source { get; }
+        public string Combined =>
+            string.IsNullOrWhiteSpace(MomentUnit)
+                ? ForceUnit
+                : ForceUnit + ", " + MomentUnit;
+    }
+
     public sealed class RecognizedNode
     {
         public RecognizedNode(
@@ -89,14 +113,35 @@ namespace SAGAStructuralTools.Strap.Application
             IEnumerable<RecognizedNode> nodes,
             IEnumerable<string> units,
             IEnumerable<ImportDiagnostic> diagnostics)
+            : this(nodes, units, diagnostics, null)
+        {
+        }
+
+        public StrapParseResult(
+            IEnumerable<RecognizedNode> nodes,
+            IEnumerable<string> units,
+            IEnumerable<ImportDiagnostic> diagnostics,
+            IEnumerable<ParsedUnitSet> unitSets)
         {
             Nodes = nodes.ToArray();
             Units = units.ToArray();
             Diagnostics = diagnostics.ToArray();
+            UnitSets = (unitSets ?? Array.Empty<ParsedUnitSet>()).ToArray();
         }
 
         public IReadOnlyCollection<RecognizedNode> Nodes { get; }
         public IReadOnlyCollection<string> Units { get; }
         public IReadOnlyCollection<ImportDiagnostic> Diagnostics { get; }
+        public IReadOnlyCollection<ParsedUnitSet> UnitSets { get; }
+        public IReadOnlyCollection<string> ForceUnits => UnitSets
+            .Select(unit => unit.ForceUnit)
+            .Where(unit => !string.IsNullOrWhiteSpace(unit))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        public IReadOnlyCollection<string> MomentUnits => UnitSets
+            .Select(unit => unit.MomentUnit)
+            .Where(unit => !string.IsNullOrWhiteSpace(unit))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

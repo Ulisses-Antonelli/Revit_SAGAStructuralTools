@@ -2,6 +2,7 @@
 SAGAStructuralTools/bin/
 SAGAStructuralTools/obj/
 artifacts/
+samples-private/
 
 # Logs gerados pelo plugin
 SAGA_Log_*.txt

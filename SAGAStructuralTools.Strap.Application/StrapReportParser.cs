@@ -32,6 +32,10 @@ namespace SAGAStructuralTools.Strap.Application
             @"^\s*UNIDADES?\s*[:=-]\s*(?<unit>.+?)\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
+        private static readonly Regex EmbeddedUnitsRegex = new Regex(
+            @"\bUNIDS?\s*:\s*(?<force>[^,;)]+?)\s*,\s*(?<moment>[^;)]+)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
         private static readonly Regex CaseRegex = new Regex(
             @"^\s*(?<label>M[ÁA]X(?:IMO)?|MAX(?:IMUM)?|M[ÍI]N(?:IMO)?|MIN(?:IMUM)?)\b(?<body>.*)$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -56,13 +60,46 @@ namespace SAGAStructuralTools.Strap.Application
             if (document == null)
                 throw new ArgumentNullException(nameof(document));
 
+            ExtractedLine[] documentLines = document.Lines.ToArray();
             var nodes = new List<RecognizedNode>();
             var diagnostics = new List<ImportDiagnostic>();
             var units = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var unitSets = new List<ParsedUnitSet>();
+            var unitAtLine = new Dictionary<ExtractedLine, string>();
+            string currentUnit = null;
+
+            foreach (ExtractedLine line in documentLines)
+            {
+                string text = line.RawText ?? string.Empty;
+                Match embedded = EmbeddedUnitsRegex.Match(text);
+                Match legacy = UnitRegex.Match(text);
+                if (embedded.Success)
+                {
+                    string force = NormalizeWhitespace(embedded.Groups["force"].Value);
+                    string moment = NormalizeWhitespace(embedded.Groups["moment"].Value);
+                    var unitSet = new ParsedUnitSet(force, moment, embedded.Value, line);
+                    currentUnit = unitSet.Combined;
+                    units.Add(currentUnit);
+                    unitSets.Add(unitSet);
+                }
+                else if (legacy.Success)
+                {
+                    currentUnit = NormalizeWhitespace(legacy.Groups["unit"].Value);
+                    units.Add(currentUnit);
+                    unitSets.Add(new ParsedUnitSet(currentUnit, null, legacy.Value, line));
+                }
+                unitAtLine[line] = currentUnit;
+            }
+
+            var tabular = new TabularStrapBlockParser(
+                line => unitAtLine.TryGetValue(line, out string value) ? value : null)
+                .Parse(documentLines);
+            nodes.AddRange(tabular.Nodes);
+            diagnostics.AddRange(tabular.Diagnostics);
+
             var rows = new List<ParsedReactionRow>();
             string currentNodeId = null;
             ExtractedLine currentDeclaration = null;
-            string currentUnit = null;
             EffortComponent[] currentColumns = null;
 
             Action flushNode = () =>
@@ -73,19 +110,21 @@ namespace SAGAStructuralTools.Strap.Application
                 rows.Clear();
             };
 
-            foreach (ExtractedLine line in document.Lines)
+            foreach (ExtractedLine line in documentLines)
             {
                 string text = line.RawText ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(text))
                     continue;
 
-                Match unitMatch = UnitRegex.Match(text);
-                if (unitMatch.Success)
+                if (EmbeddedUnitsRegex.IsMatch(text) || UnitRegex.IsMatch(text))
                 {
-                    currentUnit = NormalizeWhitespace(unitMatch.Groups["unit"].Value);
-                    units.Add(currentUnit);
                     continue;
                 }
+
+                if (tabular.HandledLines.Contains(line))
+                    continue;
+
+                currentUnit = unitAtLine[line];
 
                 Match nodeMatch = NodeRegex.Match(text);
                 if (nodeMatch.Success)
@@ -137,7 +176,7 @@ namespace SAGAStructuralTools.Strap.Application
             }
 
             flushNode();
-            return new StrapParseResult(nodes, units, diagnostics);
+            return new StrapParseResult(nodes, units, diagnostics, unitSets);
         }
 
         private static bool TryParseReactionRow(
@@ -263,7 +302,9 @@ namespace SAGAStructuralTools.Strap.Application
 
         private static bool TryParseHeader(string text, out EffortComponent[] columns)
         {
-            string[] tokens = Regex.Split(text.Trim(), @"[\s;\t|]+")
+            string[] tokens = Regex.Split(
+                    text.Replace('\u00A0', ' ').Trim(),
+                    @"[\s;\t|]+")
                 .Where(token => token.Length > 0)
                 .ToArray();
             if (tokens.Length != 6 || tokens.Any(token => !IsComponent(token)))
