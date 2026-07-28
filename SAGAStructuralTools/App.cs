@@ -95,6 +95,17 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("rail_real_align_16.png", 16)
                 });
 
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "ImportStrapReactions",
+                    text:         "Importar Reações\nSTRAP",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.ImportStrapReactionsCommand")
+                {
+                    ToolTip    = "Importa reações de apoio do STRAP para conexões estruturais.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
                 TryAddButton(railPanel, new PushButtonData(
                     name:         "GenerateRail",
                     text:         "Horizontal",

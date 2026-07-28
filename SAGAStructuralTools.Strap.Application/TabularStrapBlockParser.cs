@@ -39,6 +39,7 @@ namespace SAGAStructuralTools.Strap.Application
         private readonly Func<ExtractedLine, string> _unitAtLine;
         private readonly TabularParseOutput _output = new TabularParseOutput();
         private bool _headerActive;
+        private bool _legacyNodeDeclarationSeen;
         private int? _tableNumber;
         private BlockState _state;
         private string _nodeId;
@@ -60,8 +61,19 @@ namespace SAGAStructuralTools.Strap.Application
                 if (normalized.Length == 0)
                     continue;
 
+                if (!_headerActive && IsLegacyNodeDeclaration(normalized))
+                {
+                    _legacyNodeDeclarationSeen = true;
+                    continue;
+                }
+
                 if (IsTabularHeader(normalized))
                 {
+                    if (_legacyNodeDeclarationSeen)
+                    {
+                        _legacyNodeDeclarationSeen = false;
+                        continue;
+                    }
                     _output.HandledLines.Add(line);
                     if (_state != BlockState.None)
                     {
@@ -474,6 +486,15 @@ namespace SAGAStructuralTools.Strap.Application
                 token,
                 @"^X[1-6]$",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+        }
+
+        private static bool IsLegacyNodeDeclaration(string normalized)
+        {
+            string withoutDiacritics = RemoveDiacritics(normalized).ToUpperInvariant();
+            return Regex.IsMatch(
+                withoutDiacritics,
+                @"^(?:NO|NODE)\s*[:#-]?\s*[A-Z0-9_.-]+\s*$",
+                RegexOptions.CultureInvariant);
         }
 
         private static string[] Tokenize(string normalized)

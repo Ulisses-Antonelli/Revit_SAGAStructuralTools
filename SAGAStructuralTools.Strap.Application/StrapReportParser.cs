@@ -86,7 +86,14 @@ namespace SAGAStructuralTools.Strap.Application
                 {
                     currentUnit = NormalizeWhitespace(legacy.Groups["unit"].Value);
                     units.Add(currentUnit);
-                    unitSets.Add(new ParsedUnitSet(currentUnit, null, legacy.Value, line));
+                    string[] parts = currentUnit.Split(new[] { ',' }, 2);
+                    unitSets.Add(parts.Length == 2
+                        ? new ParsedUnitSet(
+                            NormalizeWhitespace(parts[0]),
+                            NormalizeWhitespace(parts[1]),
+                            legacy.Value,
+                            line)
+                        : new ParsedUnitSet(currentUnit, null, legacy.Value, line));
                 }
                 unitAtLine[line] = currentUnit;
             }

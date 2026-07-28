@@ -1,0 +1,102 @@
+<Window x:Class="SAGAStructuralTools.UI.Strap.ImportStrapReactionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SAGA — Importar Reações STRAP"
+        Width="1180" Height="680" MinWidth="900" MinHeight="500"
+        WindowStartupLocation="CenterOwner"
+        Background="#F8F9FB" FontFamily="Segoe UI" FontSize="12">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="{Binding FilePath}" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"/>
+            <TextBlock Margin="0,4,0,0" Foreground="#5E6C84">
+                <Run Text="Unidades: força "/><Run Text="{Binding ForceUnit}"/>
+                <Run Text="; momento "/><Run Text="{Binding MomentUnit}"/>
+            </TextBlock>
+            <TextBlock Text="{Binding UnitNotice}" Foreground="#7B4400"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,12,0,12" Padding="10"
+                Background="#FFF4E5" BorderBrush="#FFAB00" BorderThickness="1">
+            <ItemsControl ItemsSource="{Binding GlobalErrors}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" Foreground="#7B4400"
+                                   TextWrapping="Wrap"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <DataGrid Grid.Row="2" ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False" CanUserAddRows="False"
+                  IsReadOnly="False" SelectionMode="Single"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="Importar">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected}"
+                                      IsEnabled="{Binding CanSelect}"
+                                      HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="NO_PILAR" Binding="{Binding NodeId}"
+                                    IsReadOnly="True"/>
+                <DataGridTextColumn Header="ElementId" Binding="{Binding ElementId}"
+                                    IsReadOnly="True"/>
+                <DataGridTextColumn Header="Linha" Binding="{Binding SourceLine}"
+                                    IsReadOnly="True"/>
+                <DataGridTemplateColumn Header="Rotação 90°">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Rotate90}"
+                                      IsEnabled="{Binding CanSelect}"
+                                      HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="X1" Binding="{Binding X1}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="X2" Binding="{Binding X2}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="X3_MAX" Binding="{Binding X3Max}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="X3_MIN" Binding="{Binding X3Min}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="X4" Binding="{Binding X4}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="X5" Binding="{Binding X5}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="X6" Binding="{Binding X6}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}"
+                                    Width="*" MinWidth="240" IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{Binding FoundCount, StringFormat=Encontradas: {0}}"/>
+                <TextBlock Text="{Binding ValidCount, StringFormat=  |  Válidas: {0}}"/>
+                <TextBlock Text="{Binding SelectedCount, StringFormat=  |  Importar: {0}}"
+                           FontWeight="SemiBold" Foreground="#0052CC"/>
+                <TextBlock Text="{Binding InvalidCount, StringFormat=  |  Inválidas: {0}}"/>
+                <TextBlock Text="{Binding DeselectedValidCount, StringFormat=  |  Desmarcadas: {0}}"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="Cancelar" IsCancel="True"
+                    Padding="16,7"/>
+            <Button Grid.Column="3" Content="{Binding ConfirmText}"
+                    IsEnabled="{Binding CanConfirm}" Click="Import_Click"
+                    Padding="16,7" Background="#0052CC" Foreground="White"/>
+        </Grid>
+    </Grid>
+</Window>

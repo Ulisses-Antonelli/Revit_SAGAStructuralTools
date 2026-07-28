@@ -46,6 +46,12 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\SAGAStructuralTools.Strap.Domain\SAGAStructuralTools.Strap.Domain.csproj" />
+    <ProjectReference Include="..\SAGAStructuralTools.Strap.Application\SAGAStructuralTools.Strap.Application.csproj" />
+    <ProjectReference Include="..\SAGAStructuralTools.Strap.Readers\SAGAStructuralTools.Strap.Readers.csproj" />
+  </ItemGroup>
+
   <!--
     Post-build: copia a DLL e o .addin para a pasta de addins do Revit 2023 ou 2026.
     Revit lê automaticamente qualquer .addin que estiver em:
