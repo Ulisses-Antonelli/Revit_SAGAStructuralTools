@@ -39,7 +39,10 @@ namespace SAGAStructuralTools.Core.Ladder
             Log("=== LadderBuilder.Build ===");
 
             var stringerSym = GetSymbol(config.StringerFamilyPath, config.StringerFamilyType, "montante");
-            var rungSym     = GetSymbol(config.RungFamilyPath, config.RungFamilyType, "degrau");
+
+            // Degrau sempre com família própria — nunca entra nos checks de
+            // unificação de perfil (nem "todos", nem "suporte+anel+tira").
+            var rungSym = GetSymbol(config.RungFamilyPath, config.RungFamilyType, "degrau");
 
             var lateral = placement.Lateral;
             var across  = XYZ.BasisZ.CrossProduct(lateral).Normalize();
@@ -60,7 +63,10 @@ namespace SAGAStructuralTools.Core.Ladder
             var stringerA = CreateBeam(stringerSym,
                 Line.CreateBound(At(provisionalA, baseZ), At(provisionalA, topZ)),
                 "montante A", createdIds);
+            OrientCrossSection(stringerA, lateral);
 
+            // Mede a largura só depois de orientar — a rotação pode mudar a
+            // extensão projetada em 'across' (seção assimétrica, ex.: cantoneira).
             _doc.Regenerate();
             double stringerWidthMm = stringerA != null
                 ? GeometryMeasure.ExtentAlongMm(_doc, stringerA.Id, across)
@@ -73,9 +79,10 @@ namespace SAGAStructuralTools.Core.Ladder
 
             var posA = Pos(center, across, -axisHalfFt);
             var posB = Pos(center, across, +axisHalfFt);
-            CreateBeam(stringerSym,
+            var stringerB = CreateBeam(stringerSym,
                 Line.CreateBound(At(posB, baseZ), At(posB, topZ)),
                 "montante B", createdIds);
+            OrientCrossSection(stringerB, lateral);
 
             Log($"montantes: largura útil={config.Width:F0}mm | seção medida={stringerWidthMm:F1}mm | " +
                 $"eixos=±{axisHalfFt * 304.8:F1}mm | h={(topZ - baseZ) * 304.8:F0}mm");
@@ -86,27 +93,31 @@ namespace SAGAStructuralTools.Core.Ladder
             // alargada da saída; dali, um trecho reto vertical (o restante de extFt)
             // sobe nessa largura alargada até o topo do prolongamento.
             double extFt = Math.Max(config.ExtensionHeight, 0) / 304.8;
+            double flareFt = Math.Max(config.ExitFlare, 0) / 304.8;
+            var flaredA = Pos(center, across, -(axisHalfFt + flareFt));
+            var flaredB = Pos(center, across, +(axisHalfFt + flareFt));
+            double topOfMontanteZ = topZ + extFt;
+
             if (extFt > 0.01)
             {
-                double flareFt = Math.Max(config.ExitFlare, 0) / 304.8;
                 double kinkFt  = Math.Min(Math.Max(config.ExitKinkHeight, 0) / 304.8, extFt);
-                double flaredHalfFt = axisHalfFt + flareFt;
                 double kinkZ = topZ + kinkFt;
 
-                var flaredA = Pos(center, across, -flaredHalfFt);
-                var flaredB = Pos(center, across, +flaredHalfFt);
-
-                CreateBeam(stringerSym, Line.CreateBound(At(posA, topZ), At(flaredA, kinkZ)),
+                var kinkA = CreateBeam(stringerSym, Line.CreateBound(At(posA, topZ), At(flaredA, kinkZ)),
                     "prolongamento A (quebra)", createdIds);
-                CreateBeam(stringerSym, Line.CreateBound(At(posB, topZ), At(flaredB, kinkZ)),
+                OrientCrossSection(kinkA, lateral);
+                var kinkB = CreateBeam(stringerSym, Line.CreateBound(At(posB, topZ), At(flaredB, kinkZ)),
                     "prolongamento B (quebra)", createdIds);
+                OrientCrossSection(kinkB, lateral);
 
                 if (extFt - kinkFt > 0.01)
                 {
-                    CreateBeam(stringerSym, Line.CreateBound(At(flaredA, kinkZ), At(flaredA, topZ + extFt)),
+                    var straightA = CreateBeam(stringerSym, Line.CreateBound(At(flaredA, kinkZ), At(flaredA, topZ + extFt)),
                         "prolongamento A (reto)", createdIds);
-                    CreateBeam(stringerSym, Line.CreateBound(At(flaredB, kinkZ), At(flaredB, topZ + extFt)),
+                    OrientCrossSection(straightA, lateral);
+                    var straightB = CreateBeam(stringerSym, Line.CreateBound(At(flaredB, kinkZ), At(flaredB, topZ + extFt)),
                         "prolongamento B (reto)", createdIds);
+                    OrientCrossSection(straightB, lateral);
                 }
             }
 
@@ -120,7 +131,9 @@ namespace SAGAStructuralTools.Core.Ladder
             }
 
             // ── Suportes: pares horizontais do montante de volta ao eixo da viga ─
-            var supportSym = TryGetSymbol(config.SupportFamilyPath, config.SupportFamilyType, "suporte");
+            string supportPath = config.SameProfileAll ? config.StringerFamilyPath : config.SupportFamilyPath;
+            string supportType = config.SameProfileAll ? config.StringerFamilyType : config.SupportFamilyType;
+            var supportSym = TryGetSymbol(supportPath, supportType, "suporte");
             if (supportSym != null)
             {
                 foreach (double elevMm in def.SupportElevations)
@@ -141,7 +154,8 @@ namespace SAGAStructuralTools.Core.Ladder
 
             // ── Gaiola: anéis em arco + tiras verticais ao longo do arco ─────────
             if (config.HasCage && def.RingElevations.Count > 0)
-                BuildCage(config, def, createdIds, posA, posB, center, lateral, baseZ);
+                BuildCage(config, def, createdIds, posA, posB, center, lateral, baseZ,
+                          flaredA, flaredB, topOfMontanteZ);
 
             // ── Linha de vida: membro vertical central ───────────────────────────
             if (config.HasLifeline)
@@ -162,9 +176,19 @@ namespace SAGAStructuralTools.Core.Ladder
 
         private void BuildCage(LadderConfig config, LadderDefinition def,
                                ICollection<ElementId> createdIds,
-                               XYZ posA, XYZ posB, XYZ center, XYZ lateral, double baseZ)
+                               XYZ posA, XYZ posB, XYZ center, XYZ lateral, double baseZ,
+                               XYZ flaredA, XYZ flaredB, double topOfMontanteZ)
         {
-            var ringSym = TryGetSymbol(config.RingFamilyPath, config.RingFamilyType, "anel da gaiola");
+            // "Mesmo perfil para todos" tem prioridade; senão, "mesmo perfil para
+            // suporte+anel+tira" usa o suporte como fonte; senão, cada um mantém
+            // sua própria família configurada.
+            string ringPath = config.SameProfileAll ? config.StringerFamilyPath
+                            : config.SameProfileCage ? config.SupportFamilyPath
+                            : config.RingFamilyPath;
+            string ringType = config.SameProfileAll ? config.StringerFamilyType
+                            : config.SameProfileCage ? config.SupportFamilyType
+                            : config.RingFamilyType;
+            var ringSym = TryGetSymbol(ringPath, ringType, "anel da gaiola");
             if (ringSym == null)
             {
                 Log("gaiola: sem perfil de anel — anéis não criados.");
@@ -176,6 +200,10 @@ namespace SAGAStructuralTools.Core.Ladder
                 center.X + lateral.X * projFt,
                 center.Y + lateral.Y * projFt,
                 0);
+            double setbackFt = Math.Max(config.RingSetback, 0) / 304.8;
+
+            double lastElevMm = def.RingElevations.Last();
+            bool hasTopClosure = topOfMontanteZ - (baseZ + lastElevMm / 304.8) > 0.01;
 
             Arc referenceArc = null;
             foreach (double elevMm in def.RingElevations)
@@ -183,21 +211,42 @@ namespace SAGAStructuralTools.Core.Ladder
                 double z = baseZ + elevMm / 304.8;
                 try
                 {
-                    var arc = Arc.Create(At(posA, z), At(posB, z), At(bulge, z));
+                    var arc = CreateRingWithSetback(ringSym, posA, posB, bulge, z, setbackFt,
+                        $"anel +{elevMm:F0}", createdIds);
                     if (referenceArc == null) referenceArc = arc;
-                    CreateBeam(ringSym, arc, $"anel +{elevMm:F0}", createdIds);
                 }
                 catch (Exception ex)
                 {
                     Log($"anel +{elevMm:F0}: falha ao criar arco ({ex.Message})");
                 }
+
+                // Barra horizontal (D): fecha o anel por trás, ligando os dois montantes
+                // direto. No último anel, se o prolongamento seguir além dele, essa barra
+                // some daqui — quem fecha o topo é o trecho maior (E) logo abaixo.
+                bool isLastRing = Math.Abs(elevMm - lastElevMm) < 0.01;
+                if (!isLastRing || !hasTopClosure)
+                    CreateBeam(ringSym, Line.CreateBound(At(posA, z), At(posB, z)),
+                        $"anel +{elevMm:F0} (barra horizontal)", createdIds);
             }
+
+            // Trecho superior de fechamento (E): substitui a barra D do último anel
+            // quando o prolongamento segue além dele — mais largo (largura já alargada
+            // da saída) e na cota onde o montante realmente termina, não na do anel.
+            if (hasTopClosure)
+                CreateBeam(ringSym, Line.CreateBound(At(flaredA, topOfMontanteZ), At(flaredB, topOfMontanteZ)),
+                    "gaiola (trecho superior de fechamento)", createdIds);
 
             // Tiras verticais distribuídas ao longo do arco (excluindo as extremidades,
             // onde já estão os montantes), do primeiro ao último anel.
             if (def.StrapCount <= 0 || referenceArc == null || def.RingElevations.Count < 2) return;
 
-            var strapSym = TryGetSymbol(config.StrapFamilyPath, config.StrapFamilyType, "barra vertical da gaiola");
+            string strapPath = config.SameProfileAll ? config.StringerFamilyPath
+                              : config.SameProfileCage ? config.SupportFamilyPath
+                              : config.StrapFamilyPath;
+            string strapType = config.SameProfileAll ? config.StringerFamilyType
+                              : config.SameProfileCage ? config.SupportFamilyType
+                              : config.StrapFamilyType;
+            var strapSym = TryGetSymbol(strapPath, strapType, "barra vertical da gaiola");
             if (strapSym == null)
             {
                 Log("gaiola: sem perfil de barra vertical — tiras não criadas.");
@@ -205,17 +254,60 @@ namespace SAGAStructuralTools.Core.Ladder
             }
 
             double zFirst = baseZ + def.RingElevations.First() / 304.8;
-            double zLast  = baseZ + def.RingElevations.Last() / 304.8;
+            // Se houver fechamento superior (E), a tira acompanha até lá — senão
+            // pararia na cota do antigo último anel, deixando um vão até o topo real.
+            double zLast  = hasTopClosure ? topOfMontanteZ : baseZ + def.RingElevations.Last() / 304.8;
+            var arcCenter = new XYZ(referenceArc.Center.X, referenceArc.Center.Y, 0);
 
             for (int i = 0; i < def.StrapCount; i++)
             {
                 double t = (i + 1) / (double)(def.StrapCount + 1);
                 var p = referenceArc.Evaluate(t, true);
                 var xy = new XYZ(p.X, p.Y, 0);
-                CreateBeam(strapSym,
+                var strapInst = CreateBeam(strapSym,
                     Line.CreateBound(At(xy, zFirst), At(xy, zLast)),
                     $"tira {i + 1}", createdIds);
+
+                // Regenera antes de medir: sem isso, a geometria/transform da
+                // instância recém-criada pode não estar finalizada ainda, dando
+                // uma leitura instável de tira pra tira.
+                _doc.Regenerate();
+
+                // Perpendicular ao centro do anel: cada tira fica radial à curvatura,
+                // não com uma rotação fixa igual ao montante.
+                var radial = xy - arcCenter;
+                if (radial.GetLength() > 1e-6)
+                    OrientCrossSection(strapInst, radial.Normalize());
             }
+        }
+
+        /// <summary>
+        /// Cria o anel entre os montantes. Se <paramref name="setbackFt"/> > 0, o arco
+        /// nasce recuado desse tanto em relação ao montante, e um trecho reto horizontal
+        /// fecha a lacuna até o eixo do montante — cobrindo-o por completo mesmo com o
+        /// anel afastado.
+        /// </summary>
+        private Arc CreateRingWithSetback(FamilySymbol ringSym, XYZ posA, XYZ posB, XYZ bulge, double z,
+                                          double setbackFt, string tag, ICollection<ElementId> createdIds)
+        {
+            var fullArc = Arc.Create(At(posA, z), At(posB, z), At(bulge, z));
+            if (setbackFt < 0.001 || fullArc.Length <= setbackFt * 2 + 0.01)
+            {
+                CreateBeam(ringSym, fullArc, tag, createdIds);
+                return fullArc;
+            }
+
+            double t0 = setbackFt / fullArc.Length;
+            var insetStart = fullArc.Evaluate(t0, true);
+            var insetEnd   = fullArc.Evaluate(1.0 - t0, true);
+            var mid        = fullArc.Evaluate(0.5, true);
+            var ringArc    = Arc.Create(insetStart, insetEnd, mid);
+
+            CreateBeam(ringSym, ringArc, tag, createdIds);
+            CreateBeam(ringSym, Line.CreateBound(insetStart, At(posA, z)), $"{tag} (trecho A)", createdIds);
+            CreateBeam(ringSym, Line.CreateBound(insetEnd, At(posB, z)), $"{tag} (trecho B)", createdIds);
+
+            return ringArc;
         }
 
         // ── Helpers geométricos ───────────────────────────────────────────────
@@ -224,6 +316,40 @@ namespace SAGAStructuralTools.Core.Ladder
             new XYZ(centerXy.X + across.X * offsetFt, centerXy.Y + across.Y * offsetFt, 0);
 
         private static XYZ At(XYZ xy, double z) => new XYZ(xy.X, xy.Y, z);
+
+        /// <summary>
+        /// Gira a seção de uma barra (STRUCTURAL_BEND_DIR_ANGLE) até ficar com a maior
+        /// dimensão do perfil voltada para <paramref name="targetDirection"/> — vale
+        /// pra barra vertical ou inclinada (ex.: trecho quebrado do prolongamento).
+        /// O Revit não tem uma referência "ângulo zero" previsível pra toda direção de
+        /// barra — por isso medimos a orientação real que a instância recebeu (via
+        /// GetTransform: BasisZ é o eixo da própria barra, BasisX é a referência atual
+        /// da seção) e projetamos o alvo no plano perpendicular a esse eixo antes de
+        /// medir o ângulo. Isso funciona no referencial da própria barra, em vez de
+        /// supor que a referência do Revit fica no plano horizontal.
+        /// </summary>
+        private static void OrientCrossSection(FamilyInstance inst, XYZ targetDirection)
+        {
+            if (inst == null || targetDirection == null) return;
+
+            var transform = inst.GetTransform();
+            var axis    = transform.BasisZ;
+            var current = transform.BasisX;
+            if (current.GetLength() < 1e-9) return;
+            current = current.Normalize();
+
+            // Projeta o alvo no plano perpendicular ao eixo da barra.
+            var target = targetDirection - axis * targetDirection.DotProduct(axis);
+            if (target.GetLength() < 1e-9) return;
+            target = target.Normalize();
+
+            double dot   = current.DotProduct(target);
+            double cross = axis.DotProduct(current.CrossProduct(target));
+            double angle = Math.Atan2(cross, dot);
+
+            var p = inst.get_Parameter(BuiltInParameter.STRUCTURAL_BEND_DIR_ANGLE);
+            if (p != null && !p.IsReadOnly) p.Set(angle);
+        }
 
         // ── Criação ───────────────────────────────────────────────────────────
 

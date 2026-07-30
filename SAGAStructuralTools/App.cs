@@ -159,6 +159,17 @@ namespace SAGAStructuralTools
                     matchProperties,
                     savePreset);
 
+                TryAddButton(railPanel, new PushButtonData(
+                    name:         "SplitBeam",
+                    text:         "Interromper\nViga",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.SplitBeamCommand")
+                {
+                    ToolTip    = "Divide uma viga em duas no ponto de interseção com o eixo de uma viga de referência.",
+                    LargeImage = LoadIcon("rail_round_32.png", 32),
+                    Image      = LoadIcon("rail_round_16.png", 16)
+                });
+
                 _railSelectionController = new RailSelectionController(application);
                 _ladderSelectionController = new LadderSelectionController(application);
 

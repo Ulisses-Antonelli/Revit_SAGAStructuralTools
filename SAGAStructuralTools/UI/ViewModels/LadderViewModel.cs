@@ -152,6 +152,26 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _rungFamilyType;
         public string RungFamilyDisplay => FamilyDisplay(_rungFamilyPath, _rungFamilyType, required: true);
         public string RungFamilyType { get => _rungFamilyType; set { if (Set(ref _rungFamilyType, value)) OnPropertyChanged(nameof(RungFamilyDisplay)); } }
+
+        // Unificação de perfis: "todos" (suporte+anel+tira usam o do montante) tem
+        // prioridade sobre "gaiola" (suporte+anel+tira usam o do suporte). Degrau
+        // nunca entra nesses agrupamentos — sempre com família própria.
+        private bool _sameProfileAll;
+        public bool SameProfileAll
+        {
+            get => _sameProfileAll;
+            set
+            {
+                if (Set(ref _sameProfileAll, value))
+                {
+                    IsCalculated = false;
+                    OnPropertyChanged(nameof(IsSupportFamilyPickerVisible));
+                    OnPropertyChanged(nameof(IsRingFamilyPickerVisible));
+                    OnPropertyChanged(nameof(IsStrapFamilyPickerVisible));
+                    OnPropertyChanged(nameof(IsSameProfileCageEnabled));
+                }
+            }
+        }
         public ObservableCollection<string> RungAvailableTypes { get; } = new ObservableCollection<string>();
 
         // ── Suportes ───────────────────────────────────────────────────────
@@ -164,11 +184,32 @@ namespace SAGAStructuralTools.UI.ViewModels
         public ObservableCollection<string> SupportAvailableTypes { get; } = new ObservableCollection<string>();
         public double SupportMaxSpacing { get => _supportMaxSpacing; set { if (Set(ref _supportMaxSpacing, value)) IsCalculated = false; } }
 
+        private bool _sameProfileCage;
+        public bool SameProfileCage
+        {
+            get => _sameProfileCage;
+            set
+            {
+                if (Set(ref _sameProfileCage, value))
+                {
+                    IsCalculated = false;
+                    OnPropertyChanged(nameof(IsRingFamilyPickerVisible));
+                    OnPropertyChanged(nameof(IsStrapFamilyPickerVisible));
+                }
+            }
+        }
+
+        public bool IsSameProfileCageEnabled  => !SameProfileAll;
+        public bool IsSupportFamilyPickerVisible => !SameProfileAll;
+        public bool IsRingFamilyPickerVisible    => !SameProfileAll && !SameProfileCage;
+        public bool IsStrapFamilyPickerVisible   => !SameProfileAll && !SameProfileCage;
+
         // ── Gaiola ─────────────────────────────────────────────────────────
 
         private bool   _hasCage;
         private double _cageStartHeight = LadderDefaults.CageStartHeight;
         private double _cageProjection  = LadderDefaults.CageProjection;
+        private double _ringSetback     = LadderDefaults.RingSetback;
         private int    _ringModeIndex;                       // 0=Equidistante, 1=Passo fixo
         private double _ringSpacing = LadderDefaults.RingSpacing;
         private int    _strapCount  = LadderDefaults.StrapCount;
@@ -181,6 +222,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         public bool IsCageEnabled => HasCage;
         public double CageStartHeight { get => _cageStartHeight; set { if (Set(ref _cageStartHeight, value)) IsCalculated = false; } }
         public double CageProjection  { get => _cageProjection;  set { if (Set(ref _cageProjection, value)) IsCalculated = false; } }
+        public double RingSetback     { get => _ringSetback;     set { if (Set(ref _ringSetback, value)) IsCalculated = false; } }
         public int RingModeIndex      { get => _ringModeIndex;   set { if (Set(ref _ringModeIndex, value)) IsCalculated = false; } }
         public double RingSpacing     { get => _ringSpacing;     set { if (Set(ref _ringSpacing, value)) IsCalculated = false; } }
         public int StrapCount         { get => _strapCount;      set { if (Set(ref _strapCount, value)) IsCalculated = false; } }
@@ -375,14 +417,17 @@ namespace SAGAStructuralTools.UI.ViewModels
             StringerFamilyType = _stringerFamilyType,
             RungFamilyPath     = _rungFamilyPath,
             RungFamilyType     = _rungFamilyType,
+            SameProfileAll     = SameProfileAll,
 
             SupportFamilyPath  = _supportFamilyPath,
             SupportFamilyType  = _supportFamilyType,
             SupportMaxSpacing  = SupportMaxSpacing,
+            SameProfileCage    = SameProfileCage,
 
             HasCage            = HasCage,
             CageStartHeight    = CageStartHeight,
             CageProjection     = CageProjection,
+            RingSetback        = RingSetback,
             RingMode           = RingModeIndex == 1 ? RingDistribution.FixedSpacing : RingDistribution.Equidistant,
             RingSpacing        = RingSpacing,
             RingFamilyPath     = _ringFamilyPath,
@@ -414,14 +459,17 @@ namespace SAGAStructuralTools.UI.ViewModels
                       StringerAvailableTypes, nameof(StringerFamilyDisplay), nameof(StringerAvailableTypes), nameof(StringerFamilyType));
             SetFamily(ref _rungFamilyPath, ref _rungFamilyType, c.RungFamilyPath, c.RungFamilyType,
                       RungAvailableTypes, nameof(RungFamilyDisplay), nameof(RungAvailableTypes), nameof(RungFamilyType));
+            SameProfileAll = c.SameProfileAll;
 
             SetFamily(ref _supportFamilyPath, ref _supportFamilyType, c.SupportFamilyPath, c.SupportFamilyType,
                       SupportAvailableTypes, nameof(SupportFamilyDisplay), nameof(SupportAvailableTypes), nameof(SupportFamilyType));
             SupportMaxSpacing = c.SupportMaxSpacing;
+            SameProfileCage   = c.SameProfileCage;
 
             HasCage         = c.HasCage;
             CageStartHeight = c.CageStartHeight;
             CageProjection  = c.CageProjection;
+            RingSetback     = c.RingSetback;
             RingModeIndex   = c.RingMode == RingDistribution.FixedSpacing ? 1 : 0;
             RingSpacing     = c.RingSpacing;
             StrapCount      = c.StrapCount;

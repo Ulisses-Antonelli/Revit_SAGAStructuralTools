@@ -23,15 +23,25 @@ namespace SAGAStructuralTools.Core.Models
         public string RungFamilyPath      { get; set; }
         public string RungFamilyType      { get; set; }
 
+        // Quando true, o perfil do montante (Stringer) é usado também para
+        // suporte, anel e barra vertical da gaiola (degrau nunca entra nesse
+        // agrupamento). Tem prioridade sobre SameProfileCage.
+        public bool   SameProfileAll      { get; set; }
+
         // ── Suportes de fixação ───────────────────────────────────────────
         public string SupportFamilyPath   { get; set; }
         public string SupportFamilyType   { get; set; }
         public double SupportMaxSpacing   { get; set; } = LadderDefaults.SupportMaxSpacing;   // vão máximo entre suportes
 
+        // Quando true (e SameProfileAll = false), o perfil do suporte é usado
+        // também para o anel e a barra vertical da gaiola.
+        public bool   SameProfileCage     { get; set; }
+
         // ── Gaiola de proteção ────────────────────────────────────────────
         public bool   HasCage             { get; set; }
         public double CageStartHeight     { get; set; } = LadderDefaults.CageStartHeight;     // base → primeiro anel
         public double CageProjection      { get; set; } = LadderDefaults.CageProjection;      // eixo do degrau → fundo do arco
+        public double RingSetback         { get; set; } = LadderDefaults.RingSetback;         // afastamento do anel em relação ao montante
         public RingDistribution RingMode  { get; set; } = RingDistribution.Equidistant;
         public double RingSpacing         { get; set; } = LadderDefaults.RingSpacing;         // usado nos dois modos
         public string RingFamilyPath      { get; set; }

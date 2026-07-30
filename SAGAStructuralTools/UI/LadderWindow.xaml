@@ -395,6 +395,10 @@
                                     </StackPanel>
                                 </Grid>
 
+                                <CheckBox Content="Usar o perfil do montante também para suporte, anel e barra vertical"
+                                          IsChecked="{Binding SameProfileAll}" Margin="0,0,0,10"
+                                          ToolTip="Quando marcado, ignora as famílias configuradas em Suportes e Gaiola — tudo usa o perfil do montante. Degrau nunca entra nesse agrupamento."/>
+
                                 <TextBlock Style="{StaticResource FieldLabel}" Text="Família do montante (.rfa)"/>
                                 <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
@@ -442,49 +446,48 @@
 
                         <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource FieldLabel}" Text="Família do suporte (.rfa) — opcional"/>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="6"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                        <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding SupportFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
-                                    </Border>
-                                    <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
-                                            Content="Procurar..." Command="{Binding BrowseSupportCommand}"/>
-                                    <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
-                                            Content="×" FontSize="14" Padding="8,4"
-                                            Command="{Binding ClearSupportCommand}"
-                                            ToolTip="Remover família do suporte"/>
-                                </Grid>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do suporte"/>
-                                        <ComboBox Style="{StaticResource RoundedComboBox}"
-                                                  ItemsSource="{Binding SupportAvailableTypes}"
-                                                  SelectedItem="{Binding SupportFamilyType}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Vão máximo entre suportes"/>
-                                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBox Style="{StaticResource CleanInput}"
-                                                         Text="{Binding SupportMaxSpacing, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                                         ToolTip="A quantidade de suportes é calculada automaticamente em função da altura."/>
-                                            </DockPanel>
+                                <CheckBox Content="Usar o perfil do suporte também para o anel e a barra vertical"
+                                          IsChecked="{Binding SameProfileCage}" IsEnabled="{Binding IsSameProfileCageEnabled}"
+                                          Margin="0,0,0,10"
+                                          ToolTip="Quando marcado, ignora as famílias configuradas em Anel e Barra Vertical (aba Gaiola) — os dois usam o perfil do suporte. Sem efeito se 'usar o perfil do montante para tudo' estiver marcado."/>
+
+                                <StackPanel Visibility="{Binding IsSupportFamilyPickerVisible, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Família do suporte (.rfa) — opcional"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding SupportFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
                                         </Border>
-                                    </StackPanel>
-                                </Grid>
+                                        <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                Content="Procurar..." Command="{Binding BrowseSupportCommand}"/>
+                                        <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                                Content="×" FontSize="14" Padding="8,4"
+                                                Command="{Binding ClearSupportCommand}"
+                                                ToolTip="Remover família do suporte"/>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do suporte"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}" Margin="0,0,0,10"
+                                              ItemsSource="{Binding SupportAvailableTypes}"
+                                              SelectedItem="{Binding SupportFamilyType}"/>
+                                </StackPanel>
+
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Vão máximo entre suportes"/>
+                                    <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Style="{StaticResource CleanInput}"
+                                                     Text="{Binding SupportMaxSpacing, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                     ToolTip="A quantidade de suportes é calculada automaticamente em função da altura."/>
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -578,6 +581,8 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="8"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Style="{StaticResource FieldLabel}" Text="Altura do início (da base)"/>
@@ -596,6 +601,17 @@
                                                     <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                     <TextBox Style="{StaticResource CleanInput}"
                                                              Text="{Binding CageProjection, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Afastamento do anel"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding RingSetback, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                             ToolTip="0 = anel encosta no montante. Se &gt; 0, o anel recua esse tanto e um trecho reto fecha a lacuna, cobrindo o montante por completo."/>
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
@@ -627,28 +643,30 @@
                                         </StackPanel>
                                     </Grid>
 
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Família do anel (.rfa)"/>
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="6"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
-                                            <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding RingFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
-                                        </Border>
-                                        <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
-                                                Content="Procurar..." Command="{Binding BrowseRingCommand}"/>
-                                        <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
-                                                Content="×" FontSize="14" Padding="8,4"
-                                                Command="{Binding ClearRingCommand}"/>
-                                    </Grid>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do anel"/>
-                                    <ComboBox Style="{StaticResource RoundedComboBox}" Margin="0,0,0,10"
-                                              ItemsSource="{Binding RingAvailableTypes}"
-                                              SelectedItem="{Binding RingFamilyType}"/>
+                                    <StackPanel Visibility="{Binding IsRingFamilyPickerVisible, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Família do anel (.rfa)"/>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="6"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="#F8F9FB" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <TextBox Style="{StaticResource CleanInputRO}" Text="{Binding RingFamilyDisplay, Mode=OneWay}" IsReadOnly="True"/>
+                                            </Border>
+                                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                                    Content="Procurar..." Command="{Binding BrowseRingCommand}"/>
+                                            <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                                    Content="×" FontSize="14" Padding="8,4"
+                                                    Command="{Binding ClearRingCommand}"/>
+                                        </Grid>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo do anel"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}" Margin="0,0,0,10"
+                                                  ItemsSource="{Binding RingAvailableTypes}"
+                                                  SelectedItem="{Binding RingFamilyType}"/>
+                                    </StackPanel>
 
                                     <Grid Margin="0,0,0,8">
                                         <Grid.ColumnDefinitions>
@@ -666,7 +684,7 @@
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="2">
+                                        <StackPanel Grid.Column="2" Visibility="{Binding IsStrapFamilyPickerVisible, Converter={StaticResource BoolToVis}}">
                                             <TextBlock Style="{StaticResource FieldLabel}" Text="Família da barra vertical (.rfa)"/>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -687,10 +705,12 @@
                                             </Grid>
                                         </StackPanel>
                                     </Grid>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo da barra vertical"/>
-                                    <ComboBox Style="{StaticResource RoundedComboBox}"
-                                              ItemsSource="{Binding StrapAvailableTypes}"
-                                              SelectedItem="{Binding StrapFamilyType}"/>
+                                    <StackPanel Visibility="{Binding IsStrapFamilyPickerVisible, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tipo da barra vertical"/>
+                                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                                  ItemsSource="{Binding StrapAvailableTypes}"
+                                                  SelectedItem="{Binding StrapFamilyType}"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

@@ -25,6 +25,7 @@ namespace SAGAStructuralTools.Core.Domain
         public const double CageProjection    = 700.0;
         public const double RingSpacing       = 1500.0;
         public const int    StrapCount        = 5;
+        public const double RingSetback       = 0.0; // 0 = anel encosta no montante (comportamento atual)
 
         // Desembarque (mm)
         public const double ExtensionHeight   = 1100.0;
