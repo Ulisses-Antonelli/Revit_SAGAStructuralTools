@@ -170,6 +170,17 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("rail_round_16.png", 16)
                 });
 
+                TryAddButton(railPanel, new PushButtonData(
+                    name:         "AlignToWorkPoint",
+                    text:         "Alinhar ao\nPonto de Trabalho",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.AlignToWorkPointCommand")
+                {
+                    ToolTip    = "Estica a extremidade mais próxima de um elemento (ex.: cantoneira de contraventamento) até o ponto de trabalho de duas vigas ou pilares que se cruzam, sem transladar a peça inteira.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
                 _railSelectionController = new RailSelectionController(application);
                 _ladderSelectionController = new LadderSelectionController(application);
 
