@@ -1,11 +1,23 @@
 # Build output
 SAGAStructuralTools/bin/
 SAGAStructuralTools/obj/
+**/bin/
+**/obj/
 artifacts/
 samples-private/
+ProgramData/
+**/migration-backup/
 
 # Logs gerados pelo plugin
 SAGA_Log_*.txt
+logs/
+Logs/
+*.log
+
+# Diagnósticos locais do Revit
+*.dmp
+*.journal
+journal.*
 
 # Configuração local do plugin (caminho de famílias é por máquina)
 *.settings
