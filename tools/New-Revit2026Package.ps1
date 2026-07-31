@@ -6,90 +6,70 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $repoRoot 'artifacts'
+    $OutputDirectory = Join-Path $repoRoot 'artifacts\packages'
 }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
-
 $project = Join-Path $repoRoot 'SAGAStructuralTools\SAGAStructuralTools.csproj'
-$manifest = Join-Path $repoRoot 'SAGAStructuralTools\SAGAStructuralTools.addin'
-$icons = Join-Path $repoRoot 'SAGAStructuralTools\Resources\Icons'
-$buildOutput = Join-Path $repoRoot `
-    ('SAGAStructuralTools\bin\' + $Configuration + '\net8.0-windows')
+$staging = Join-Path $repoRoot 'artifacts\Revit2026'
 
-& dotnet build $project `
-    -c $Configuration `
-    -f net8.0-windows `
-    -m:1 `
+& dotnet build $project -c $Configuration -f net8.0-windows -m:1 `
     -p:DeployToRevit=false
 if ($LASTEXITCODE -ne 0) {
     throw "A compilação falhou com o código $LASTEXITCODE."
 }
 
-$stagingRoot = Join-Path ([IO.Path]::GetTempPath()) `
-    ('SAGA-Revit2026-' + [Guid]::NewGuid().ToString('N'))
-$payload = Join-Path $stagingRoot 'payload'
-$payloadIcons = Join-Path $payload 'Resources\Icons'
-New-Item -ItemType Directory -Path $payloadIcons -Force | Out-Null
+& (Join-Path $PSScriptRoot 'Deploy-RevitPayload.ps1') `
+    -StagingDirectory $staging `
+    -ExpectedTargetFramework net8.0-windows `
+    -ExpectedRevitVersion 2026 `
+    -ValidateOnly
 
+$packageRoot = Join-Path ([IO.Path]::GetTempPath()) (
+    'SAGA-Revit2026-' + [Guid]::NewGuid().ToString('N'))
 try {
-    Copy-Item -LiteralPath (Join-Path $buildOutput 'SAGAStructuralTools.dll') `
-        -Destination $payload -Force
-
-    $deps = Join-Path $buildOutput 'SAGAStructuralTools.deps.json'
-    if (Test-Path -LiteralPath $deps) {
-        Copy-Item -LiteralPath $deps -Destination $payload -Force
-    }
-
-    Copy-Item -LiteralPath $manifest -Destination $payload -Force
-    Get-ChildItem -LiteralPath $icons -File -Filter '*.png' |
+    New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
+    $packagePayload = Join-Path $packageRoot 'payload'
+    New-Item -ItemType Directory -Path $packagePayload -Force | Out-Null
+    Get-ChildItem -LiteralPath $staging -Force |
         ForEach-Object {
-            Copy-Item -LiteralPath $_.FullName -Destination $payloadIcons -Force
+            Copy-Item -LiteralPath $_.FullName `
+                -Destination $packagePayload -Recurse
         }
-
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-Revit2026.ps1') `
-        -Destination (Join-Path $stagingRoot 'INSTALAR-Revit2026.ps1') -Force
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Uninstall-Revit2026.ps1') `
-        -Destination (Join-Path $stagingRoot 'DESINSTALAR-Revit2026.ps1') -Force
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-Revit2026.cmd') `
-        -Destination (Join-Path $stagingRoot 'INSTALAR.cmd') -Force
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Uninstall-Revit2026.cmd') `
-        -Destination (Join-Path $stagingRoot 'DESINSTALAR.cmd') -Force
-
+    foreach ($pair in @(
+        @('Install-Revit2026.ps1', 'INSTALAR-Revit2026.ps1'),
+        @('Uninstall-Revit2026.ps1', 'DESINSTALAR-Revit2026.ps1'),
+        @('Deploy-RevitPayload.ps1', 'Deploy-RevitPayload.ps1'),
+        @('Install-Revit2026.cmd', 'INSTALAR.cmd'),
+        @('Uninstall-Revit2026.cmd', 'DESINSTALAR.cmd')
+    )) {
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot $pair[0]) `
+            -Destination (Join-Path $packageRoot $pair[1])
+    }
     @'
 SAGA STRUCTURAL TOOLS — REVIT 2026
 
-INSTALAR
-1. Extraia todo o ZIP.
-2. Feche o Revit.
-3. Dê dois cliques em INSTALAR.cmd.
-4. Abra o Revit 2026.
+Feche o Revit e execute INSTALAR.cmd como administrador.
+O payload validado será instalado em:
+C:\ProgramData\Autodesk\Revit\Addins\2026
 
-O add-in será instalado somente para o usuário atual em:
-%APPDATA%\Autodesk\Revit\Addins\2026
-
-Como alternativa, abra o PowerShell nesta pasta e execute:
-powershell -ExecutionPolicy Bypass -File .\INSTALAR-Revit2026.ps1
-
-As famílias .rfa e seus catálogos .txt não fazem parte deste pacote e devem
-ser copiados separadamente para uma pasta estável no computador.
-'@ | Set-Content -LiteralPath (Join-Path $stagingRoot 'LEIA-ME.txt') `
+O instalador remove somente arquivos registrados no manifesto SAGA de uma
+instalação anterior. Arquivos desconhecidos da pasta global não são removidos.
+'@ | Set-Content -LiteralPath (Join-Path $packageRoot 'LEIA-ME.txt') `
         -Encoding UTF8
 
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
-    $zip = Join-Path $OutputDirectory `
-        'SAGAStructuralTools-Revit2026-feature-rail-transitions.zip'
-    Compress-Archive -Path (Join-Path $stagingRoot '*') `
+    $zip = Join-Path $OutputDirectory 'SAGAStructuralTools-Revit2026.zip'
+    Compress-Archive -Path (Join-Path $packageRoot '*') `
         -DestinationPath $zip -Force
     Write-Output $zip
 }
 finally {
-    $resolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
-    $resolvedStaging = [IO.Path]::GetFullPath($stagingRoot)
-    if ($resolvedStaging.StartsWith($resolvedTemp, [StringComparison]::OrdinalIgnoreCase) -and
-        (Test-Path -LiteralPath $resolvedStaging)) {
-        [IO.Directory]::Delete($resolvedStaging, $true)
+    $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+    $resolved = [IO.Path]::GetFullPath($packageRoot)
+    if ($resolved.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -and
+        (Test-Path -LiteralPath $resolved)) {
+        [IO.Directory]::Delete($resolved, $true)
     }
 }

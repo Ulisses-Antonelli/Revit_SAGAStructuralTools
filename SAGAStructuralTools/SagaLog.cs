@@ -1,40 +1,88 @@
 using System;
 using System.IO;
-using System.Reflection;
+using System.Text;
 
 namespace SAGAStructuralTools
 {
+    // Deliberadamente BCL-only: este tipo precisa funcionar antes da resolucao
+    // de qualquer assembly da pilha STRAP.
     internal static class SagaLog
     {
-        private static readonly string _path = ResolvePath();
+        private const string ProductPath = "SAGA\\SAGAStructuralTools\\Logs";
 
-        private static string ResolvePath()
+        public static void Write(string message)
         {
             try
             {
-                var dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                if (!string.IsNullOrEmpty(dir))
-                    return Path.Combine(dir, "SAGA_Debug.txt");
+                Append(ResolvePrimaryPath(), message);
+                return;
             }
-            catch { }
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                "SAGA_Debug.txt");
+            catch
+            {
+                // O logger nunca pode propagar uma falha ao host Revit.
+            }
+
+            try
+            {
+                Append(ResolveFallbackPath(), message);
+            }
+            catch
+            {
+                // Ultimo recurso deliberadamente silencioso.
+            }
         }
 
-        public static void Write(string msg)
+        public static void Exception(string context, Exception exception)
         {
-            try { File.AppendAllText(_path, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\r\n"); }
-            catch { }
+            try
+            {
+                Write("ERRO [" + context + "]");
+                WriteException(exception, 0);
+            }
+            catch
+            {
+                // Nem uma arvore de excecoes incomum pode escapar do logger.
+            }
         }
 
-        public static void Exception(string context, Exception ex)
+        internal static string ResolvePrimaryPath()
         {
-            Write($"ERRO [{context}]: {ex.GetType().Name}: {ex.Message}");
-            if (ex.StackTrace != null)
-                Write($"  Stack: {ex.StackTrace.Replace("\r\n", " | ").Replace("\n", " | ")}");
-            if (ex.InnerException != null)
-                Write($"  Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+            string root = Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData);
+            return Path.Combine(root, ProductPath,
+                "SAGAStructuralTools-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
+        }
+
+        internal static string ResolveFallbackPath()
+        {
+            return Path.Combine(Path.GetTempPath(), "SAGA", "SAGAStructuralTools",
+                "Logs", "SAGAStructuralTools-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
+        }
+
+        private static void Append(string path, string message)
+        {
+            string directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            string line = "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff zzz") + "] " +
+                (message ?? string.Empty) + Environment.NewLine;
+            File.AppendAllText(path, line, new UTF8Encoding(false));
+        }
+
+        private static void WriteException(Exception exception, int depth)
+        {
+            if (exception == null)
+                return;
+
+            string prefix = new string(' ', depth * 2);
+            Write(prefix + exception.GetType().FullName + ": " + exception.Message);
+            Write(prefix + "StackTrace: " + (exception.StackTrace ?? "<indisponivel>"));
+            if (exception.InnerException != null)
+            {
+                Write(prefix + "InnerException:");
+                WriteException(exception.InnerException, depth + 1);
+            }
         }
     }
 }

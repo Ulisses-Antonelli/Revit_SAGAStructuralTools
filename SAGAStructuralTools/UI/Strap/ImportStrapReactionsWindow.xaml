@@ -17,8 +17,8 @@
             <TextBlock Text="{Binding FilePath}" FontWeight="SemiBold"
                        TextTrimming="CharacterEllipsis"/>
             <TextBlock Margin="0,4,0,0" Foreground="#5E6C84">
-                <Run Text="Unidades: força "/><Run Text="{Binding ForceUnit}"/>
-                <Run Text="; momento "/><Run Text="{Binding MomentUnit}"/>
+                <Run Text="Unidades: força "/><Run Text="{Binding ForceUnit, Mode=OneWay}"/>
+                <Run Text="; momento "/><Run Text="{Binding MomentUnit, Mode=OneWay}"/>
             </TextBlock>
             <TextBlock Text="{Binding UnitNotice}" Foreground="#7B4400"
                        Margin="0,4,0,0"/>

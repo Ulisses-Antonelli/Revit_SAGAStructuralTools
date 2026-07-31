@@ -10,10 +10,16 @@
     <PlatformTarget>x64</PlatformTarget>
     <LangVersion>8.0</LangVersion>
     <Nullable>disable</Nullable>
-    <DeployToRevit Condition="'$(DeployToRevit)'==''">true</DeployToRevit>
+    <!-- O add-in é uma class library carregada dinamicamente pelo Revit. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <DeployToRevit Condition="'$(DeployToRevit)'==''">false</DeployToRevit>
+    <SagaArtifactsRoot>$(MSBuildProjectDirectory)\..\artifacts</SagaArtifactsRoot>
+    <SagaPayloadTool>$(MSBuildProjectDirectory)\..\tools\Sync-RevitPayload.ps1</SagaPayloadTool>
+    <SagaDeployTool>$(MSBuildProjectDirectory)\..\tools\Deploy-RevitPayload.ps1</SagaDeployTool>
+    <SagaAddinManifest Condition="'$(TargetFramework)'=='net48'">$(MSBuildProjectDirectory)\SAGAStructuralTools.addin</SagaAddinManifest>
+    <SagaAddinManifest Condition="'$(TargetFramework)'=='net8.0-windows'">$(MSBuildProjectDirectory)\SAGAStructuralTools.Revit2026.addin</SagaAddinManifest>
   </PropertyGroup>
 
-  <!-- Revit 2023 / .NET 4.8 -->
   <ItemGroup Condition="'$(TargetFramework)'=='net48'">
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit 2023\RevitAPI.dll</HintPath>
@@ -27,7 +33,6 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
 
-  <!-- Revit 2026 / .NET 8 -->
   <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit 2026\RevitAPI.dll</HintPath>
@@ -40,7 +45,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Content: copiado para o output e depois para o deploy folder junto com a DLL -->
     <Content Include="Resources\Icons\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -52,32 +56,97 @@
     <ProjectReference Include="..\SAGAStructuralTools.Strap.Readers\SAGAStructuralTools.Strap.Readers.csproj" />
   </ItemGroup>
 
-  <!--
-    Post-build: copia a DLL e o .addin para a pasta de addins do Revit 2023 ou 2026.
-    Revit lê automaticamente qualquer .addin que estiver em:
-    C:\ProgramData\Autodesk\Revit\Addins\2023\
-    C:\ProgramData\Autodesk\Revit\Addins\2026\
-  -->
-  <Target Name="DeployToRevit" AfterTargets="Build"
-          Condition="'$(TargetFramework)' != '' and '$(DeployToRevit)'=='true'">
-    <PropertyGroup>
-      <DeployDir Condition="'$(TargetFramework)'=='net48'">C:\ProgramData\Autodesk\Revit\Addins\2023</DeployDir>
-      <DeployDir Condition="'$(TargetFramework)'=='net8.0-windows'">C:\ProgramData\Autodesk\Revit\Addins\2026</DeployDir>
-    </PropertyGroup>
-    <MakeDir Directories="$(DeployDir)\Resources\Icons"
-             Condition="!Exists('$(DeployDir)\Resources\Icons')" />
-    <Copy SourceFiles="$(TargetPath)"
-          DestinationFolder="$(DeployDir)"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(MSBuildProjectDirectory)\SAGAStructuralTools.addin"
-          DestinationFolder="$(DeployDir)"
-          SkipUnchangedFiles="true" />
+  <Target Name="CaptureSagaRuntimeAssets"
+          AfterTargets="ResolvePackageAssets"
+          Condition="'$(TargetFramework)'=='net8.0-windows'">
     <ItemGroup>
-      <IconFiles Include="$(MSBuildProjectDirectory)\Resources\Icons\*.png" />
+      <SagaCapturedRuntimeAsset Include="@(RuntimeTargetsCopyLocalItems)" />
     </ItemGroup>
-    <Copy SourceFiles="@(IconFiles)"
-          DestinationFolder="$(DeployDir)\Resources\Icons"
-          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- O payload vem das referências privadas resolvidas para o target atual. -->
+  <Target Name="StageRevitPayload"
+          AfterTargets="CopyFilesToOutputDirectory"
+          DependsOnTargets="ResolveReferences"
+          Condition="'$(TargetFramework)'=='net48' or '$(TargetFramework)'=='net8.0-windows'">
+    <PropertyGroup>
+      <SagaRevitVersion Condition="'$(TargetFramework)'=='net48'">2023</SagaRevitVersion>
+      <SagaRevitVersion Condition="'$(TargetFramework)'=='net8.0-windows'">2026</SagaRevitVersion>
+      <SagaStagingDirectory>$(SagaArtifactsRoot)\Revit$(SagaRevitVersion)</SagaStagingDirectory>
+      <SagaPayloadInput>$(IntermediateOutputPath)SAGAStructuralTools.payload-input.txt</SagaPayloadInput>
+      <SagaProjectReferenceInput>$(IntermediateOutputPath)SAGAStructuralTools.project-references.txt</SagaProjectReferenceInput>
+    </PropertyGroup>
+    <ItemGroup>
+      <SagaPayloadFile Include="$(TargetPath)">
+        <SagaTargetPath>SAGAStructuralTools\$(TargetFileName)</SagaTargetPath>
+        <SagaKind>MainAssembly</SagaKind>
+      </SagaPayloadFile>
+      <SagaPayloadFile Include="$(TargetDir)$(TargetName).deps.json"
+                       Condition="'$(TargetFramework)'=='net8.0-windows' and Exists('$(TargetDir)$(TargetName).deps.json')">
+        <SagaTargetPath>SAGAStructuralTools\$(TargetName).deps.json</SagaTargetPath>
+        <SagaKind>DependencyContext</SagaKind>
+      </SagaPayloadFile>
+      <SagaPayloadFile Include="$(TargetDir)$(TargetName).pdb"
+                       Condition="Exists('$(TargetDir)$(TargetName).pdb')">
+        <SagaTargetPath>SAGAStructuralTools\$(TargetName).pdb</SagaTargetPath>
+        <SagaKind>OptionalSymbols</SagaKind>
+      </SagaPayloadFile>
+      <SagaPayloadFile Include="@(ReferenceCopyLocalPaths)">
+        <SagaTargetPath>SAGAStructuralTools\%(ReferenceCopyLocalPaths.DestinationSubDirectory)%(ReferenceCopyLocalPaths.Filename)%(ReferenceCopyLocalPaths.Extension)</SagaTargetPath>
+        <SagaKind>ResolvedReference</SagaKind>
+      </SagaPayloadFile>
+      <!--
+        RuntimeCopyLocalItems conserva assets runtime resolvidos que podem ser
+        suprimidos de ReferenceCopyLocalPaths pelo conflito com o shared
+        framework (caso de System.Text.Encoding.CodePages no .NET 8).
+      -->
+      <SagaPayloadFile Include="@(RuntimeCopyLocalItems)"
+                       Condition="'$(TargetFramework)'=='net8.0-windows'">
+        <SagaTargetPath>SAGAStructuralTools\%(RuntimeCopyLocalItems.DestinationSubPath)</SagaTargetPath>
+        <SagaKind>ResolvedRuntimeAsset</SagaKind>
+      </SagaPayloadFile>
+      <SagaPayloadFile Include="@(SagaCapturedRuntimeAsset)"
+                       Condition="'$(TargetFramework)'=='net8.0-windows'">
+        <SagaTargetPath>SAGAStructuralTools\%(SagaCapturedRuntimeAsset.Filename)%(SagaCapturedRuntimeAsset.Extension)</SagaTargetPath>
+        <SagaKind>ResolvedRuntimeTargetAsset</SagaKind>
+      </SagaPayloadFile>
+      <SagaPayloadFile Include="$(SagaAddinManifest)">
+        <SagaTargetPath>SAGAStructuralTools.addin</SagaTargetPath>
+        <SagaKind>AddinManifest</SagaKind>
+      </SagaPayloadFile>
+      <SagaIconFile Include="$(MSBuildProjectDirectory)\Resources\Icons\*.png">
+        <SagaIconTargetPath>SAGAStructuralTools\Resources\Icons\%(Filename)%(Extension)</SagaIconTargetPath>
+      </SagaIconFile>
+      <SagaPayloadFile Include="@(SagaIconFile)">
+        <SagaTargetPath>%(SagaIconFile.SagaIconTargetPath)</SagaTargetPath>
+        <SagaKind>Resource</SagaKind>
+      </SagaPayloadFile>
+      <SagaExpectedProjectReference Include="@(ProjectReference)">
+        <SagaAssemblyName>%(Filename).dll</SagaAssemblyName>
+      </SagaExpectedProjectReference>
+    </ItemGroup>
+    <WriteLinesToFile File="$(SagaPayloadInput)"
+                      Lines="@(SagaPayloadFile->'%(FullPath)|%(SagaTargetPath)|%(SagaKind)')"
+                      Overwrite="true"
+                      Encoding="UTF-8" />
+    <WriteLinesToFile File="$(SagaProjectReferenceInput)"
+                      Lines="@(SagaExpectedProjectReference->'%(SagaAssemblyName)')"
+                      Overwrite="true"
+                      Encoding="UTF-8" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SagaPayloadTool)&quot; -InputManifest &quot;$(SagaPayloadInput)&quot; -ProjectReferenceManifest &quot;$(SagaProjectReferenceInput)&quot; -StagingDirectory &quot;$(SagaStagingDirectory)&quot; -ArtifactsRoot &quot;$(SagaArtifactsRoot)&quot; -TargetFramework &quot;$(TargetFramework)&quot; -RevitVersion &quot;$(SagaRevitVersion)&quot;" />
+  </Target>
+
+  <Target Name="DeployToRevit"
+          AfterTargets="StageRevitPayload"
+          DependsOnTargets="StageRevitPayload"
+          Condition="('$(TargetFramework)'=='net48' or '$(TargetFramework)'=='net8.0-windows') and '$(DeployToRevit)'=='true'">
+    <PropertyGroup>
+      <SagaRevitVersion Condition="'$(TargetFramework)'=='net48'">2023</SagaRevitVersion>
+      <SagaRevitVersion Condition="'$(TargetFramework)'=='net8.0-windows'">2026</SagaRevitVersion>
+      <SagaStagingDirectory>$(SagaArtifactsRoot)\Revit$(SagaRevitVersion)</SagaStagingDirectory>
+      <SagaDeployDirectory>C:\ProgramData\Autodesk\Revit\Addins\$(SagaRevitVersion)</SagaDeployDirectory>
+    </PropertyGroup>
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SagaDeployTool)&quot; -StagingDirectory &quot;$(SagaStagingDirectory)&quot; -DestinationDirectory &quot;$(SagaDeployDirectory)&quot; -ExpectedTargetFramework &quot;$(TargetFramework)&quot; -ExpectedRevitVersion &quot;$(SagaRevitVersion)&quot;" />
   </Target>
 
 </Project>

@@ -8,4 +8,8 @@
     <VendorId>SAGA</VendorId>
     <VendorDescription>SAGA Structural Tools — Conversor IFC para Famílias Gerdau</VendorDescription>
   </AddIn>
+  <ManifestSettings>
+    <UseRevitContext>False</UseRevitContext>
+    <ContextName>SAGAStructuralTools</ContextName>
+  </ManifestSettings>
 </RevitAddIns>
