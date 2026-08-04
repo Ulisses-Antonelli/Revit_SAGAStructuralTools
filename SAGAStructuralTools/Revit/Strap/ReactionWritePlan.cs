@@ -10,18 +10,24 @@ namespace SAGAStructuralTools.Revit.Strap
         internal ReactionWritePlanItem(
             long elementId,
             string nodeId,
-            ConsolidatedReaction reaction)
+            ConsolidatedReaction reaction,
+            ReactionValueSnapshot observedValues)
         {
             if (string.IsNullOrWhiteSpace(nodeId))
                 throw new ArgumentException("NO_PILAR é obrigatório.", nameof(nodeId));
             ElementId = elementId;
             NodeId = nodeId;
             Reaction = reaction ?? throw new ArgumentNullException(nameof(reaction));
+            ObservedValues = observedValues ??
+                throw new ArgumentNullException(nameof(observedValues));
+            DesiredValues = ReactionValueSnapshot.FromReaction(reaction);
         }
 
         internal long ElementId { get; }
         internal string NodeId { get; }
         internal ConsolidatedReaction Reaction { get; }
+        internal ReactionValueSnapshot ObservedValues { get; }
+        internal ReactionValueSnapshot DesiredValues { get; }
     }
 
     internal sealed class ReactionWritePlan

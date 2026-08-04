@@ -52,8 +52,12 @@ namespace SAGAStructuralTools.Revit.Strap
                 }
             }
 
-            foreach (string name in StrapParameterNames.Results)
+            var currentValues = new double?[StrapParameterNames.Results.Length];
+            for (int resultIndex = 0;
+                resultIndex < StrapParameterNames.Results.Length;
+                resultIndex++)
             {
+                string name = StrapParameterNames.Results[resultIndex];
                 Parameter[] parameters = element.GetParameters(name).ToArray();
                 if (parameters.Length != 1)
                 {
@@ -68,12 +72,17 @@ namespace SAGAStructuralTools.Revit.Strap
                     SpecTypeId.Number,
                     requireWritable: true,
                     errors);
+                if (parameters[0].StorageType == StorageType.Double)
+                    currentValues[resultIndex] = parameters[0].AsDouble();
             }
 
             return new StrapConnectionCandidate(
                 element.Id.GetId(),
                 nodeId,
-                errors);
+                errors,
+                currentValues.All(value => value.HasValue)
+                    ? new ReactionValueSnapshot(currentValues.Select(value => value.Value))
+                    : null);
         }
 
         internal Parameter GetWritableResultParameter(Element element, string name)

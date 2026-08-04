@@ -155,10 +155,34 @@ namespace SAGAStructuralTools.Commands.Strap
                 return Result.Cancelled;
             }
 
-            new StrapReactionWriter().Write(document, window.WritePlan);
-            TaskDialog.Show(
-                "Importar Reacoes STRAP",
-                window.WritePlan.Items.Count + " linha(s) importada(s) com sucesso.");
+            ReactionWriteResult writeResult = new StrapReactionWriter().Write(document, window.WritePlan);
+            SagaLog.Write("Resultado da gravação STRAP: " + writeResult.Status +
+                ", gravados=" + writeResult.UpdatedItems +
+                ", já atualizados=" + writeResult.AlreadyUpdatedItems);
+            if (writeResult.Status == ReactionWriteStatus.ValidationConflict)
+            {
+                string conflicts = string.Join(Environment.NewLine,
+                    writeResult.Conflicts.Select(x => $"ElementId {x.ElementId}: {x.ParameterName}"));
+                TaskDialog.Show("Importar Reacoes STRAP",
+                    "O modelo mudou depois da prévia. Nenhuma transação foi iniciada." +
+                    Environment.NewLine + conflicts + Environment.NewLine +
+                    "Reabra a prévia antes de tentar novamente.");
+                return Result.Cancelled;
+            }
+            if (writeResult.Status == ReactionWriteStatus.RolledBack)
+            {
+                TaskDialog.Show("Importar Reacoes STRAP",
+                    "Nenhuma alteração foi confirmada no modelo.");
+                return Result.Failed;
+            }
+            if (writeResult.Status == ReactionWriteStatus.NoChanges)
+            {
+                TaskDialog.Show("Importar Reacoes STRAP",
+                    "Nenhuma alteração era necessária; os valores já estavam atualizados.");
+                return Result.Succeeded;
+            }
+            TaskDialog.Show("Importar Reacoes STRAP",
+                writeResult.UpdatedItems + " elemento(s) atualizado(s) com sucesso.");
             return Result.Succeeded;
         }
 
