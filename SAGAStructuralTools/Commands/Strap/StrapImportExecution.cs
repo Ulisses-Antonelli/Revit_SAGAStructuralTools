@@ -108,8 +108,13 @@ namespace SAGAStructuralTools.Commands.Strap
             }
 
             Document document = commandData.Application.ActiveUIDocument.Document;
-            var candidates = new StrapElementMapper().Collect(document);
-            var viewModel = new ImportStrapReactionsViewModel(filePath, import, candidates);
+            var targetProfiles = StrapTargetProfiles.All;
+            StrapCandidateCatalog candidates = new StrapElementMapper()
+                .CollectAll(document, targetProfiles);
+            foreach (StrapTargetProfile profile in targetProfiles)
+                SagaLog.Write($"Candidatos STRAP preparados: perfil={profile.Id}, categoria={profile.BuiltInCategory}, quantidade={candidates.Get(profile).Count}.");
+            var viewModel = new ImportStrapReactionsViewModel(
+                filePath, import, targetProfiles, candidates, SagaLog.Write);
             LogWindowRuntime();
             SagaLog.Write("Antes do construtor da janela de previa.");
             var window = new ImportStrapReactionsWindow(viewModel);

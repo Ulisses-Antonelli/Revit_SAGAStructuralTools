@@ -43,7 +43,7 @@ public sealed class ReactionWritePlanTests
         Assert.Equal(0, result.ParameterWrites);
     }
 
-    private static ReactionWritePlan Plan(ReactionValueSnapshot observed, ConsolidatedReaction reaction) => new ReactionWritePlan(new[] { new ReactionWritePlanItem(10, "001", reaction, observed) });
+    private static ReactionWritePlan Plan(ReactionValueSnapshot observed, ConsolidatedReaction reaction) => new ReactionWritePlan(new[] { new ReactionWritePlanItem(StrapTargetProfiles.StructuralColumns, 10, "001", reaction, observed) });
     private static ReactionValueSnapshot Zero() => Snapshot(0);
     private static ReactionValueSnapshot Snapshot(double first) => new ReactionValueSnapshot(new[] { first, 0, 0, 0, 0, 0, 0 });
     internal static ConsolidatedReaction Reaction() => new ConsolidatedReaction("001", 1, 2, 3, -1, 4, 5, 6);

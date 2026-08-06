@@ -12,7 +12,12 @@
     <Compile Include="..\SAGAStructuralTools\UI\ViewModels\RelayCommand.cs" Link="Source\RelayCommand.cs" />
     <Compile Include="..\SAGAStructuralTools\UI\ViewModels\Strap\*.cs" Link="Source\%(Filename)%(Extension)" />
     <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapParameterNames.cs" Link="Source\StrapParameterNames.cs" />
-    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapConnectionCandidate.cs" Link="Source\StrapConnectionCandidate.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetCandidate.cs" Link="Source\StrapTargetCandidate.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetProfile.cs" Link="Source\StrapTargetProfile.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetProfiles.cs" Link="Source\StrapTargetProfiles.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapCandidateCatalog.cs" Link="Source\StrapCandidateCatalog.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetMapping.cs" Link="Source\StrapTargetMapping.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionWriteTargetGuard.cs" Link="Source\ReactionWriteTargetGuard.cs" />
     <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionValueSnapshot.cs" Link="Source\ReactionValueSnapshot.cs" />
     <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionWritePlan.cs" Link="Source\ReactionWritePlan.cs" />
     <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionWriteResult.cs" Link="Source\ReactionWriteResult.cs" />

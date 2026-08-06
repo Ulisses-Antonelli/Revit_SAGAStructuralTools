@@ -8,133 +8,82 @@ namespace SAGAStructuralTools.Revit.Strap
 {
     internal sealed class RevitReactionParameterValidator
     {
-        internal StrapConnectionCandidate ValidateCandidate(Element element)
+        internal StrapTargetCandidate ValidateCandidate(Element element, StrapTargetProfile profile)
         {
-            if (element == null)
-                throw new ArgumentNullException(nameof(element));
+            if (element == null) throw new ArgumentNullException(nameof(element));
+            if (profile == null) throw new ArgumentNullException(nameof(profile));
+            long elementId = element.Id.GetId();
+            var errors = new List<string>();
+            if (element.Category == null || element.Category.Id.GetId() != profile.CategoryId)
+                errors.Add($"O elemento {elementId} não pertence à categoria {profile.DisplayName}.");
 
-            var categoryErrors = new List<string>();
-            if (element.Category == null ||
-                element.Category.Id.GetId() !=
-                (long)BuiltInCategory.OST_StructConnections)
-            {
-                categoryErrors.Add("O elemento não pertence a OST_StructConnections.");
-            }
-
-            Parameter[] nodeParameters = element
-                .GetParameters(StrapParameterNames.Node)
-                .ToArray();
-            if (nodeParameters.Length == 0)
-                return null;
-
-            var errors = categoryErrors;
+            Parameter[] nodeParameters = element.GetParameters(profile.AssociationParameterName).ToArray();
+            if (nodeParameters.Length == 0) return null;
             string nodeId = null;
             if (nodeParameters.Length != 1)
-            {
-                errors.Add("Deve existir exatamente um parâmetro SGA_NO_PILAR.");
-            }
+                errors.Add($"O elemento {elementId} deve possuir exatamente um parâmetro {profile.AssociationParameterName}.");
             else
             {
                 Parameter parameter = nodeParameters[0];
-                ValidateSharedInstanceParameter(
-                    element,
-                    parameter,
-                    StrapParameterNames.Node,
-                    StorageType.String,
-                    SpecTypeId.String.Text,
-                    requireWritable: false,
-                    errors);
+                ValidateSharedInstanceParameter(element, parameter, profile.AssociationParameterName,
+                    StorageType.String, SpecTypeId.String.Text, false, errors);
                 if (parameter.StorageType == StorageType.String)
                 {
                     nodeId = (parameter.AsString() ?? string.Empty).Trim();
                     if (nodeId.Length == 0)
-                        errors.Add("SGA_NO_PILAR está vazio.");
+                        errors.Add($"O parâmetro {profile.AssociationParameterName} do elemento {elementId} está vazio.");
                 }
             }
 
-            var currentValues = new double?[StrapParameterNames.Results.Length];
-            for (int resultIndex = 0;
-                resultIndex < StrapParameterNames.Results.Length;
-                resultIndex++)
+            string[] resultNames = profile.ReactionParameterNames.ToArray();
+            var currentValues = new double?[resultNames.Length];
+            for (int index = 0; index < resultNames.Length; index++)
             {
-                string name = StrapParameterNames.Results[resultIndex];
+                string name = resultNames[index];
                 Parameter[] parameters = element.GetParameters(name).ToArray();
                 if (parameters.Length != 1)
                 {
-                    errors.Add($"Deve existir exatamente um parâmetro {name}.");
+                    errors.Add($"O elemento {elementId} não possui exatamente um parâmetro {name}.");
                     continue;
                 }
-                ValidateSharedInstanceParameter(
-                    element,
-                    parameters[0],
-                    name,
-                    StorageType.Double,
-                    SpecTypeId.Number,
-                    requireWritable: true,
-                    errors);
+                ValidateSharedInstanceParameter(element, parameters[0], name, StorageType.Double,
+                    SpecTypeId.Number, true, errors);
                 if (parameters[0].StorageType == StorageType.Double)
-                    currentValues[resultIndex] = parameters[0].AsDouble();
+                    currentValues[index] = parameters[0].AsDouble();
             }
 
-            return new StrapConnectionCandidate(
-                element.Id.GetId(),
-                nodeId,
-                errors,
+            return new StrapTargetCandidate(elementId, nodeId, errors,
                 currentValues.All(value => value.HasValue)
-                    ? new ReactionValueSnapshot(currentValues.Select(value => value.Value))
-                    : null);
+                    ? new ReactionValueSnapshot(currentValues.Select(value => value.Value)) : null);
         }
 
         internal Parameter GetWritableResultParameter(Element element, string name)
         {
             Parameter[] parameters = element.GetParameters(name).ToArray();
             if (parameters.Length != 1)
-                throw new InvalidOperationException(
-                    $"O elemento não possui exatamente um parâmetro {name}.");
+                throw new InvalidOperationException($"O elemento {element.Id.GetId()} não possui exatamente um parâmetro {name}.");
             var errors = new List<string>();
-            ValidateSharedInstanceParameter(
-                element,
-                parameters[0],
-                name,
-                StorageType.Double,
-                SpecTypeId.Number,
-                requireWritable: true,
-                errors);
-            if (errors.Count > 0)
-                throw new InvalidOperationException(string.Join(" ", errors));
+            ValidateSharedInstanceParameter(element, parameters[0], name, StorageType.Double,
+                SpecTypeId.Number, true, errors);
+            if (errors.Count > 0) throw new InvalidOperationException(string.Join(" ", errors));
             return parameters[0];
         }
 
-        private static void ValidateSharedInstanceParameter(
-            Element owner,
-            Parameter parameter,
-            string name,
-            StorageType storageType,
-            ForgeTypeId dataType,
-            bool requireWritable,
+        private static void ValidateSharedInstanceParameter(Element owner, Parameter parameter,
+            string name, StorageType storageType, ForgeTypeId dataType, bool requireWritable,
             ICollection<string> errors)
         {
-            if (parameter == null)
-            {
-                errors.Add($"{name} está ausente.");
-                return;
-            }
-            if (!parameter.IsShared)
-                errors.Add($"{name} não é Shared Parameter.");
-            if (parameter.Element == null ||
-                parameter.Element.Id.GetId() != owner.Id.GetId())
-            {
-                errors.Add($"{name} não é parâmetro de instância do elemento.");
-            }
+            long elementId = owner.Id.GetId();
+            if (parameter == null) { errors.Add($"O elemento {elementId} não possui o parâmetro {name}."); return; }
+            if (!parameter.IsShared) errors.Add($"O parâmetro {name} do elemento {elementId} não é Shared Parameter.");
+            if (parameter.Element == null || parameter.Element.Id.GetId() != elementId)
+                errors.Add($"O parâmetro {name} do elemento {elementId} não é de instância.");
             if (parameter.StorageType != storageType)
-                errors.Add($"{name} possui StorageType incompatível.");
-            if (parameter.Definition == null ||
-                parameter.Definition.GetDataType() != dataType)
-            {
-                errors.Add($"{name} possui Data Type incompatível.");
-            }
+                errors.Add($"O parâmetro {name} do elemento {elementId} possui StorageType incompatível.");
+            if (parameter.Definition == null || parameter.Definition.GetDataType() != dataType)
+                errors.Add($"O parâmetro {name} do elemento {elementId} possui Data Type incompatível.");
             if (requireWritable && parameter.IsReadOnly)
-                errors.Add($"{name} é somente leitura.");
+                errors.Add($"O parâmetro {name} do elemento {elementId} é somente leitura.");
         }
     }
 }

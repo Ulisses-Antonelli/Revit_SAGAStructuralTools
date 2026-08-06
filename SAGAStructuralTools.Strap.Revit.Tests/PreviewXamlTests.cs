@@ -13,5 +13,10 @@ public sealed class PreviewXamlTests
         Assert.Contains("Desmarcar todas", xaml);
         Assert.Contains("ForceUnit, Mode=OneWay", xaml);
         Assert.Contains("MomentUnit, Mode=OneWay", xaml);
+        Assert.Contains("Categoria de destino:", xaml);
+        Assert.Contains("SelectedTargetProfile", xaml);
+        Assert.Contains("SelectedRow.Errors", xaml);
+        Assert.Contains("Nenhuma alteração será gravada para esta linha.", xaml);
+        Assert.Contains("ToolTip", xaml);
     }
 }

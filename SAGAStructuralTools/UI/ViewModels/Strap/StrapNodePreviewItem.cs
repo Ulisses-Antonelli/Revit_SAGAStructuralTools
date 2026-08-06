@@ -17,13 +17,17 @@ namespace SAGAStructuralTools.UI.ViewModels.Strap
             int? sourceLine,
             ConsolidatedReaction reaction,
             IEnumerable<string> errors,
-            ReactionValueSnapshot currentValues = null)
+            ReactionValueSnapshot currentValues = null,
+            StrapTargetProfile targetProfile = null,
+            bool isAwaitingCategory = false)
         {
             NodeId = nodeId ?? string.Empty;
             ElementId = elementId;
             SourceLine = sourceLine;
             OriginalReaction = reaction;
             CurrentValues = currentValues;
+            TargetProfile = targetProfile;
+            IsAwaitingCategory = isAwaitingCategory;
             Errors = (errors ?? Array.Empty<string>())
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .ToArray();
@@ -32,10 +36,13 @@ namespace SAGAStructuralTools.UI.ViewModels.Strap
 
         internal ConsolidatedReaction OriginalReaction { get; }
         internal ReactionValueSnapshot CurrentValues { get; }
-        internal IReadOnlyCollection<string> Errors { get; }
+        internal StrapTargetProfile TargetProfile { get; }
+        public IReadOnlyCollection<string> Errors { get; }
+        public bool IsAwaitingCategory { get; }
         public bool IsValid =>
             OriginalReaction != null && ElementId.HasValue &&
-            CurrentValues != null && Errors.Count == 0;
+            CurrentValues != null && TargetProfile != null && Errors.Count == 0;
+        public bool IsInvalid => !IsValid && !IsAwaitingCategory;
 
         public string NodeId { get; }
         public long? ElementId { get; }
@@ -44,10 +51,13 @@ namespace SAGAStructuralTools.UI.ViewModels.Strap
             !CurrentValues.IsEquivalentTo(DesiredValues);
         public bool IsAlreadyUpdated => IsValid && !IsPending;
         public bool CanSelect => IsPending;
-        public string Classification => !IsValid
-            ? "Com erro"
+        public string Classification => IsAwaitingCategory
+            ? "Aguardando categoria"
+            : !IsValid ? "Com erro"
             : IsPending ? "Será atualizada" : "Já está atualizada";
-        public string Status => IsValid ? Classification : string.Join(" ", Errors);
+        public string DiagnosticText => string.Join(" ", Errors);
+        public string Status => IsInvalid ? DiagnosticText : Classification;
+        public bool CanRotate => OriginalReaction != null;
         public bool IsSelected
         {
             get => _isSelected;
@@ -65,7 +75,7 @@ namespace SAGAStructuralTools.UI.ViewModels.Strap
             get => _rotate90;
             set
             {
-                if (!IsValid)
+                if (!CanRotate)
                     value = false;
                 if (Set(ref _rotate90, value))
                 {
@@ -101,6 +111,7 @@ namespace SAGAStructuralTools.UI.ViewModels.Strap
 
         internal ReactionWritePlanItem ToPlanItem()
             => new ReactionWritePlanItem(
+                TargetProfile,
                 ElementId.Value,
                 NodeId,
                 DisplayReaction,
@@ -121,6 +132,7 @@ namespace SAGAStructuralTools.UI.ViewModels.Strap
             OnPropertyChanged(nameof(Classification));
             OnPropertyChanged(nameof(Status));
             OnPropertyChanged(nameof(ParameterDetails));
+            OnPropertyChanged(nameof(CanRotate));
         }
     }
 }

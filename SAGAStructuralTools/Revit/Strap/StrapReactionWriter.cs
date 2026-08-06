@@ -20,8 +20,21 @@ namespace SAGAStructuralTools.Revit.Strap
             var mappingConflicts = new List<ReactionWriteConflict>();
             foreach (var item in plan.Items)
             {
+                StrapTargetProfile profile = StrapTargetProfiles.Find(item.TargetProfileId);
                 Element element = document.GetElement(ToElementId(item.ElementId));
-                StrapConnectionCandidate candidate = element == null ? null : _validator.ValidateCandidate(element);
+                if (profile == null || !ReactionWriteTargetGuard.MatchesProfile(item, profile))
+                {
+                    mappingConflicts.Add(new ReactionWriteConflict(item.ElementId, item.NodeId, "<perfil>", double.NaN, double.NaN, double.NaN));
+                    continue;
+                }
+                long actualCategoryId = element?.Category?.Id.GetId() ?? long.MinValue;
+                SagaLog.Write($"Revalidação STRAP: perfil={profile.Id}, ElementId={item.ElementId}, categoriaEsperada={item.ExpectedCategory}, categoriaAtual={actualCategoryId}.");
+                if (element == null || !ReactionWriteTargetGuard.MatchesCategory(item, actualCategoryId))
+                {
+                    mappingConflicts.Add(new ReactionWriteConflict(item.ElementId, item.NodeId, "<categoria>", item.ExpectedCategoryId, actualCategoryId, item.ExpectedCategoryId));
+                    continue;
+                }
+                StrapTargetCandidate candidate = _validator.ValidateCandidate(element, profile);
                 if (candidate == null || !candidate.IsValid || !string.Equals(candidate.NodeId, item.NodeId, StringComparison.Ordinal))
                 {
                     mappingConflicts.Add(new ReactionWriteConflict(item.ElementId, item.NodeId, "<elemento>", double.NaN, double.NaN, double.NaN));
@@ -50,7 +63,7 @@ namespace SAGAStructuralTools.Revit.Strap
                     foreach (var operation in preflight.Operations)
                     {
                         Element element = elements[operation.Item.ElementId];
-                        string name = StrapParameterNames.Results[operation.ParameterIndex];
+                        string name = operation.Item.ReactionParameterNames.ElementAt(operation.ParameterIndex);
                         Parameter parameter = _validator.GetWritableResultParameter(element, name);
                         SagaLog.Write($"Gravação STRAP: ElementId={operation.Item.ElementId}, NO_PILAR={operation.Item.NodeId}, parâmetro={name}, anterior={Format(operation.Current)}, novo={Format(operation.Desired)}");
                         if (!parameter.Set(operation.Desired)) throw new InvalidOperationException($"Falha ao gravar {name}.");
