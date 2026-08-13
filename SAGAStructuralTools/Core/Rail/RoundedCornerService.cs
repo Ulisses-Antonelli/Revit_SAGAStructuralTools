@@ -2602,7 +2602,7 @@ namespace SAGAStructuralTools.Core.Rail
                     "Nenhum nível foi encontrado para criar o perfil curvo.");
         }
 
-        internal static void CopyPlacementParameters(
+        private static void CopyPlacementParameters(
             FamilyInstance source,
             FamilyInstance target)
         {

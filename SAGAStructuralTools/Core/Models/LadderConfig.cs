@@ -46,7 +46,8 @@ namespace SAGAStructuralTools.Core.Models
         public double RingSpacing         { get; set; } = LadderDefaults.RingSpacing;         // usado nos dois modos
         public string RingFamilyPath      { get; set; }
         public string RingFamilyType      { get; set; }
-        public int    StrapCount          { get; set; } = LadderDefaults.StrapCount;          // barras verticais da gaiola
+        public double StrapAngleStepDeg   { get; set; } = LadderDefaults.StrapAngleStepDeg;   // espaçamento angular entre barras verticais
+        public int    StrapCount          { get; set; } = LadderDefaults.StrapCount;          // teto de barras verticais (a partir do ápice)
         public string StrapFamilyPath     { get; set; }
         public string StrapFamilyType     { get; set; }
 

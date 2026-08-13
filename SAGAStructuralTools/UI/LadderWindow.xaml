@@ -303,6 +303,36 @@
                                                FontSize="12" FontWeight="SemiBold" Foreground="#172B4D"
                                                TextWrapping="Wrap"/>
                                 </Border>
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Base da escada" Margin="0,12,0,0"/>
+                                <ComboBox Style="{StaticResource RoundedComboBox}"
+                                          SelectedIndex="{Binding BaseModeIndex, Mode=TwoWay}"
+                                          ToolTip="Como definir a elevação da base, além do afastamento configurado em 'Níveis e afastamentos'.">
+                                    <ComboBoxItem Content="Automático (nível mais próximo abaixo do desembarque)"/>
+                                    <ComboBoxItem Content="Nível existente"/>
+                                    <ComboBoxItem Content="Altura manual"/>
+                                </ComboBox>
+
+                                <StackPanel Margin="0,8,0,0"
+                                            Visibility="{Binding IsLevelModeVisible, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Nível de referência"/>
+                                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                                              ItemsSource="{Binding AvailableLevelNames}"
+                                              SelectedItem="{Binding SelectedLevelName, Mode=TwoWay}"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="0,8,0,0"
+                                            Visibility="{Binding IsManualHeightModeVisible, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Altura da escada"/>
+                                    <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Style="{StaticResource CleanInput}"
+                                                     Text="{Binding ManualHeightMm, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                     ToolTip="Distância total da base ao desembarque, ignorando os níveis do modelo. Os afastamentos (offsets) abaixo ainda se aplicam sobre essa base."/>
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -595,12 +625,13 @@
                                             </Border>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Projeção (do eixo do degrau)"/>
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Ø do anel (aprox.)"/>
                                             <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                                 <DockPanel>
                                                     <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                     <TextBox Style="{StaticResource CleanInput}"
-                                                             Text="{Binding CageProjection, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                                             Text="{Binding CageProjection, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                             ToolTip="Referência de diâmetro do anel — na prática vira a projeção (sagitta) usada pra curvar o arco a partir do eixo do degrau, então o diâmetro real construído fica próximo mas não idêntico a este valor. Mantenha igual à largura alargada da saída (Width + 2×Alargamento) pra evitar pernas desproporcionais no anel de entrada."/>
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
@@ -611,7 +642,7 @@
                                                     <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                     <TextBox Style="{StaticResource CleanInput}"
                                                              Text="{Binding RingSetback, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                                             ToolTip="0 = anel encosta no montante. Se &gt; 0, o anel recua esse tanto e um trecho reto fecha a lacuna, cobrindo o montante por completo."/>
+                                                             ToolTip="0 = anel encosta no montante. Se &gt; 0, o anel recua esse tanto e um trecho reto fecha a lacuna, cobrindo o montante por completo. Também define a perna do anel de entrada (topo do prolongamento), quando houver."/>
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
@@ -672,19 +703,33 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
                                             <ColumnDefinition Width="2*"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Barras verticais"/>
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Ângulo entre barras verticais"/>
+                                            <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="°" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox Style="{StaticResource CleanInput}"
+                                                             Text="{Binding StrapAngleStepDeg, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                             ToolTip="Espaçamento angular entre barras, a partir do ápice do anel (0°)."/>
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Barras verticais (teto)"/>
                                             <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
                                                 <DockPanel>
                                                     <TextBlock DockPanel.Dock="Right" Text="un" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                     <TextBox Style="{StaticResource CleanInput}"
-                                                             Text="{Binding StrapCount, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                                             Text="{Binding StrapCount, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                             ToolTip="Quantidade máxima de barras, contadas a partir do ápice do anel pra fora (nunca passa disso, mesmo que a varredura comportasse mais). A contagem real ainda pode ficar menor: barras fora do alcance da meia-lua de entrada param no último anel intermediário, sem tentar alcançar um anel que não existe ali."/>
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="2" Visibility="{Binding IsStrapFamilyPickerVisible, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel Grid.Column="4" Visibility="{Binding IsStrapFamilyPickerVisible, Converter={StaticResource BoolToVis}}">
                                             <TextBlock Style="{StaticResource FieldLabel}" Text="Família da barra vertical (.rfa)"/>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>

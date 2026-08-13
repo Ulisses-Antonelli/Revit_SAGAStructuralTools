@@ -24,12 +24,15 @@ namespace SAGAStructuralTools.Core.Domain
         public const double CageStartHeight   = 2200.0;
         public const double CageProjection    = 700.0;
         public const double RingSpacing       = 1500.0;
-        public const int    StrapCount        = 5;
-        public const double RingSetback       = 0.0; // 0 = anel encosta no montante (comportamento atual)
+        public const double StrapAngleStepDeg = 45.0; // espaçamento angular entre barras verticais
+        public const int    StrapCount        = 5;    // teto de barras verticais
+        public const double RingSetback        = 100.0; // 0 = anel encosta no montante (gera geometria degenerada no anel de entrada)
 
         // Desembarque (mm)
         public const double ExtensionHeight   = 1100.0;
-        public const double ExitFlare         = 150.0;
+        // Width + 2×ExitFlare = CageProjection por padrão, pra largura alargada da
+        // saída bater com o Ø do anel de entrada (evita pernas desproporcionais).
+        public const double ExitFlare         = 125.0;
         // Altura do trecho quebrado na base do alargamento (ângulo ~53° com ExitFlare padrão).
         public const double ExitKinkHeight    = 200.0;
 

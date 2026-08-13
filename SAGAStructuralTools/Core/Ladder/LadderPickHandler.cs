@@ -72,10 +72,15 @@ namespace SAGAStructuralTools.Core.Ladder
                 double beamWidthMm = GeometryMeasure.ExtentAlongMm(doc, beam.Id, lateral);
                 double halfWidthMm = beamWidthMm > 1.0 ? beamWidthMm / 2.0 : 0.0;
 
-                // Nível-base: o nível mais alto que esteja suficientemente abaixo do topo.
-                var level = new FilteredElementCollector(doc)
+                // Todos os níveis do documento — usados também pra seleção manual na UI.
+                var allLevels = new FilteredElementCollector(doc)
                     .OfClass(typeof(Level))
                     .Cast<Level>()
+                    .OrderBy(l => l.Elevation)
+                    .ToList();
+
+                // Nível-base: o nível mais alto que esteja suficientemente abaixo do topo.
+                var level = allLevels
                     .Where(l => (topZ - l.Elevation) * 304.8 >= MinLevelDropMm)
                     .OrderByDescending(l => l.Elevation)
                     .FirstOrDefault();
@@ -97,7 +102,10 @@ namespace SAGAStructuralTools.Core.Ladder
                     BeamHalfWidthMm = halfWidthMm,
                     BeamName        = beam.Name,
                     LevelName       = level.Name,
-                    BeamId          = beam.Id
+                    BeamId          = beam.Id,
+                    AvailableLevels = allLevels
+                        .Select(l => new LadderLevelOption { Name = l.Name, ElevationFt = l.Elevation })
+                        .ToList()
                 });
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)

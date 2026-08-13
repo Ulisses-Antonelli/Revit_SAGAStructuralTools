@@ -225,20 +225,57 @@ namespace SAGAStructuralTools.Core.Ladder
                 // some daqui — quem fecha o topo é o trecho maior (E) logo abaixo.
                 bool isLastRing = Math.Abs(elevMm - lastElevMm) < 0.01;
                 if (!isLastRing || !hasTopClosure)
-                    CreateBeam(ringSym, Line.CreateBound(At(posA, z), At(posB, z)),
+                {
+                    var dBar = CreateBeam(ringSym, Line.CreateBound(At(posA, z), At(posB, z)),
                         $"anel +{elevMm:F0} (barra horizontal)", createdIds);
+                    LogAndOrientRing(dBar, $"anel +{elevMm:F0} (barra D)");
+                }
             }
 
-            // Trecho superior de fechamento (E): substitui a barra D do último anel
-            // quando o prolongamento segue além dele — mais largo (largura já alargada
-            // da saída) e na cota onde o montante realmente termina, não na do anel.
-            if (hasTopClosure)
-                CreateBeam(ringSym, Line.CreateBound(At(flaredA, topOfMontanteZ), At(flaredB, topOfMontanteZ)),
-                    "gaiola (trecho superior de fechamento)", createdIds);
+            // Anel de entrada (topo do prolongamento): MESMO centro e raio do anel
+            // intermediário logo abaixo (mesmo "eixo do anel" — alinhamento vertical e
+            // horizontal preservado), mas varrendo só 180° (meia-circunferência de
+            // verdade) em vez do laço quase completo dos anéis intermediários. Uma
+            // meia-lua de raio R tem corda = 2R, quase sempre mais larga que o vão
+            // recuado do anel de baixo — a perna reta cobre essa sobra até o montante
+            // alargado (flaredA/flaredB).
+            if (hasTopClosure && referenceArc != null)
+            {
+                var topCenter = new XYZ(referenceArc.Center.X, referenceArc.Center.Y, topOfMontanteZ);
+                var entryArc = Arc.Create(topCenter, referenceArc.Radius,
+                    -Math.PI / 2.0, Math.PI / 2.0,
+                    referenceArc.XDirection, referenceArc.YDirection);
+
+                var arcEnd0 = entryArc.GetEndPoint(0);
+                var arcEnd1 = entryArc.GetEndPoint(1);
+                var posA3 = At(posA, topOfMontanteZ);
+                var posB3 = At(posB, topOfMontanteZ);
+                var flaredAAtTop = At(flaredA, topOfMontanteZ);
+                var flaredBAtTop = At(flaredB, topOfMontanteZ);
+
+                // Casa cada ponta do arco com o montante (A ou B) mais próximo, por
+                // proximidade — não por ordem de índice, que pode variar com a geometria.
+                var endForA = arcEnd0.DistanceTo(posA3) <= arcEnd0.DistanceTo(posB3) ? arcEnd0 : arcEnd1;
+                var endForB = endForA.IsAlmostEqualTo(arcEnd0) ? arcEnd1 : arcEnd0;
+
+                Log($"[gaiola (anel de entrada)] geometria: centro=({entryArc.Center.X:F2},{entryArc.Center.Y:F2}) " +
+                    $"raioMm={entryArc.Radius * 304.8:F0} pontaA=({endForA.X:F2},{endForA.Y:F2}) " +
+                    $"pontaB=({endForB.X:F2},{endForB.Y:F2}) pernaAMm={flaredAAtTop.DistanceTo(endForA) * 304.8:F0} " +
+                    $"pernaBMm={flaredBAtTop.DistanceTo(endForB) * 304.8:F0}");
+
+                var legA = CreateBeam(ringSym, Line.CreateBound(flaredAAtTop, endForA), "gaiola (perna A de entrada)", createdIds);
+                LogAndOrientRing(legA, "gaiola (perna A de entrada)");
+                var legB = CreateBeam(ringSym, Line.CreateBound(flaredBAtTop, endForB), "gaiola (perna B de entrada)", createdIds);
+                LogAndOrientRing(legB, "gaiola (perna B de entrada)");
+
+                var entryArcInst = CreateBeam(ringSym, entryArc, "gaiola (anel de entrada)", createdIds);
+                LogAndOrientRing(entryArcInst, "gaiola (anel de entrada)");
+            }
 
             // Tiras verticais distribuídas ao longo do arco (excluindo as extremidades,
-            // onde já estão os montantes), do primeiro ao último anel.
-            if (def.StrapCount <= 0 || referenceArc == null || def.RingElevations.Count < 2) return;
+            // onde já estão os montantes), do primeiro ao último anel — posicionadas
+            // por ângulo (StrapAngleStepDeg), não por contagem fixa.
+            if (referenceArc == null || def.RingElevations.Count < 2) return;
 
             string strapPath = config.SameProfileAll ? config.StringerFamilyPath
                               : config.SameProfileCage ? config.SupportFamilyPath
@@ -254,16 +291,53 @@ namespace SAGAStructuralTools.Core.Ladder
             }
 
             double zFirst = baseZ + def.RingElevations.First() / 304.8;
-            // Se houver fechamento superior (E), a tira acompanha até lá — senão
-            // pararia na cota do antigo último anel, deixando um vão até o topo real.
-            double zLast  = hasTopClosure ? topOfMontanteZ : baseZ + def.RingElevations.Last() / 304.8;
-            var arcCenter = new XYZ(referenceArc.Center.X, referenceArc.Center.Y, 0);
+            // Regra: não desenhar tira além de onde o anel realmente existe. O anel de
+            // entrada é uma meia-lua (só ±90° a partir do ápice) — bem mais estreita
+            // que o laço quase completo dos anéis intermediários. Uma tira fora desses
+            // ±90° não tem anel de entrada pra alcançar, então para na cota do último
+            // anel intermediário em vez de subir até o topo do prolongamento.
+            double zLastWithinEntry  = hasTopClosure ? topOfMontanteZ : baseZ + def.RingElevations.Last() / 304.8;
+            double zLastBeyondEntry  = baseZ + def.RingElevations.Last() / 304.8;
+            const double entryHalfSweepRad = Math.PI / 2.0;
 
-            for (int i = 0; i < def.StrapCount; i++)
+            var arcCenter = new XYZ(referenceArc.Center.X, referenceArc.Center.Y, 0);
+            var xVec = referenceArc.XDirection;
+            var yVec = referenceArc.YDirection;
+            double radius = referenceArc.Radius;
+            double ringHalfSweepRad = (referenceArc.GetEndParameter(1) - referenceArc.GetEndParameter(0)) / 2.0;
+            double stepRad = Math.Max(config.StrapAngleStepDeg, 1.0) * Math.PI / 180.0;
+            int maxCount = Math.Max(config.StrapCount, 0);
+
+            // Ângulo controla o espaçamento, StrapCount controla o teto — nunca passa
+            // da quantidade pedida, mesmo que a varredura do anel comportasse mais.
+            // Ímpar: uma barra no eixo (0°) + pares saindo a cada passo inteiro dali.
+            // Par: nenhuma barra no eixo — o par mais interno fica a meio passo de
+            // cada lado (o eixo passa ENTRE as duas barras centrais), e os próximos
+            // pares continuam a partir daí a cada passo inteiro.
+            bool isOdd = maxCount % 2 == 1;
+            var angles = new List<double>();
+            if (isOdd && maxCount > 0 && 0.0 < ringHalfSweepRad - 1e-6)
+                angles.Add(0.0);
+
+            double pairStart = isOdd ? stepRad : stepRad / 2.0;
+            int pairsNeeded = isOdd ? (maxCount - 1) / 2 : maxCount / 2;
+            for (int k = 0; k < pairsNeeded; k++)
             {
-                double t = (i + 1) / (double)(def.StrapCount + 1);
-                var p = referenceArc.Evaluate(t, true);
-                var xy = new XYZ(p.X, p.Y, 0);
+                double a = pairStart + k * stepRad;
+                if (a >= ringHalfSweepRad - 1e-6) break;
+                angles.Add(-a);
+                if (angles.Count < maxCount) angles.Add(a);
+            }
+            angles.Sort();
+            Log($"gaiola (tiras): tetoPedido={maxCount} paridade={(isOdd ? "ímpar (eixo)" : "par (deslocado)")} " +
+                $"tetoFinal={angles.Count} passoGraus={config.StrapAngleStepDeg:F1}");
+
+            for (int i = 0; i < angles.Count; i++)
+            {
+                double angle = angles[i];
+                var xy = arcCenter + radius * (Math.Cos(angle) * xVec + Math.Sin(angle) * yVec);
+                double zLast = Math.Abs(angle) <= entryHalfSweepRad + 1e-6 ? zLastWithinEntry : zLastBeyondEntry;
+
                 var strapInst = CreateBeam(strapSym,
                     Line.CreateBound(At(xy, zFirst), At(xy, zLast)),
                     $"tira {i + 1}", createdIds);
@@ -276,8 +350,33 @@ namespace SAGAStructuralTools.Core.Ladder
                 // Perpendicular ao centro do anel: cada tira fica radial à curvatura,
                 // não com uma rotação fixa igual ao montante.
                 var radial = xy - arcCenter;
+                Log($"[tira {i + 1}] anguloGraus={angle * 180.0 / Math.PI:F1} xy=({xy.X:F2},{xy.Y:F2}) " +
+                    $"arcCenter=({arcCenter.X:F2},{arcCenter.Y:F2}) zLastMm={zLast * 304.8:F0} " +
+                    $"radial=({radial.X:F3},{radial.Y:F3},{radial.Z:F3})");
+                if (strapInst != null)
+                {
+                    var before = strapInst.GetTransform();
+                    Log($"  [tira {i + 1}] ANTES: BasisX=({before.BasisX.X:F3},{before.BasisX.Y:F3},{before.BasisX.Z:F3}) " +
+                        $"BasisY=({before.BasisY.X:F3},{before.BasisY.Y:F3},{before.BasisY.Z:F3}) " +
+                        $"BasisZ=({before.BasisZ.X:F3},{before.BasisZ.Y:F3},{before.BasisZ.Z:F3})");
+                }
+                // A face larga precisa "olhar" para o centro do anel — alvo é o
+                // sentido inverso do radial (que aponta do centro pra fora). O alvo
+                // sozinho alinha o eixo da LARGURA ao centro (a face fina é que olha
+                // pra lá); +90° extra troca pra alinhar o eixo da ESPESSURA ao centro,
+                // fazendo a face larga apontar pra lá.
                 if (radial.GetLength() > 1e-6)
-                    OrientCrossSection(strapInst, radial.Normalize());
+                    OrientCrossSectionByTangent(strapInst, radial.Normalize().Negate(), -Math.PI / 2.0);
+                if (strapInst != null)
+                {
+                    _doc.Regenerate();
+                    var after = strapInst.GetTransform();
+                    var angleParam = strapInst.get_Parameter(BuiltInParameter.STRUCTURAL_BEND_DIR_ANGLE);
+                    Log($"  [tira {i + 1}] DEPOIS: BasisX=({after.BasisX.X:F3},{after.BasisX.Y:F3},{after.BasisX.Z:F3}) " +
+                        $"BasisY=({after.BasisY.X:F3},{after.BasisY.Y:F3},{after.BasisY.Z:F3}) " +
+                        $"BasisZ=({after.BasisZ.X:F3},{after.BasisZ.Y:F3},{after.BasisZ.Z:F3}) " +
+                        $"anguloGraus={(angleParam?.AsDouble() ?? 0) * 180.0 / Math.PI:F1}");
+                }
             }
         }
 
@@ -290,24 +389,122 @@ namespace SAGAStructuralTools.Core.Ladder
         private Arc CreateRingWithSetback(FamilySymbol ringSym, XYZ posA, XYZ posB, XYZ bulge, double z,
                                           double setbackFt, string tag, ICollection<ElementId> createdIds)
         {
-            var fullArc = Arc.Create(At(posA, z), At(posB, z), At(bulge, z));
-            if (setbackFt < 0.001 || fullArc.Length <= setbackFt * 2 + 0.01)
+            var fullArc = BuildDomeArc(posA, posB, bulge, z);
+            if (fullArc == null)
             {
-                CreateBeam(ringSym, fullArc, tag, createdIds);
+                var degenerate = Arc.Create(At(posA, z), At(posB, z), At(bulge, z));
+                var degenerateInst = CreateBeam(ringSym, degenerate, tag, createdIds);
+                LogAndOrientRing(degenerateInst, $"{tag} (arco completo)");
+                return degenerate;
+            }
+
+            var mid2d = new XYZ((posA.X + posB.X) / 2.0, (posA.Y + posB.Y) / 2.0, 0);
+            double sagittaFt = bulge.DistanceTo(mid2d);
+            double sweepGraus = (fullArc.GetEndParameter(1) - fullArc.GetEndParameter(0)) * 180.0 / Math.PI;
+            Log($"[{tag}] geometria: posA=({posA.X:F2},{posA.Y:F2}) posB=({posB.X:F2},{posB.Y:F2}) " +
+                $"bulge=({bulge.X:F2},{bulge.Y:F2}) z={z * 304.8:F0}mm setbackMm={setbackFt * 304.8:F1} " +
+                $"raio={fullArc.Radius * 304.8:F0}mm sagittaMm={sagittaFt * 304.8:F0} " +
+                $"varreduraGraus={sweepGraus:F0} centro=({fullArc.Center.X:F2},{fullArc.Center.Y:F2})");
+
+            // Recuo maior ou igual à projeção não tem solução geométrica (a corda
+            // deslocada ultrapassaria o ápice) — cai pro arco completo, sem recuo.
+            if (setbackFt < 0.001 || setbackFt >= sagittaFt - 0.001)
+            {
+                var full = CreateBeam(ringSym, fullArc, tag, createdIds);
+                LogAndOrientRing(full, $"{tag} (arco completo)");
                 return fullArc;
             }
 
-            double t0 = setbackFt / fullArc.Length;
-            var insetStart = fullArc.Evaluate(t0, true);
-            var insetEnd   = fullArc.Evaluate(1.0 - t0, true);
-            var mid        = fullArc.Evaluate(0.5, true);
-            var ringArc    = Arc.Create(insetStart, insetEnd, mid);
+            // Desloca posA/posB na direção perpendicular ao montante (lateral, rumo ao
+            // ápice), preservando a distância entre eles — a largura da escada não
+            // muda — e reconstrói o arco a partir dessa corda deslocada, com o MESMO
+            // ápice de referência. Isso garante que a barra de afastamento (trecho)
+            // seja sempre reta e ortogonal ao montante (ela é literalmente posA→recessedA,
+            // uma translação pura), em vez de "andar por ângulo" na curva original, o
+            // que a inclinava em direção ao arco.
+            var lateralDir = (bulge - mid2d).Normalize();
+            var recessedA = posA + lateralDir * setbackFt;
+            var recessedB = posB + lateralDir * setbackFt;
+            var ringArc = BuildDomeArc(recessedA, recessedB, bulge, z);
+            if (ringArc == null)
+            {
+                var fallback = CreateBeam(ringSym, fullArc, tag, createdIds);
+                LogAndOrientRing(fallback, $"{tag} (arco completo, recuo inválido)");
+                return fullArc;
+            }
 
-            CreateBeam(ringSym, ringArc, tag, createdIds);
-            CreateBeam(ringSym, Line.CreateBound(insetStart, At(posA, z)), $"{tag} (trecho A)", createdIds);
-            CreateBeam(ringSym, Line.CreateBound(insetEnd, At(posB, z)), $"{tag} (trecho B)", createdIds);
+            Log($"[{tag}] recuo: recessedA=({recessedA.X:F2},{recessedA.Y:F2}) " +
+                $"recessedB=({recessedB.X:F2},{recessedB.Y:F2}) raioRecuoMm={ringArc.Radius * 304.8:F0}mm");
+
+            var arcInst = CreateBeam(ringSym, ringArc, tag, createdIds);
+            LogAndOrientRing(arcInst, $"{tag} (arco)");
+
+            var trechoA = CreateBeam(ringSym, Line.CreateBound(At(posA, z), At(recessedA, z)), $"{tag} (trecho A)", createdIds);
+            LogAndOrientRing(trechoA, $"{tag} (trecho A)");
+
+            var trechoB = CreateBeam(ringSym, Line.CreateBound(At(posB, z), At(recessedB, z)), $"{tag} (trecho B)", createdIds);
+            LogAndOrientRing(trechoB, $"{tag} (trecho B)");
 
             return ringArc;
+        }
+
+        /// <summary>
+        /// Constrói um arco "dome" (calota) entre <paramref name="p0"/> e
+        /// <paramref name="p1"/>, passando por <paramref name="bulge"/> — centro+raio
+        /// explícitos pela fórmula da sagitta, não Arc.Create(p0,p1,p2) por 3 pontos
+        /// (ambíguo quando a sagitta é maior que o raio, caso normal de anel de gaiola
+        /// com diâmetro maior que o vão entre montantes). Retorna null se a corda ou a
+        /// sagitta forem degeneradas.
+        /// </summary>
+        private static Arc BuildDomeArc(XYZ p0, XYZ p1, XYZ bulge, double z)
+        {
+            var mid2d = new XYZ((p0.X + p1.X) / 2.0, (p0.Y + p1.Y) / 2.0, 0);
+            double halfChord = p0.DistanceTo(p1) / 2.0;
+            double sagittaFt = bulge.DistanceTo(mid2d);
+            if (halfChord < 1e-6 || sagittaFt < 1e-6) return null;
+
+            var xVec = (bulge - mid2d).Normalize();
+            var yVec = XYZ.BasisZ.CrossProduct(xVec).Normalize();
+            double radius = (halfChord * halfChord + sagittaFt * sagittaFt) / (2.0 * sagittaFt);
+            var center = At(mid2d - xVec * (radius - sagittaFt), z);
+
+            var p0z = At(p0, z);
+            var p1z = At(p1, z);
+            double angA = Math.Atan2((p0z - center).DotProduct(yVec), (p0z - center).DotProduct(xVec));
+            double angB = Math.Atan2((p1z - center).DotProduct(yVec), (p1z - center).DotProduct(xVec));
+            double startAngle = Math.Min(angA, angB);
+            double endAngle   = Math.Max(angA, angB);
+
+            return Arc.Create(center, radius, startAngle, endAngle, xVec, yVec);
+        }
+
+        /// <summary>
+        /// Orienta um elemento do anel (arco ou trecho reto) com a face larga voltada
+        /// pra cima — convenção real de barra chata dobrada "pelo lado fácil" numa
+        /// gaiola de escada marinheiro (face larga no plano horizontal do próprio
+        /// anel, espessura na vertical). Loga o transform antes/depois pra permitir
+        /// investigar visualmente se o Revit mantém o frame consistente ao longo do
+        /// arco (sem torção) ou não.
+        /// </summary>
+        private void LogAndOrientRing(FamilyInstance inst, string tag)
+        {
+            if (inst == null) return;
+            _doc.Regenerate();
+
+            var before = inst.GetTransform();
+            Log($"  [{tag}] ANTES: BasisX=({before.BasisX.X:F3},{before.BasisX.Y:F3},{before.BasisX.Z:F3}) " +
+                $"BasisY=({before.BasisY.X:F3},{before.BasisY.Y:F3},{before.BasisY.Z:F3}) " +
+                $"BasisZ=({before.BasisZ.X:F3},{before.BasisZ.Y:F3},{before.BasisZ.Z:F3})");
+
+            OrientCrossSectionByTangent(inst, XYZ.BasisZ);
+            _doc.Regenerate();
+
+            var after = inst.GetTransform();
+            var angleParam = inst.get_Parameter(BuiltInParameter.STRUCTURAL_BEND_DIR_ANGLE);
+            Log($"  [{tag}] DEPOIS: BasisX=({after.BasisX.X:F3},{after.BasisX.Y:F3},{after.BasisX.Z:F3}) " +
+                $"BasisY=({after.BasisY.X:F3},{after.BasisY.Y:F3},{after.BasisY.Z:F3}) " +
+                $"BasisZ=({after.BasisZ.X:F3},{after.BasisZ.Y:F3},{after.BasisZ.Z:F3}) " +
+                $"anguloGraus={(angleParam?.AsDouble() ?? 0) * 180.0 / Math.PI:F1}");
         }
 
         // ── Helpers geométricos ───────────────────────────────────────────────
@@ -351,6 +548,41 @@ namespace SAGAStructuralTools.Core.Ladder
             if (p != null && !p.IsReadOnly) p.Set(angle);
         }
 
+        /// <summary>
+        /// Mesma ideia de <see cref="OrientCrossSection"/>, mas com o eixo/referência
+        /// TROCADOS: log confirmou (barra D do anel e tiras verticais) que
+        /// GetTransform().BasisX — não BasisZ — é o eixo real da barra pra essas
+        /// instâncias (BasisZ vinha sempre (0,0,1) mesmo pra barras horizontais,
+        /// batendo com "referência de cima" fixa, não com a tangente). Usada só pra
+        /// anel e tiras, que são onde isso foi confirmado — montante/prolongamento
+        /// continuam com <see cref="OrientCrossSection"/> por já estarem corretos.
+        /// </summary>
+        private static void OrientCrossSectionByTangent(FamilyInstance inst, XYZ targetDirection, double extraRotationRad = 0)
+        {
+            if (inst == null || targetDirection == null) return;
+
+            var transform = inst.GetTransform();
+            var axis    = transform.BasisX;
+            var current = transform.BasisZ;
+            if (current.GetLength() < 1e-9) return;
+            current = current.Normalize();
+
+            var target = targetDirection - axis * targetDirection.DotProduct(axis);
+            if (target.GetLength() < 1e-9) return;
+            target = target.Normalize();
+
+            double dot   = current.DotProduct(target);
+            double cross = axis.DotProduct(current.CrossProduct(target));
+            double angle = Math.Atan2(cross, dot);
+
+            // Confirmado por log: o STRUCTURAL_BEND_DIR_ANGLE do Revit gira no sentido
+            // OPOSTO ao da fórmula padrão (Rodrigues/mão direita) usada aqui — sem essa
+            // inversão, o resultado final sai espelhado (mesma componente ao longo do
+            // eixo, sinal invertido na perpendicular), não alinhado ao alvo.
+            var p = inst.get_Parameter(BuiltInParameter.STRUCTURAL_BEND_DIR_ANGLE);
+            if (p != null && !p.IsReadOnly) p.Set(-angle + extraRotationRad);
+        }
+
         // ── Criação ───────────────────────────────────────────────────────────
 
         private FamilyInstance CreateBeam(FamilySymbol sym, Curve curve, string tag,
@@ -373,9 +605,39 @@ namespace SAGAStructuralTools.Core.Ladder
             }
             catch { /* nem toda família suporta join */ }
 
+            ZeroOutExtensionParameters(inst, tag);
+
             createdIds?.Add(inst.Id);
             Log($"  [{tag}] OK");
             return inst;
+        }
+
+        /// <summary>
+        /// O join automático do Revit (calculado na criação, antes de
+        /// DisallowJoinAtEnd rodar) pode deixar um valor de "Start/End Extension"
+        /// gravado na instância mesmo depois do join ser desabilitado — a peça fica
+        /// fisicamente maior/deslocada do que a curva pedida. Zera qualquer parâmetro
+        /// de extensão de ponta encontrado (nome contém "extens", cobre inglês e
+        /// português) e loga o que achou, pra confirmar se é essa a causa.
+        /// </summary>
+        private void ZeroOutExtensionParameters(FamilyInstance inst, string tag)
+        {
+            if (inst == null) return;
+            foreach (Parameter p in inst.Parameters)
+            {
+                var name = p.Definition?.Name;
+                if (string.IsNullOrEmpty(name) || name.IndexOf("extens", StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+
+                double before = p.StorageType == StorageType.Double ? p.AsDouble() : 0;
+                Log($"  [{tag}] parâmetro de extensão encontrado: \"{name}\" valorMm={before * 304.8:F1} readOnly={p.IsReadOnly}");
+
+                if (p.StorageType == StorageType.Double && !p.IsReadOnly && Math.Abs(before) > 1e-9)
+                {
+                    p.Set(0.0);
+                    Log($"  [{tag}] \"{name}\" zerado (era {before * 304.8:F1}mm)");
+                }
+            }
         }
 
         private static void CenterJustify(FamilyInstance inst)

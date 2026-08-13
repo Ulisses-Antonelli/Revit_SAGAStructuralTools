@@ -1,5 +1,4 @@
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Structure;
 using SAGAStructuralTools.Core.Rail;
 using System;
 
@@ -7,13 +6,12 @@ namespace SAGAStructuralTools.Core.Alignment
 {
     /// <summary>
     /// Interrompe uma viga em duas no ponto de interseção com o eixo de uma viga
-    /// de referência. A instância original vira a primeira metade (início até o
-    /// corte); uma nova instância, com os mesmos parâmetros de posicionamento,
-    /// vira a segunda metade (corte até o fim original).
+    /// de referência, usando o método nativo FamilyInstance.Split — o Revit cuida
+    /// de toda a duplicação de parâmetros e junta internamente, dispensando
+    /// reimplementar isso na mão.
     /// </summary>
     internal static class SplitBeamService
     {
-        private const double MillimetersPerFoot = 304.8;
         private const double MinEdgeMarginMm = 50.0;
 
         internal static void Split(Document document, ElementId referenceId, ElementId targetId)
@@ -39,34 +37,28 @@ namespace SAGAStructuralTools.Core.Alignment
             var start = targetAxis.GetEndPoint(0);
             var end = targetAxis.GetEndPoint(1);
             double lengthFt = start.DistanceTo(end);
-            var direction = (end - start).Normalize();
-            double alongFt = (splitPoint - start).DotProduct(direction);
+            double alongFt = (splitPoint - start).DotProduct((end - start).Normalize());
 
-            double marginFt = MinEdgeMarginMm / MillimetersPerFoot;
+            SagaLog.Write(
+                $"SplitBeamService: start=({start.X:F2},{start.Y:F2},{start.Z:F2}) " +
+                $"end=({end.X:F2},{end.Y:F2},{end.Z:F2}) lengthMm={lengthFt * 304.8:F1} " +
+                $"splitPoint=({splitPoint.X:F2},{splitPoint.Y:F2},{splitPoint.Z:F2}) " +
+                $"alongMm={alongFt * 304.8:F1}");
+
+            double marginFt = MinEdgeMarginMm / 304.8;
             if (alongFt <= marginFt || alongFt >= lengthFt - marginFt)
                 throw new InvalidOperationException(
                     "O ponto de interseção fica fora do vão (ou perto demais da ponta) da viga selecionada.");
 
+            double normalizedParam = alongFt / lengthFt;
+
             var instance = target.Instance;
-            var symbol = instance.Symbol;
-            var level = document.GetElement(instance.LevelId) as Level
-                ?? throw new InvalidOperationException("Não foi possível identificar o nível da viga selecionada.");
+            if (!instance.CanSplit)
+                throw new InvalidOperationException("O Revit não permite dividir esta viga.");
 
-            // Primeira metade: reaproveita a instância original — só a ponta distante
-            // (índice 1, o "fim" do eixo) recua até o ponto de corte.
-            target.DisallowJoinAtEnd(1);
-            target.SetCornerEndpoint(1, splitPoint);
-
-            // Segunda metade: nova instância do corte até a ponta original, com os
-            // mesmos parâmetros de justificação/rotação da original.
-            var newInstance = document.Create.NewFamilyInstance(
-                Line.CreateBound(splitPoint, end), symbol, level, StructuralType.Beam);
-            if (newInstance == null)
-                throw new InvalidOperationException("O Revit não aceitou criar a segunda metade da viga.");
-
-            RoundedCornerService.CopyPlacementParameters(instance, newInstance);
-            try { StructuralFramingUtils.DisallowJoinAtEnd(newInstance, 0); }
-            catch { /* nem toda família suporta join */ }
+            var newId = instance.Split(normalizedParam);
+            if (newId == null || newId == ElementId.InvalidElementId)
+                throw new InvalidOperationException("O Revit não conseguiu dividir a viga.");
         }
 
         /// <summary>

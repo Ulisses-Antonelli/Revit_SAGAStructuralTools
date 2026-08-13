@@ -87,7 +87,99 @@ namespace SAGAStructuralTools.UI.ViewModels
         // ── Referência superior (UC-01) ────────────────────────────────────
 
         public bool HasPlacement => _placement != null && _placement.IsValid;
-        public string PlacementSummary => _placement?.Summary ?? "Nenhuma referência selecionada.";
+        public string PlacementSummary => ResolvePlacement()?.Summary ?? "Nenhuma referência selecionada.";
+
+        // ── Modo de definição da base ──────────────────────────────────────
+        // 0 = Automático (nível mais próximo abaixo do desembarque, como hoje)
+        // 1 = Nível existente escolhido manualmente
+        // 2 = Altura manual (ignora níveis, usa a distância informada)
+
+        private int    _baseModeIndex;
+        private string _selectedLevelName;
+        private double _manualHeightMm; // preenchido com a altura auto-detectada ao carregar a referência
+
+        public int BaseModeIndex
+        {
+            get => _baseModeIndex;
+            set
+            {
+                if (Set(ref _baseModeIndex, value))
+                {
+                    IsCalculated = false;
+                    OnPropertyChanged(nameof(IsLevelModeVisible));
+                    OnPropertyChanged(nameof(IsManualHeightModeVisible));
+                    OnPropertyChanged(nameof(PlacementSummary));
+                }
+            }
+        }
+        public bool IsLevelModeVisible        => BaseModeIndex == 1;
+        public bool IsManualHeightModeVisible => BaseModeIndex == 2;
+
+        public string SelectedLevelName
+        {
+            get => _selectedLevelName;
+            set { if (Set(ref _selectedLevelName, value)) { IsCalculated = false; OnPropertyChanged(nameof(PlacementSummary)); } }
+        }
+        public double ManualHeightMm
+        {
+            get => _manualHeightMm;
+            set { if (Set(ref _manualHeightMm, value)) { IsCalculated = false; OnPropertyChanged(nameof(PlacementSummary)); } }
+        }
+
+        public ObservableCollection<string> AvailableLevelNames { get; } = new ObservableCollection<string>();
+
+        private void RefreshAvailableLevels()
+        {
+            AvailableLevelNames.Clear();
+            foreach (var lvl in _placement?.AvailableLevels ?? Enumerable.Empty<LadderLevelOption>())
+                AvailableLevelNames.Add(lvl.Name);
+
+            _selectedLevelName = AvailableLevelNames.Contains(_placement?.LevelName)
+                ? _placement.LevelName
+                : AvailableLevelNames.FirstOrDefault();
+            OnPropertyChanged(nameof(SelectedLevelName));
+
+            if (_manualHeightMm <= 0 && _placement != null)
+                _manualHeightMm = _placement.HeightMm;
+            OnPropertyChanged(nameof(ManualHeightMm));
+        }
+
+        /// <summary>
+        /// Reference original (BaseModeIndex == 0) ou uma cópia com BaseZFt/LevelName
+        /// substituídos conforme o modo escolhido — usada pra preview e pra criação,
+        /// sem nunca perder o valor auto-detectado original de <see cref="_placement"/>.
+        /// </summary>
+        private LadderPlacement ResolvePlacement()
+        {
+            if (_placement == null) return null;
+            if (BaseModeIndex == 0) return _placement;
+
+            var resolved = new LadderPlacement
+            {
+                InsertionPoint  = _placement.InsertionPoint,
+                Lateral         = _placement.Lateral,
+                TopZFt          = _placement.TopZFt,
+                BeamHalfWidthMm = _placement.BeamHalfWidthMm,
+                BeamName        = _placement.BeamName,
+                BeamId          = _placement.BeamId,
+                AvailableLevels = _placement.AvailableLevels
+            };
+
+            if (BaseModeIndex == 1)
+            {
+                var level = _placement.AvailableLevels?.FirstOrDefault(l =>
+                    string.Equals(l.Name, SelectedLevelName, StringComparison.Ordinal));
+                resolved.BaseZFt   = level?.ElevationFt ?? _placement.BaseZFt;
+                resolved.LevelName = level?.Name ?? _placement.LevelName;
+            }
+            else // 2 — altura manual
+            {
+                resolved.BaseZFt   = _placement.TopZFt - Math.Max(ManualHeightMm, 0) / 304.8;
+                resolved.LevelName = "(altura manual)";
+            }
+
+            return resolved;
+        }
 
         private void OnPlacementPicked(LadderPlacement placement)
         {
@@ -95,6 +187,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             {
                 _placement   = placement;
                 IsCalculated = false;
+                RefreshAvailableLevels();
                 OnPropertyChanged(nameof(HasPlacement));
                 OnPropertyChanged(nameof(PlacementSummary));
                 System.Windows.Input.CommandManager.InvalidateRequerySuggested();
@@ -116,6 +209,16 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             ApplyConfig(_editContext.Config);
             _placement = _editContext.Placement;
+            if (_placement.AvailableLevels == null && _editContext.SourceDocument != null)
+            {
+                _placement.AvailableLevels = new Autodesk.Revit.DB.FilteredElementCollector(_editContext.SourceDocument)
+                    .OfClass(typeof(Autodesk.Revit.DB.Level))
+                    .Cast<Autodesk.Revit.DB.Level>()
+                    .OrderBy(l => l.Elevation)
+                    .Select(l => new LadderLevelOption { Name = l.Name, ElevationFt = l.Elevation })
+                    .ToList();
+            }
+            RefreshAvailableLevels();
             OnPropertyChanged(nameof(HasPlacement));
             OnPropertyChanged(nameof(PlacementSummary));
 
@@ -212,7 +315,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         private double _ringSetback     = LadderDefaults.RingSetback;
         private int    _ringModeIndex;                       // 0=Equidistante, 1=Passo fixo
         private double _ringSpacing = LadderDefaults.RingSpacing;
-        private int    _strapCount  = LadderDefaults.StrapCount;
+        private double _strapAngleStepDeg = LadderDefaults.StrapAngleStepDeg;
+        private int    _strapCount = LadderDefaults.StrapCount;
 
         public bool HasCage
         {
@@ -225,6 +329,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         public double RingSetback     { get => _ringSetback;     set { if (Set(ref _ringSetback, value)) IsCalculated = false; } }
         public int RingModeIndex      { get => _ringModeIndex;   set { if (Set(ref _ringModeIndex, value)) IsCalculated = false; } }
         public double RingSpacing     { get => _ringSpacing;     set { if (Set(ref _ringSpacing, value)) IsCalculated = false; } }
+        public double StrapAngleStepDeg { get => _strapAngleStepDeg; set { if (Set(ref _strapAngleStepDeg, value)) IsCalculated = false; } }
         public int StrapCount         { get => _strapCount;      set { if (Set(ref _strapCount, value)) IsCalculated = false; } }
 
         private string _ringFamilyPath;
@@ -277,11 +382,16 @@ namespace SAGAStructuralTools.UI.ViewModels
         public int    PreviewRingCount    => _definition?.RingCount ?? 0;
         public int    PreviewStrapCount   => _definition?.StrapCount ?? 0;
 
-        private double CurrentHeightMm =>
-            _placement == null
-                ? 0
-                : (_placement.TopZFt + TopLevelOffset / 304.8
-                   - _placement.BaseZFt - BaseOffset / 304.8) * 304.8;
+        private double CurrentHeightMm
+        {
+            get
+            {
+                var p = ResolvePlacement();
+                return p == null
+                    ? 0
+                    : (p.TopZFt + TopLevelOffset / 304.8 - p.BaseZFt - BaseOffset / 304.8) * 304.8;
+            }
+        }
 
         private void CalculatePreview()
         {
@@ -317,7 +427,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 return;   // avisos já preenchidos pelo cálculo
 
             var config = BuildConfig();
-            _createHandler.Placement   = _placement;
+            _createHandler.Placement   = ResolvePlacement();
             _createHandler.Config      = config;
             _createHandler.Definition  = _definition;
             _createHandler.EditContext = _editContext;
@@ -432,6 +542,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             RingSpacing        = RingSpacing,
             RingFamilyPath     = _ringFamilyPath,
             RingFamilyType     = _ringFamilyType,
+            StrapAngleStepDeg  = StrapAngleStepDeg,
             StrapCount         = StrapCount,
             StrapFamilyPath    = _strapFamilyPath,
             StrapFamilyType    = _strapFamilyType,
@@ -472,7 +583,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             RingSetback     = c.RingSetback;
             RingModeIndex   = c.RingMode == RingDistribution.FixedSpacing ? 1 : 0;
             RingSpacing     = c.RingSpacing;
-            StrapCount      = c.StrapCount;
+            StrapAngleStepDeg = c.StrapAngleStepDeg;
+            StrapCount        = c.StrapCount;
             SetFamily(ref _ringFamilyPath, ref _ringFamilyType, c.RingFamilyPath, c.RingFamilyType,
                       RingAvailableTypes, nameof(RingFamilyDisplay), nameof(RingAvailableTypes), nameof(RingFamilyType));
             SetFamily(ref _strapFamilyPath, ref _strapFamilyType, c.StrapFamilyPath, c.StrapFamilyType,

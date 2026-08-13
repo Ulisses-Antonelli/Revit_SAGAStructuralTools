@@ -113,7 +113,36 @@ namespace SAGAStructuralTools.Core.Domain
                     def.RingElevations.Add(Math.Round(heightMm, 1));
             }
 
-            def.StrapCount = Math.Max(config.StrapCount, 0);
+            def.StrapCount = EstimateStrapCount(config);
+        }
+
+        // Estimativa pro preview — a contagem real depende da largura medida de
+        // verdade do montante (só conhecida na hora de gerar a geometria no Revit).
+        // Usa a mesma fórmula da sagitta com a largura útil configurada, sem
+        // depender da API do Revit.
+        private static int EstimateStrapCount(LadderConfig config)
+        {
+            double halfChordMm = Math.Max(config.Width, 1.0) / 2.0;
+            double sagittaMm = Math.Max(config.CageProjection, 1.0);
+            double radiusMm = (halfChordMm * halfChordMm + sagittaMm * sagittaMm) / (2.0 * sagittaMm);
+            double halfSweepDeg = Math.Atan2(halfChordMm, radiusMm - sagittaMm) * 180.0 / Math.PI;
+            double stepDeg = Math.Max(config.StrapAngleStepDeg, 1.0);
+            int maxCount = Math.Max(config.StrapCount, 0);
+
+            // Mesma regra de paridade do LadderBuilder: ímpar nasce no eixo (0°); par
+            // nasce deslocado meio passo pra cada lado, sem barra no eixo.
+            bool isOdd = maxCount % 2 == 1;
+            int count = isOdd && maxCount > 0 && 0.0 < halfSweepDeg - 1e-6 ? 1 : 0;
+
+            double pairStart = isOdd ? stepDeg : stepDeg / 2.0;
+            int pairsNeeded = isOdd ? (maxCount - 1) / 2 : maxCount / 2;
+            for (int k = 0; k < pairsNeeded; k++)
+            {
+                double a = pairStart + k * stepDeg;
+                if (a >= halfSweepDeg - 1e-6) break;
+                count += Math.Min(2, maxCount - count);
+            }
+            return count;
         }
 
         private static void AddNormativeWarnings(LadderDefinition def, double heightMm, LadderConfig config)
@@ -145,6 +174,23 @@ namespace SAGAStructuralTools.Core.Domain
             if (config.ExtensionHeight < LadderDefaults.MinExtension)
                 def.Warnings.Add(
                     $"Prolongamento de {config.ExtensionHeight:F0} mm abaixo do mínimo normativo ({LadderDefaults.MinExtension:F0} mm) para pegada no desembarque.");
+
+            // O anel de entrada é uma meia-lua do mesmo Ø dos anéis intermediários; as
+            // pernas ligam essa meia-lua ao montante já alargado na saída. Se as duas
+            // larguras não baterem, as pernas ficam muito inclinadas/desproporcionais.
+            if (config.HasCage)
+            {
+                double flaredWidthMm = config.Width + 2 * Math.Max(config.ExitFlare, 0);
+                double diffMm = flaredWidthMm - config.CageProjection;
+                if (Math.Abs(diffMm) > 20.0)
+                {
+                    string quem = diffMm > 0 ? "a largura alargada da saída" : "o Ø do anel";
+                    def.Warnings.Add(
+                        $"Largura alargada da saída ({flaredWidthMm:F0} mm) e Ø do anel ({config.CageProjection:F0} mm) " +
+                        $"não batem — {quem} está maior. O ideal é que sejam iguais, senão as pernas do anel de " +
+                        "entrada ficam desproporcionais.");
+                }
+            }
         }
     }
 }
