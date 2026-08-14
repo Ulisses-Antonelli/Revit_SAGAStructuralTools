@@ -12,6 +12,7 @@ namespace SAGAStructuralTools
     public class App : IExternalApplication
     {
         private RailSelectionController _railSelectionController;
+        private LadderSelectionController _ladderSelectionController;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -58,6 +59,17 @@ namespace SAGAStructuralTools
                     className:    "SAGAStructuralTools.Commands.GenerateStairCommand")
                 {
                     ToolTip    = "Gera automaticamente escadas metálicas com longarinas estruturais e degraus BIM.",
+                    LargeImage = LoadIcon("stairs_32.png", 32),
+                    Image      = LoadIcon("stairs_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "GenerateLadder",
+                    text:         "Escada\nMarinheiro",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateLadderCommand")
+                {
+                    ToolTip    = "Gera escadas marinheiro a partir da viga superior: montantes, degraus, suportes, gaiola e prolongamento. Edite com Alt+clique.",
                     LargeImage = LoadIcon("stairs_32.png", 32),
                     Image      = LoadIcon("stairs_16.png", 16)
                 });
@@ -178,7 +190,30 @@ namespace SAGAStructuralTools
                     Image = LoadIcon("rail_align_posts_16.png", 16)
                 });
 
+                TryAddButton(railPanel, new PushButtonData(
+                    name:         "SplitBeam",
+                    text:         "Interromper\nViga",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.SplitBeamCommand")
+                {
+                    ToolTip    = "Divide uma viga em duas no ponto de interseção com o eixo de uma viga de referência.",
+                    LargeImage = LoadIcon("rail_round_32.png", 32),
+                    Image      = LoadIcon("rail_round_16.png", 16)
+                });
+
+                TryAddButton(railPanel, new PushButtonData(
+                    name:         "AlignToWorkPoint",
+                    text:         "Alinhar ao\nPonto de Trabalho",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.AlignToWorkPointCommand")
+                {
+                    ToolTip    = "Estica a extremidade mais próxima de um elemento (ex.: cantoneira de contraventamento) até o ponto de trabalho de duas vigas ou pilares que se cruzam, sem transladar a peça inteira.",
+                    LargeImage = LoadIcon("railing_32.png", 32),
+                    Image      = LoadIcon("railing_16.png", 16)
+                });
+
                 _railSelectionController = new RailSelectionController(application);
+                _ladderSelectionController = new LadderSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
                 return Result.Succeeded;
@@ -242,6 +277,8 @@ namespace SAGAStructuralTools
         {
             _railSelectionController?.Dispose();
             _railSelectionController = null;
+            _ladderSelectionController?.Dispose();
+            _ladderSelectionController = null;
             return Result.Succeeded;
         }
 

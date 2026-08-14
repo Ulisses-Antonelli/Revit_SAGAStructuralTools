@@ -27,6 +27,10 @@ namespace SAGAStructuralTools.Core.Mapping
         private static readonly Regex ImperialLPattern =
             new Regex("\\bL\\s*[\\d./]+\"\\s*x\\s*[\\d./]+\"", RegexOptions.Compiled);
 
+        // U dobrado métrico (perfil formado a frio): U#75x40#3.00 → altura#largura#espessura
+        private static readonly Regex MetricUDobradoPattern =
+            new Regex(@"\bU\s*#\s*(\d+)\s*x\s*(\d+)\s*#\s*([\d.]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         public ProfileMatcher(GerdauCatalog catalog)
         {
             _catalog = catalog;
@@ -71,6 +75,18 @@ namespace SAGAStructuralTools.Core.Mapping
             if (lMatch.Success)
             {
                 var normalized = Normalize(lMatch.Value);
+                var r = isColumn ? _catalog.FindColumn(normalized) : _catalog.FindBeam(normalized);
+                if (r != null) return Build(ifcFullName, r.Value);
+            }
+
+            // ── 4. Tenta U dobrado métrico (U#75x40#3.00 → "U 75 x 40 x 3.00") ──
+            var uDobradoMatch = MetricUDobradoPattern.Match(cleanName);
+            if (uDobradoMatch.Success)
+            {
+                var height    = uDobradoMatch.Groups[1].Value;
+                var width     = uDobradoMatch.Groups[2].Value;
+                var thickness = uDobradoMatch.Groups[3].Value;
+                var normalized = Normalize($"U {height} x {width} x {thickness}");
                 var r = isColumn ? _catalog.FindColumn(normalized) : _catalog.FindBeam(normalized);
                 if (r != null) return Build(ifcFullName, r.Value);
             }
