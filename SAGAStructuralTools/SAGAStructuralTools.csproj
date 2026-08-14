@@ -46,6 +46,10 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\SAGAStructuralTools.Rail.Domain\SAGAStructuralTools.Rail.Domain.csproj" />
+  </ItemGroup>
+
   <!--
     Post-build: copia a DLL e o .addin para a pasta de addins do Revit 2023 ou 2026.
     Revit lê automaticamente qualquer .addin que estiver em:
@@ -63,6 +67,10 @@
     <Copy SourceFiles="$(TargetPath)"
           DestinationFolder="$(DeployDir)"
           SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(TargetDir)SAGAStructuralTools.Rail.Domain.dll"
+          DestinationFolder="$(DeployDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(TargetDir)SAGAStructuralTools.Rail.Domain.dll')" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\SAGAStructuralTools.addin"
           DestinationFolder="$(DeployDir)"
           SkipUnchangedFiles="true" />

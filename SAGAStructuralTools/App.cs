@@ -147,6 +147,15 @@ namespace SAGAStructuralTools
                     matchProperties,
                     savePreset);
 
+                TryAddButton(railPanel, new PushButtonData(
+                    "AdjustRailEndPosts", "Ajustar\nExtremidade", assemblyPath,
+                    "SAGAStructuralTools.Commands.AdjustRailEndPostsCommand")
+                {
+                    ToolTip = "Move um montante de extremidade e redistribui apenas os montantes do trecho, sem alterar as barras.",
+                    LargeImage = LoadIcon("rail_align_posts_32.png", 32),
+                    Image = LoadIcon("rail_align_posts_16.png", 16)
+                });
+
                 _railSelectionController = new RailSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
