@@ -14,6 +14,7 @@ namespace SAGAStructuralTools.Core.Rail
         public RailConfig      Config      { get; set; }
         public List<ElementId> SegmentIds  { get; set; }
         public RailEditContext EditContext { get; set; }
+        public bool            ReplaceEditBaseLine { get; set; }
         public bool            IsInclinedRun { get; set; }
 
         public event Action<string> Completed;
@@ -77,7 +78,7 @@ namespace SAGAStructuralTools.Core.Rail
                             XYZ start;
                             XYZ end;
 
-                            if (EditContext != null)
+                            if (EditContext != null && !ReplaceEditBaseLine)
                             {
                                 start = EditContext.Start;
                                 end = EditContext.End;

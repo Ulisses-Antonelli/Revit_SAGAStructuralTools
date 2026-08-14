@@ -106,22 +106,7 @@ namespace SAGAStructuralTools.Core.Rail
 
         private FamilySymbol GetOrLoadSymbol(string path, string typeName)
         {
-            var familyName = Path.GetFileNameWithoutExtension(path);
-            typeName       = typeName ?? "";
-
-            var existing = new FilteredElementCollector(_doc)
-                .OfClass(typeof(FamilySymbol))
-                .Cast<FamilySymbol>()
-                .FirstOrDefault(s =>
-                    s.Family.Name.Equals(familyName, StringComparison.OrdinalIgnoreCase) &&
-                    s.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
-
-            if (existing != null) return existing;
-
-            if (!_doc.LoadFamilySymbol(path, typeName, out var loaded) || loaded == null)
-                throw new InvalidOperationException($"Não foi possível carregar '{familyName}' tipo '{typeName}'.");
-
-            return loaded;
+            return RailFamilySymbolResolver.Resolve(_doc, path, typeName);
         }
 
         private Level GetNearestLevel(double zFt)

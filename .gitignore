@@ -1,6 +1,9 @@
 # Build output
 SAGAStructuralTools/bin/
 SAGAStructuralTools/obj/
+**/bin/
+**/obj/
+*_wpftmp.csproj
 artifacts/
 
 # Logs gerados pelo plugin

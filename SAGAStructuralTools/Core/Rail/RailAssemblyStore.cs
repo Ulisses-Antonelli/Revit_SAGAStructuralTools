@@ -43,7 +43,7 @@ namespace SAGAStructuralTools.Core.Rail
                     : assemblyId,
                 // Captura um snapshot independente. Alterações posteriores na janela
                 // ou em outro trecho do lote não podem modificar este assembly.
-                Config = SnapshotConfig(config),
+                Config = CloneConfig(config),
                 Start = RailPointData.FromXyz(start),
                 End = RailPointData.FromXyz(end)
             };
@@ -165,7 +165,7 @@ namespace SAGAStructuralTools.Core.Rail
             }
         }
 
-        private static RailConfig SnapshotConfig(RailConfig config)
+        internal static RailConfig CloneConfig(RailConfig config)
         {
             config = config ?? new RailConfig();
             using (var writer = new StringWriter())

@@ -25,8 +25,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         private readonly RailEditContext      _editContext;
         private readonly bool                 _isInclinedMode;
         private bool                          _isSubmitting;
+        private bool                          _awaitingEditLineReplacement;
+        private bool                          _editLineWasReplaced;
 
-        // Linhas selecionadas (cada clique em "Adicionar linha" acrescenta uma)
+        // Linhas selecionadas (uma seleção múltipla pode acrescentar várias)
         private readonly List<RailLinePickResult> _segments = new List<RailLinePickResult>();
 
         public RailViewModel(ExternalEvent pickEvent, LinePickHandler pickHandler,
@@ -53,9 +55,11 @@ namespace SAGAStructuralTools.UI.ViewModels
 
             SagaLog.Write("RailViewModel — criando comandos...");
             AddLineCommand            = new RelayCommand(
-                _ => _pickEvent.Raise(),
-                _ => !IsEditMode);
-            ClearSelectionCommand     = new RelayCommand(_ => ClearSelection(), _ => !IsEditMode && _segments.Count > 0);
+                _ => RequestLinePick(),
+                _ => !_isSubmitting);
+            ClearSelectionCommand     = new RelayCommand(
+                _ => ClearSelection(),
+                _ => _segments.Count > 0 && !_isSubmitting);
             DefineMirrorAxesCommand   = new RelayCommand(
                 _ => RequestMirrorAxisPick(),
                 _ => IsInclinedMode && MirrorPairEnabled &&
@@ -139,10 +143,17 @@ namespace SAGAStructuralTools.UI.ViewModels
             ? (MirrorPairEnabled
                 ? "Selecione uma ou mais longarinas inclinadas de um lado da escada e clique em Concluir. Depois use “Definir eixos do espelho” para indicar uma longarina de origem e a correspondente do outro lado."
                 : "Clique em \"Selecionar vigas/trechos\", selecione as longarinas/vigas estruturais inclinadas da escada e clique em Concluir no Revit. Também são aceitas linhas 3D retas.")
-            : "Clique em \"Adicionar linha\" e selecione uma linha no desenho. Repita para cada trecho — cada linha vira um guarda-corpo independente.";
+            : "Clique em \"Selecionar linhas/vigas\", marque uma ou mais linhas ou vigas estruturais retas e clique em Concluir no Revit. Cada eixo vira um guarda-corpo independente.";
         public string AddLineActionText => IsInclinedMode
-            ? "+ Selecionar vigas/trechos"
-            : "+ Adicionar linha";
+            ? (IsEditMode ? "Substituir linha-base" : "+ Selecionar vigas/trechos")
+            : (IsEditMode ? "Substituir linha-base" : "+ Selecionar linhas/vigas");
+
+        private void RequestLinePick()
+        {
+            if (IsEditMode)
+                _awaitingEditLineReplacement = true;
+            _pickEvent.Raise();
+        }
 
         private void LoadEditContext()
         {
@@ -184,14 +195,14 @@ namespace SAGAStructuralTools.UI.ViewModels
                     ? (MirrorPairEnabled
                         ? "Par espelhado: selecione uma ou mais longarinas inclinadas de um lado da escada."
                         : "Nenhum trecho inclinado adicionado.")
-                    : "Nenhuma linha adicionada.")
+                    : "Nenhum eixo adicionado.")
                 : IsInclinedMode
                     ? (MirrorPairEnabled
                         ? $"{_segments.Count} longarina(s) · {_segments.Count * 2} guarda-corpo(s) · comprimento selecionado {SelectedLinesTotal:F0} mm · total gerado {SelectedLinesTotal * 2:F0} mm"
                         : _segments.Count == 1
                         ? $"Trecho inclinado · comprimento {SelectedLinesTotal:F0} mm · desnível {SelectedElevationChangeTotal:F0} mm · ângulo {_segments[0].AngleDegrees:F1}° · cota baixa → alta"
                         : $"{_segments.Count} trechos inclinados · comprimento {SelectedLinesTotal:F0} mm · desnível acumulado {SelectedElevationChangeTotal:F0} mm")
-                    : $"{_segments.Count} linha(s)  ·  total {SelectedLinesTotal:F0} mm";
+                    : $"{_segments.Count} eixo(s)  ·  total {SelectedLinesTotal:F0} mm";
 
         // Disparado pelo LinePickHandler para cada elemento válido da seleção.
         // Roda no contexto de ExternalEvent (thread da API = thread da UI); o padrão
@@ -200,6 +211,14 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             _dispatcher.Invoke(() =>
             {
+                if (IsEditMode && _awaitingEditLineReplacement)
+                {
+                    _segments.Clear();
+                    SegmentItems.Clear();
+                    _pickHandler?.ClearPickedLines();
+                    _awaitingEditLineReplacement = false;
+                    _editLineWasReplaced = true;
+                }
                 if (result == null || _segments.Any(s => s.ElementId == result.ElementId)) return;
                 _segments.Add(result);
                 SegmentItems.Add(IsInclinedMode
@@ -301,6 +320,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             _segments.Clear();
             SegmentItems.Clear();
+            _pickHandler?.ClearPickedLines();
             ApplyMirrorAxisReferenceState(false, 0.0, 0.0);
             HasSegments  = false;
             IsCalculated = false;
@@ -663,6 +683,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             _createHandler.Config     = config;
             _createHandler.SegmentIds = _segments.Select(s => s.ElementId).ToList();
             _createHandler.EditContext = _editContext;
+            _createHandler.ReplaceEditBaseLine = IsEditMode && _editLineWasReplaced;
 
             RailPresetStore.SaveLast(config);   // lembra a última config usada
 

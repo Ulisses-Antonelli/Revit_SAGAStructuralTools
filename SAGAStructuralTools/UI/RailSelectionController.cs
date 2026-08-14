@@ -5,6 +5,7 @@ using SAGAStructuralTools.Core.Rail;
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Windows.Input;
 using System.Windows.Interop;
 
 namespace SAGAStructuralTools.UI
@@ -37,6 +38,12 @@ namespace SAGAStructuralTools.UI
         private void OnSelectionChanged(object sender, SelectionChangedEventArgs args)
         {
             if (RailToolSession.IsCornerCommandActive)
+            {
+                ClearPendingSelection();
+                return;
+            }
+
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) != ModifierKeys.Alt)
             {
                 ClearPendingSelection();
                 return;
@@ -152,7 +159,8 @@ namespace SAGAStructuralTools.UI
                 bool isInclined = context.Start != null && context.End != null &&
                                   Math.Abs(context.End.Z - context.Start.Z) * 304.8 > 1.0;
                 var pickHandler = new LinePickHandler(
-                    isInclined ? RailLinePickMode.Inclined : RailLinePickMode.Standard);
+                    isInclined ? RailLinePickMode.Inclined : RailLinePickMode.Standard,
+                    singleSelection: true);
                 var createHandler = new RailCreationHandler
                 {
                     IsInclinedRun = isInclined

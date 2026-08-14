@@ -12,6 +12,7 @@ namespace SAGAStructuralTools
     public class App : IExternalApplication
     {
         private RailSelectionController _railSelectionController;
+        private LadderSelectionController _ladderSelectionController;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -24,8 +25,13 @@ namespace SAGAStructuralTools
                 try { application.CreateRibbonTab(tabName); }
                 catch (Exception ex) { SagaLog.Write($"CreateRibbonTab: aba pode já existir ({ex.Message})"); }
 
-                RibbonPanel panel;
-                try { panel = application.CreateRibbonPanel(tabName, "Conversão IFC"); }
+                RibbonPanel generalPanel;
+                RibbonPanel railPanel;
+                try
+                {
+                    generalPanel = application.CreateRibbonPanel(tabName, "Ferramentas Estruturais");
+                    railPanel = application.CreateRibbonPanel(tabName, "Guarda-Corpos");
+                }
                 catch (Exception ex)
                 {
                     SagaLog.Exception("CreateRibbonPanel", ex);
@@ -35,7 +41,7 @@ namespace SAGAStructuralTools
                 var assemblyPath = Assembly.GetExecutingAssembly().Location;
                 SagaLog.Write($"Assembly: {assemblyPath}");
 
-                TryAddButton(panel, new PushButtonData(
+                TryAddButton(generalPanel, new PushButtonData(
                     name:         "ConvertIfc",
                     text:         "Converter IFC\npara Família",
                     assemblyName: assemblyPath,
@@ -46,7 +52,7 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("saga_16.png", 16)
                 });
 
-                TryAddButton(panel, new PushButtonData(
+                TryAddButton(generalPanel, new PushButtonData(
                     name:         "GenerateStair",
                     text:         "Gerar Escada\nMetálica",
                     assemblyName: assemblyPath,
@@ -57,51 +63,157 @@ namespace SAGAStructuralTools
                     Image      = LoadIcon("stairs_16.png", 16)
                 });
 
-                TryAddButton(panel, new PushButtonData(
-                    name:         "GenerateRail",
-                    text:         "Gerar Guarda-Corpo\nMetálico",
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "GenerateLadder",
+                    text:         "Escada\nMarinheiro",
                     assemblyName: assemblyPath,
-                    className:    "SAGAStructuralTools.Commands.GenerateRailCommand")
+                    className:    "SAGAStructuralTools.Commands.GenerateLadderCommand")
                 {
-                    ToolTip    = "Gera automaticamente guarda-corpos metálicos com montantes e corrimão estruturais.",
+                    ToolTip    = "Gera escadas marinheiro a partir da viga superior: montantes, degraus, suportes, gaiola e prolongamento. Edite com Alt+clique.",
+                    LargeImage = LoadIcon("stairs_32.png", 32),
+                    Image      = LoadIcon("stairs_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "RealAlign",
+                    text:         "Alinhamento\nReal",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.RealAlignCommand")
+                {
+                    ToolTip    = "Estende o eixo real de um componente até uma referência.",
                     LargeImage = LoadIcon("railing_32.png", 32),
                     Image      = LoadIcon("railing_16.png", 16)
                 });
 
-                TryAddButton(panel, new PushButtonData(
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "MoveToCoordinate",
+                    text:         "Mover para\nCoordenada",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.MoveToCoordinateCommand")
+                {
+                    ToolTip    = "Move um elemento fazendo um ponto de referência atingir coordenadas X, Y e Z específicas.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "AlignAnnotationRotation",
+                    text:         "Rotacionar Texto\npor Referência",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.AlignAnnotationRotationCommand")
+                {
+                    ToolTip    = "Rotaciona um texto ou uma tag conforme uma linha ou aresta reta de referência.",
+                    LargeImage = LoadIcon("rail_real_align_32.png", 32),
+                    Image      = LoadIcon("rail_real_align_16.png", 16)
+                });
+
+                TryAddButton(railPanel, new PushButtonData(
+                    name:         "GenerateRail",
+                    text:         "Horizontal",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateRailCommand")
+                {
+                    ToolTip    = "Gera guarda-corpos horizontais a partir de linhas ou vigas estruturais retas.",
+                    LargeImage = LoadIcon("rail_generate_32.png", 32),
+                    Image      = LoadIcon("rail_generate_16.png", 16)
+                });
+
+                TryAddButton(railPanel, new PushButtonData(
                     name:         "GenerateInclinedRail",
-                    text:         "Guarda-Corpo\nInclinado",
+                    text:         "Inclinado",
                     assemblyName: assemblyPath,
                     className:    "SAGAStructuralTools.Commands.GenerateInclinedRailCommand")
                 {
                     ToolTip    = "Gera guarda-corpos metálicos em linhas 3D ou vigas estruturais retas e inclinadas.",
-                    LargeImage = LoadIcon("railing_32.png", 32),
-                    Image      = LoadIcon("railing_16.png", 16)
+                    LargeImage = LoadIcon("rail_inclined_32.png", 32),
+                    Image      = LoadIcon("rail_inclined_16.png", 16)
                 });
 
-                TryAddButton(panel, new PushButtonData(
-                    name:         "JoinHandrails",
-                    text:         "Unir\nCorrimãos",
-                    assemblyName: assemblyPath,
-                    className:    "SAGAStructuralTools.Commands.JoinHandrailsCommand")
+                railPanel.AddSeparator();
+
+                var editRail = new PushButtonData(
+                    "EditRail", "Editar Guarda-Corpo", assemblyPath,
+                    "SAGAStructuralTools.Commands.EditRailCommand")
                 {
-                    ToolTip    = "Une perfis estruturais retos usados como corrimão, com um arco direto ou dois arcos através de um patamar horizontal.",
-                    LargeImage = LoadIcon("railing_32.png", 32),
-                    Image      = LoadIcon("railing_16.png", 16)
+                    ToolTip = "Edita o guarda-corpo SAGA pré-selecionado ou solicita um membro. Também disponível com Alt+clique.",
+                    Image = LoadIcon("rail_edit_16.png", 16)
+                };
+                var joinHandrails = new PushButtonData(
+                    "JoinHandrails", "Unir Corrimãos", assemblyPath,
+                    "SAGAStructuralTools.Commands.JoinHandrailsCommand")
+                {
+                    ToolTip = "Une corrimãos com um arco direto ou dois arcos através de um patamar horizontal.",
+                    Image = LoadIcon("rail_join_16.png", 16)
+                };
+                var roundCorner = new PushButtonData(
+                    "RoundRailCorner", "Arredondar Canto", assemblyPath,
+                    "SAGAStructuralTools.Commands.RoundRailCornerCommand")
+                {
+                    ToolTip = "Une duas vigas ou uma viga e um pilar com um arco tangente.",
+                    Image = LoadIcon("rail_round_16.png", 16)
+                };
+                TryAddStackedButtons(railPanel, editRail, joinHandrails, roundCorner);
+
+                var alignPosts = new PushButtonData(
+                    "AlignRailPosts", "Alinhar Montantes", assemblyPath,
+                    "SAGAStructuralTools.Commands.AlignRailPostsCommand")
+                {
+                    ToolTip = "Alinha um montante final ao plano transversal de outro, seguindo o eixo inclinado do guarda-corpo.",
+                    Image = LoadIcon("rail_align_posts_16.png", 16)
+                };
+                var matchProperties = new PushButtonData(
+                    "MatchRailProperties", "Igualar Propriedades", assemblyPath,
+                    "SAGAStructuralTools.Commands.MatchRailPropertiesCommand")
+                {
+                    ToolTip = "Copia a configuração de um guarda-corpo SAGA para um ou mais destinos, preservando suas linhas-base.",
+                    Image = LoadIcon("rail_match_16.png", 16)
+                };
+                var savePreset = new PushButtonData(
+                    "SaveRailPreset", "Salvar Padrão", assemblyPath,
+                    "SAGAStructuralTools.Commands.SaveRailPresetCommand")
+                {
+                    ToolTip = "Salva a configuração de um guarda-corpo SAGA como padrão reutilizável em outros projetos.",
+                    Image = LoadIcon("railing_16.png", 16)
+                };
+                TryAddStackedButtons(
+                    railPanel,
+                    alignPosts,
+                    matchProperties,
+                    savePreset);
+
+                TryAddButton(railPanel, new PushButtonData(
+                    "AdjustRailEndPosts", "Ajustar\nExtremidade", assemblyPath,
+                    "SAGAStructuralTools.Commands.AdjustRailEndPostsCommand")
+                {
+                    ToolTip = "Move um montante de extremidade e redistribui apenas os montantes do trecho, sem alterar as barras.",
+                    LargeImage = LoadIcon("rail_align_posts_32.png", 32),
+                    Image = LoadIcon("rail_align_posts_16.png", 16)
                 });
 
-                TryAddButton(panel, new PushButtonData(
-                    name:         "RoundRailCorner",
-                    text:         "Arredondar\nCanto",
+                TryAddButton(railPanel, new PushButtonData(
+                    name:         "SplitBeam",
+                    text:         "Interromper\nViga",
                     assemblyName: assemblyPath,
-                    className:    "SAGAStructuralTools.Commands.RoundRailCornerCommand")
+                    className:    "SAGAStructuralTools.Commands.SplitBeamCommand")
                 {
-                    ToolTip    = "Une duas vigas ou uma viga e um pilar com um arco tangente.",
+                    ToolTip    = "Divide uma viga em duas no ponto de interseção com o eixo de uma viga de referência.",
+                    LargeImage = LoadIcon("rail_round_32.png", 32),
+                    Image      = LoadIcon("rail_round_16.png", 16)
+                });
+
+                TryAddButton(railPanel, new PushButtonData(
+                    name:         "AlignToWorkPoint",
+                    text:         "Alinhar ao\nPonto de Trabalho",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.AlignToWorkPointCommand")
+                {
+                    ToolTip    = "Estica a extremidade mais próxima de um elemento (ex.: cantoneira de contraventamento) até o ponto de trabalho de duas vigas ou pilares que se cruzam, sem transladar a peça inteira.",
                     LargeImage = LoadIcon("railing_32.png", 32),
                     Image      = LoadIcon("railing_16.png", 16)
                 });
 
                 _railSelectionController = new RailSelectionController(application);
+                _ladderSelectionController = new LadderSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
                 return Result.Succeeded;
@@ -123,10 +235,50 @@ namespace SAGAStructuralTools
             catch (Exception ex) { SagaLog.Exception($"AddItem({data.Name})", ex); }
         }
 
+        private static void TryAddStackedButtons(
+            RibbonPanel panel,
+            PushButtonData first,
+            PushButtonData second)
+        {
+            try
+            {
+                panel.AddStackedItems(first, second);
+                SagaLog.Write($"Botões compactos OK: {first.Name}, {second.Name}");
+            }
+            catch (Exception ex)
+            {
+                SagaLog.Exception(
+                    $"AddStackedItems({first.Name}, {second.Name})",
+                    ex);
+            }
+        }
+
+        private static void TryAddStackedButtons(
+            RibbonPanel panel,
+            PushButtonData first,
+            PushButtonData second,
+            PushButtonData third)
+        {
+            try
+            {
+                panel.AddStackedItems(first, second, third);
+                SagaLog.Write(
+                    $"Botões compactos OK: {first.Name}, {second.Name}, {third.Name}");
+            }
+            catch (Exception ex)
+            {
+                SagaLog.Exception(
+                    $"AddStackedItems({first.Name}, {second.Name}, {third.Name})",
+                    ex);
+            }
+        }
+
         public Result OnShutdown(UIControlledApplication application)
         {
             _railSelectionController?.Dispose();
             _railSelectionController = null;
+            _ladderSelectionController?.Dispose();
+            _ladderSelectionController = null;
             return Result.Succeeded;
         }
 

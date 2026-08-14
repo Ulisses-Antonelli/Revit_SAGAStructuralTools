@@ -285,7 +285,7 @@ namespace SAGAStructuralTools.Core.Conversion
             if (existing != null) return existing;
 
             if (!_hostDoc.LoadFamilySymbol(mapping.FamilyPath, typeName, out var loaded))
-                throw new InvalidOperationException($"Falha ao carregar '{mapping.FamilyPath}'.");
+                throw new InvalidOperationException($"Falha ao carregar '{mapping.FamilyPath}' tipo '{typeName}'.");
 
             return loaded;
         }
