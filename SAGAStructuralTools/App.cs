@@ -13,6 +13,7 @@ namespace SAGAStructuralTools
     {
         private RailSelectionController _railSelectionController;
         private LadderSelectionController _ladderSelectionController;
+        private StairSelectionController _stairSelectionController;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -214,6 +215,7 @@ namespace SAGAStructuralTools
 
                 _railSelectionController = new RailSelectionController(application);
                 _ladderSelectionController = new LadderSelectionController(application);
+                _stairSelectionController = new StairSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
                 return Result.Succeeded;
@@ -279,6 +281,8 @@ namespace SAGAStructuralTools
             _railSelectionController = null;
             _ladderSelectionController?.Dispose();
             _ladderSelectionController = null;
+            _stairSelectionController?.Dispose();
+            _stairSelectionController = null;
             return Result.Succeeded;
         }
 

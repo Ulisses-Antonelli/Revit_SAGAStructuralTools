@@ -38,6 +38,10 @@ namespace SAGAStructuralTools.Core.Stair
 
             if (up.Contains(" U ") || up.EndsWith(" U") || up.StartsWith("U ")) return true;
 
+            // Nome terminando em "_U"/"-U" sem sufixo depois (ex.: "SGA_VIGA_U") — o
+            // padrão "_U_" acima só pega quando tem algo depois do U (ex.: "_U_DOBRADO").
+            if (up.EndsWith("_U") || up.EndsWith("-U")) return true;
+
             if (up.StartsWith("U_") || up.StartsWith("U-")) return true;
             if (up.StartsWith("U") && up.Length > 1 && char.IsDigit(up[1])) return true;
 

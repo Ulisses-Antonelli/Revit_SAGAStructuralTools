@@ -3,6 +3,7 @@ using Autodesk.Revit.DB.Structure;
 using SAGAStructuralTools.Core;
 using SAGAStructuralTools.Core.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -20,14 +21,17 @@ namespace SAGAStructuralTools.Core.Stair
     public class StringerBuilder
     {
         private readonly Document _doc;
+        private ICollection<ElementId> _createdIds;
         private static readonly string LogPath = Path.Combine(
             Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "",
             "SAGA_StairLog.txt");
 
         public StringerBuilder(Document doc) => _doc = doc;
 
-        public void Build(StairDefinition def, StairConfig config, XYZ startPt, XYZ endPt)
+        public void Build(StairDefinition def, StairConfig config, XYZ startPt, XYZ endPt,
+                          ICollection<ElementId> createdIds = null)
         {
+            _createdIds = createdIds;
             Log("=== Build iniciado ===");
             Log($"startPt={Fmt(startPt)}  endPt={Fmt(endPt)}");
             Log($"LLD={def.LowerLandingDepth:F0}mm  ULD={def.UpperLandingDepth:F0}mm  TotalRun={def.TotalRun:F0}mm");
@@ -112,7 +116,7 @@ namespace SAGAStructuralTools.Core.Stair
             foreach (var sign in new[] { -1.0, 1.0 })
             {
                 var offset      = lateral * (halfFt * sign);
-                bool shouldFlip = isChannel && sign > 0;
+                bool shouldFlip = isChannel && sign < 0;
 
                 if (lldFt > 0.001)
                     CreateBeam(startPt + offset, stringerBottom + offset, symbol, lowerLevel, "patamar-inf", shouldFlip);
@@ -142,10 +146,10 @@ namespace SAGAStructuralTools.Core.Stair
                     CreateBeam(stringerTop + offset, endPt + offset, symbol, upperLevel, "patamar-sup", shouldFlip);
             }
 
-            new LandingBuilder(_doc).Build(def, config, startPt, horizDir, lateral);
+            new LandingBuilder(_doc).Build(def, config, startPt, horizDir, lateral, _createdIds);
 
             if (config.IncludeTreads)
-                new TreadBuilder(_doc).Build(def, config, stringerBottom, horizDir, lateral);
+                new TreadBuilder(_doc).Build(def, config, stringerBottom, horizDir, lateral, _createdIds);
 
             Log("=== Build concluído ===");
         }
@@ -172,16 +176,21 @@ namespace SAGAStructuralTools.Core.Stair
             Log($"  [{tag}] {Fmt(a)} → {Fmt(b)}{(reverseDir ? " [FlipHand → costas-a-costas]" : "")}");
             var line = Line.CreateBound(a, b);
             var inst = _doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam);
+            if (inst != null) _createdIds?.Add(inst.Id);
 
             if (reverseDir && inst != null)
             {
-                // Rotação de seção: "Rotação do corte transversal" (radianos, RW).
+                // Rotação de seção (STRUCTURAL_BEND_DIR_ANGLE, radianos) — busca pelo
+                // BuiltInParameter primeiro (independe do idioma/versão do Revit); o nome
+                // em português é só um fallback pra família com parâmetro renomeado.
                 // Math.PI = 180° → alma do perfil U vira para o lado oposto (costas-a-costas).
-                var rotParam = inst.LookupParameter("Rotação do corte transversal");
+                var rotParam = inst.get_Parameter(BuiltInParameter.STRUCTURAL_BEND_DIR_ANGLE)
+                               ?? inst.LookupParameter("Rotação do corte transversal");
                 if (rotParam != null && !rotParam.IsReadOnly)
                 {
+                    double before = rotParam.AsDouble();
                     rotParam.Set(Math.PI);
-                    Log("  [flip] Rotação do corte transversal = π OK");
+                    Log($"  [flip] rotação: {before * 180.0 / Math.PI:F0}° → {rotParam.AsDouble() * 180.0 / Math.PI:F0}° OK");
 
                     // Corrige altura: Rotação π inverte o eixo Z local. Se a justificação
                     // era Top (0), o "Top original" fica fisicamente embaixo e a seção sobe.
@@ -198,7 +207,7 @@ namespace SAGAStructuralTools.Core.Stair
                 }
                 else
                 {
-                    Log("  [flip] FALHA: 'Rotação do corte transversal' não disponível");
+                    Log("  [flip] FALHA: nem STRUCTURAL_BEND_DIR_ANGLE nem 'Rotação do corte transversal' disponíveis");
                 }
             }
         }
@@ -220,10 +229,38 @@ namespace SAGAStructuralTools.Core.Stair
 
             if (existing != null) return existing;
 
+            // Diagnóstico antes de tentar carregar — pra saber se o problema é caminho/
+            // catálogo (nosso lado) ou o .rfa em si (parâmetros não batendo com o .txt).
+            bool rfaExists = File.Exists(config.StringerFamilyPath);
+            var catalogPath = Path.ChangeExtension(config.StringerFamilyPath, ".txt");
+            bool catalogExists = File.Exists(catalogPath);
+            bool typeInCatalog = false;
+            if (catalogExists)
+            {
+                try
+                {
+                    typeInCatalog = CatalogTextReader.ReadAllLines(catalogPath)
+                        .Skip(1)
+                        .Select(l => l.Split(',')[0].Trim().Replace("\"\"", "\""))
+                        .Any(n => n.Equals(typeName, StringComparison.OrdinalIgnoreCase));
+                }
+                catch { /* diagnóstico best-effort */ }
+            }
+            Log($"  [carregar] path='{config.StringerFamilyPath}' existe={rfaExists} | " +
+                $"catálogo='{catalogPath}' existe={catalogExists} tipo-encontrado={typeInCatalog}");
+
             if (!_doc.LoadFamilySymbol(config.StringerFamilyPath, typeName, out var loaded) || loaded == null)
+            {
+                string hint = !rfaExists ? "o arquivo .rfa não foi encontrado nesse caminho."
+                            : !catalogExists ? "o catálogo .txt não foi encontrado ao lado do .rfa."
+                            : !typeInCatalog ? "o tipo não foi encontrado no catálogo (nome não bate)."
+                            : "o .rfa e o .txt existem e o tipo está no catálogo, mas o Revit recusou gerar o tipo — " +
+                              "provavelmente os parâmetros da família (Width/Height/Wall Nominal Thickness/Nominal Weight) " +
+                              "não batem mais com as colunas do catálogo. Reabra a família no editor e reexporte o catálogo.";
+                Log($"  [carregar] FALHA: {hint}");
                 throw new InvalidOperationException(
-                    $"Não foi possível carregar '{familyName}' tipo '{typeName}'.\n" +
-                    "Verifique se o arquivo .rfa e o tipo estão corretos.");
+                    $"Não foi possível carregar '{familyName}' tipo '{typeName}'.\n{hint}");
+            }
 
             return loaded;
         }

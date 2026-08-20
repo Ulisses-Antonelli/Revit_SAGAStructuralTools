@@ -17,8 +17,20 @@ namespace SAGAStructuralTools.Commands
             SagaLog.Write("=== GenerateStairCommand.Execute iniciado ===");
             try
             {
+                if (StairWindow.TryActivateCurrent())
+                {
+                    SagaLog.Write("StairWindow já estava aberta; janela existente ativada.");
+                    return Result.Succeeded;
+                }
+
                 SagaLog.Write("Criando StairWindow...");
                 var window = new StairWindow(commandData.Application);
+                if (!StairWindow.TryRegister(window))
+                {
+                    StairWindow.TryActivateCurrent();
+                    return Result.Succeeded;
+                }
+
                 SagaLog.Write("StairWindow criada — definindo owner...");
                 new WindowInteropHelper(window).Owner =
                     Process.GetCurrentProcess().MainWindowHandle;

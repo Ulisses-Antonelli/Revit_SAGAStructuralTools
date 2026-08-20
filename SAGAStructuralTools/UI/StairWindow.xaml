@@ -236,60 +236,94 @@ Title="SAGA — Gerar Escada Metálica"
 
             <Border Style="{StaticResource SectionCard}" Margin="0,0,0,20">
                 <StackPanel>
+                    <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap"
+                               Text="Clique no botão e selecione as duas vigas, em qualquer ordem — qual é a inferior e qual é a superior é decidido automaticamente pela cota de cada uma."
+                               Margin="0,0,0,8"/>
+                    <Button Style="{StaticResource BtnSecondary}" HorizontalAlignment="Left"
+                            Content="{Binding SelectBeamsActionText}" Command="{Binding SelectBeamsCommand}"
+                            Margin="0,0,0,10"/>
+
                     <StackPanel Margin="0,0,0,10">
                         <TextBlock Style="{StaticResource FieldLabel}" Text="Viga inferior"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <!-- Borda fica verde quando a viga está selecionada -->
-                            <Border Grid.Column="0" Background="#F8F9FB" BorderThickness="1" CornerRadius="4">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="BorderBrush" Value="#DFE1E6"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding LowerBeamSelected}" Value="True">
-                                                <Setter Property="BorderBrush" Value="#36B37E"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBox Style="{StaticResource CleanInputRO}"
-                                         Text="{Binding LowerBeamName}" IsReadOnly="True"/>
-                            </Border>
-                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
-                                    Content="Selecionar" Command="{Binding SelectLowerBeamCommand}"/>
-                        </Grid>
+                        <!-- Borda fica verde quando a viga está selecionada -->
+                        <Border Background="#F8F9FB" BorderThickness="1" CornerRadius="4">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="#DFE1E6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding LowerBeamSelected}" Value="True">
+                                            <Setter Property="BorderBrush" Value="#36B37E"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBox Style="{StaticResource CleanInputRO}"
+                                     Text="{Binding LowerBeamName}" IsReadOnly="True"/>
+                        </Border>
                     </StackPanel>
 
                     <StackPanel>
                         <TextBlock Style="{StaticResource FieldLabel}" Text="Viga superior"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <!-- Borda fica verde quando a viga está selecionada -->
-                            <Border Grid.Column="0" Background="#F8F9FB" BorderThickness="1" CornerRadius="4">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="BorderBrush" Value="#DFE1E6"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding UpperBeamSelected}" Value="True">
-                                                <Setter Property="BorderBrush" Value="#36B37E"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBox Style="{StaticResource CleanInputRO}"
-                                         Text="{Binding UpperBeamName}" IsReadOnly="True"/>
-                            </Border>
-                            <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
-                                    Content="Selecionar" Command="{Binding SelectUpperBeamCommand}"/>
-                        </Grid>
+                        <!-- Borda fica verde quando a viga está selecionada -->
+                        <Border Background="#F8F9FB" BorderThickness="1" CornerRadius="4">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="#DFE1E6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding UpperBeamSelected}" Value="True">
+                                            <Setter Property="BorderBrush" Value="#36B37E"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBox Style="{StaticResource CleanInputRO}"
+                                     Text="{Binding UpperBeamName}" IsReadOnly="True"/>
+                        </Border>
+                    </StackPanel>
+
+                    <Separator Margin="0,14,0,10" Background="#DFE1E6"/>
+
+                    <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap"
+                               Text="Deslocamento lateral (opcional): desloca o conjunto inteiro perpendicularmente ao sentido do lance. Sem referência, o valor abaixo é só um ajuste manual; com referência, soma-se à posição lateral dela."
+                               Margin="0,0,0,8"/>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- Borda fica verde quando a referência está selecionada -->
+                        <Border Grid.Column="0" Background="#F8F9FB" BorderThickness="1" CornerRadius="4">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="#DFE1E6"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ReferenceSelected}" Value="True">
+                                            <Setter Property="BorderBrush" Value="#36B37E"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBox Style="{StaticResource CleanInputRO}"
+                                     Text="{Binding ReferenceName}" IsReadOnly="True"/>
+                        </Border>
+                        <Button Grid.Column="2" Style="{StaticResource BtnSecondary}"
+                                Content="Selecionar viga/pilar" Command="{Binding SelectReferenceCommand}"/>
+                        <Button Grid.Column="4" Style="{StaticResource BtnSecondary}"
+                                Content="×" FontSize="14" Padding="8,4"
+                                Command="{Binding ClearReferenceCommand}"/>
+                    </Grid>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Deslocamento lateral"/>
+                        <Border Background="White" BorderBrush="#DFE1E6" BorderThickness="1" CornerRadius="4">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="mm" Foreground="#6B778C" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Style="{StaticResource CleanInput}"
+                                         Text="{Binding LateralOffsetMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DockPanel>
+                        </Border>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -515,7 +549,7 @@ Title="SAGA — Gerar Escada Metálica"
                 <Button Grid.Column="1" Style="{StaticResource BtnSecondary}"
                         Content="Calcular" Command="{Binding CalculatePreviewCommand}"/>
                 <Button Grid.Column="3" Style="{StaticResource BtnPrimary}"
-                        Content="Criar Escada" Command="{Binding CreateStairCommand}"/>
+                        Content="{Binding CreateActionText}" Command="{Binding CreateStairCommand}"/>
                 <Button Grid.Column="5" Style="{StaticResource BtnSecondary}"
                         Content="Cancelar" IsCancel="True" Click="OnCancel"/>
             </Grid>

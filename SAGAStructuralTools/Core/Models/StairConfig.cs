@@ -20,5 +20,10 @@ namespace SAGAStructuralTools.Core.Models
         // false (padrão): Largura Útil = distância livre entre as faces externas das almas.
         // true           : Largura Útil = distância entre os eixos neutros (centroide-a-centroide).
         public bool   UseAxis                   { get; set; } = false;
+
+        // Desloca o conjunto inteiro (as duas vigas de conexão) perpendicularmente ao
+        // sentido do lance, a partir do eixo de uma viga/pilar de referência escolhido
+        // na hora de gerar — sem referência, funciona como um ajuste manual simples.
+        public double LateralOffsetMm           { get; set; } = StairDefaults.LateralOffsetMm;
     }
 }

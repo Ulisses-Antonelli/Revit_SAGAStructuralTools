@@ -26,7 +26,8 @@ namespace SAGAStructuralTools.Core.Stair
         /// <param name="horizDir">Direção horizontal unitária da marcha.</param>
         /// <param name="lateral">Direção lateral unitária (perpendicular à marcha, no plano XY).</param>
         public void Build(StairDefinition def, StairConfig config,
-                          XYZ stringerBottom, XYZ horizDir, XYZ lateral)
+                          XYZ stringerBottom, XYZ horizDir, XYZ lateral,
+                          ICollection<ElementId> createdIds = null)
         {
             Log($"  [treads] {def.StepCount} degraus | espessura={config.TreadThickness:F0}mm | largura={config.Width:F0}mm");
 
@@ -67,6 +68,7 @@ namespace SAGAStructuralTools.Core.Stair
                     _doc, new ElementId(BuiltInCategory.OST_GenericModel));
                 shape.SetShape(new GeometryObject[] { solid });
                 shape.SetName($"Degrau {i + 1}");
+                createdIds?.Add(shape.Id);
 
                 Log($"  [tread {i + 1:D2}] z={zSurf * 304.8:F0}mm  run=[frente={runFront * 304.8:F0}–trás={runBack * 304.8:F0}]mm{(isUpperFlight ? " [marcha sup]" : "")}");
             }
