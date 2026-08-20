@@ -14,6 +14,7 @@ namespace SAGAStructuralTools
         private RailSelectionController _railSelectionController;
         private LadderSelectionController _ladderSelectionController;
         private StairSelectionController _stairSelectionController;
+        private StiffenerSelectionController _stiffenerSelectionController;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -73,6 +74,17 @@ namespace SAGAStructuralTools
                     ToolTip    = "Gera escadas marinheiro a partir da viga superior: montantes, degraus, suportes, gaiola e prolongamento. Edite com Alt+clique.",
                     LargeImage = LoadIcon("stairs_32.png", 32),
                     Image      = LoadIcon("stairs_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "GenerateStiffener",
+                    text:         "Gerar\nNervura",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateStiffenerCommand")
+                {
+                    ToolTip    = "Gera chapa(s) de reforço (nervura) no vão livre de um perfil W, com chanfro automático para o raio de concordância mesa-alma.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
                 });
 
                 TryAddButton(generalPanel, new PushButtonData(
@@ -216,6 +228,7 @@ namespace SAGAStructuralTools
                 _railSelectionController = new RailSelectionController(application);
                 _ladderSelectionController = new LadderSelectionController(application);
                 _stairSelectionController = new StairSelectionController(application);
+                _stiffenerSelectionController = new StiffenerSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
                 return Result.Succeeded;
@@ -283,6 +296,8 @@ namespace SAGAStructuralTools
             _ladderSelectionController = null;
             _stairSelectionController?.Dispose();
             _stairSelectionController = null;
+            _stiffenerSelectionController?.Dispose();
+            _stiffenerSelectionController = null;
             return Result.Succeeded;
         }
 
