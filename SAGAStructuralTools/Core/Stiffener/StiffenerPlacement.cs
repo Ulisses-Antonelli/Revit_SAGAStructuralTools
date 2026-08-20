@@ -25,6 +25,16 @@ namespace SAGAStructuralTools.Core.Stiffener
         public double  WebThicknessMm    { get; set; }
         public double? FilletRadiusMm    { get; set; }
 
+        /// <summary>
+        /// Ponto clicado numa face de alinhamento (ex.: mesa de um pilar apoiado
+        /// sobre a viga) — null = sem referência, a chapa fica centrada no ponto
+        /// clicado na viga. Quando presente, o StiffenerBuilder desloca a chapa
+        /// para que a face mais próxima dessa referência fique rente a ela,
+        /// recalculando a cada mudança de espessura (não é uma posição fixa).
+        /// </summary>
+        public XYZ    AlignFacePoint      { get; set; }
+        public string AlignReferenceName  { get; set; }
+
         public bool IsValid =>
             InsertionPoint != null && AxisDir != null && Up != null && Lateral != null &&
             HeightMm > 0 && WidthMm > 0 && FlangeThicknessMm > 0 && WebThicknessMm > 0;

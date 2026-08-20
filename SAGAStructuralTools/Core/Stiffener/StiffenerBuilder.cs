@@ -21,14 +21,15 @@ namespace SAGAStructuralTools.Core.Stiffener
                           StiffenerConfig config, ICollection<ElementId> createdIds = null)
         {
             double thickFt = config.PlateThickness / 304.8;
-            var half = placement.AxisDir * (thickFt / 2.0);
+            var half   = placement.AxisDir * (thickFt / 2.0);
+            var center = ResolveCenter(placement, thickFt);
 
             foreach (var plate in def.Plates)
             {
                 var loop = new CurveLoop();
                 var pts  = new List<XYZ>();
                 foreach (var (y, z) in plate.OutlineMm)
-                    pts.Add(ToWorld(placement, y, z) - half);
+                    pts.Add(ToWorld(center, placement, y, z) - half);
 
                 for (int i = 0; i < pts.Count; i++)
                 {
@@ -48,7 +49,22 @@ namespace SAGAStructuralTools.Core.Stiffener
             }
         }
 
-        private static XYZ ToWorld(StiffenerPlacement p, double yMm, double zMm) =>
-            p.InsertionPoint + p.Lateral * (yMm / 304.8) + p.Up * (zMm / 304.8);
+        // Sem referência de alinhamento: chapa centrada no ponto clicado na viga
+        // (comportamento de sempre). Com referência: a face mais próxima da
+        // referência fica rente a ela — recalculado a cada Build a partir da
+        // espessura ATUAL, então a face rente nunca se move quando a espessura
+        // muda, só a face oposta (a que "cresce" para dentro do vão).
+        private static XYZ ResolveCenter(StiffenerPlacement p, double thickFt)
+        {
+            if (p.AlignFacePoint == null) return p.InsertionPoint;
+
+            double targetT = (p.AlignFacePoint - p.InsertionPoint).DotProduct(p.AxisDir);
+            double sign = targetT >= 0 ? 1.0 : -1.0;
+            var facePoint = p.InsertionPoint + p.AxisDir * targetT;
+            return facePoint - p.AxisDir * (sign * thickFt / 2.0);
+        }
+
+        private static XYZ ToWorld(XYZ center, StiffenerPlacement p, double yMm, double zMm) =>
+            center + p.Lateral * (yMm / 304.8) + p.Up * (zMm / 304.8);
     }
 }

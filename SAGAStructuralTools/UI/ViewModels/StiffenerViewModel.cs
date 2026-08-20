@@ -9,13 +9,15 @@ using System.Windows.Threading;
 
 namespace SAGAStructuralTools.UI.ViewModels
 {
-    public class StiffenerViewModel : ViewModelBase
+    public class StiffenerViewModel : ViewModelBase, IDisposable
     {
-        private readonly Dispatcher                _dispatcher;
-        private readonly ExternalEvent              _pickEvent;
-        private readonly ExternalEvent              _createEvent;
-        private readonly StiffenerCreationHandler   _createHandler;
-        private readonly StiffenerEditContext       _editContext;
+        private readonly Dispatcher                    _dispatcher;
+        private readonly ExternalEvent                  _pickEvent;
+        private readonly ExternalEvent                  _createEvent;
+        private readonly StiffenerCreationHandler        _createHandler;
+        private readonly StiffenerEditContext            _editContext;
+        private readonly ExternalEvent                  _alignmentPickEvent;
+        private readonly StiffenerAlignmentPickHandler   _alignmentPickHandler;
         private bool                                _isSubmitting;
 
         private StiffenerPlacement  _placement;
@@ -42,12 +44,21 @@ namespace SAGAStructuralTools.UI.ViewModels
             }
             _createHandler.Completed += OnCreationCompleted;
 
+            _alignmentPickHandler = new StiffenerAlignmentPickHandler();
+            _alignmentPickHandler.ReferencePicked += OnReferencePicked;
+            _alignmentPickHandler.PickFailed      += OnPickFailed;
+            _alignmentPickEvent = ExternalEvent.Create(_alignmentPickHandler);
+
             PickBeamCommand         = new RelayCommand(_ => _pickEvent.Raise(), _ => !_isSubmitting);
             CalculatePreviewCommand = new RelayCommand(_ => CalculatePreview(), _ => HasPlacement);
             CreateCommand           = new RelayCommand(_ => CreateStiffener(), _ => HasPlacement && !_isSubmitting);
+            SelectAlignmentReferenceCommand = new RelayCommand(_ => _alignmentPickEvent.Raise(), _ => HasPlacement && !_isSubmitting);
+            ClearAlignmentReferenceCommand  = new RelayCommand(_ => ClearAlignmentReference(), _ => HasAlignReference);
 
             if (IsEditMode) LoadEditContext();
         }
+
+        public void Dispose() => _alignmentPickEvent?.Dispose();
 
         // ── Edição ─────────────────────────────────────────────────────────
 
@@ -69,6 +80,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             OnPropertyChanged(nameof(Symmetric));
             OnPropertyChanged(nameof(HasPlacement));
             OnPropertyChanged(nameof(BeamName));
+            OnPropertyChanged(nameof(HasAlignReference));
+            OnPropertyChanged(nameof(AlignReferenceName));
             CalculatePreview();
         }
 
@@ -96,6 +109,40 @@ namespace SAGAStructuralTools.UI.ViewModels
                 Warnings.Clear();
                 Warnings.Add(reason);
             });
+        }
+
+        // ── Referência de alinhamento (opcional) ──────────────────────────────
+
+        public bool   HasAlignReference => _placement?.AlignFacePoint != null;
+        public string AlignReferenceName => _placement?.AlignReferenceName;
+
+        private void OnReferencePicked(Autodesk.Revit.DB.XYZ point, string referenceName)
+        {
+            _dispatcher.Invoke(() =>
+            {
+                if (!HasPlacement)
+                {
+                    Warnings.Clear();
+                    Warnings.Add("Selecione a viga antes de escolher a referência de alinhamento.");
+                    return;
+                }
+
+                _placement.AlignFacePoint     = point;
+                _placement.AlignReferenceName = referenceName;
+                OnPropertyChanged(nameof(HasAlignReference));
+                OnPropertyChanged(nameof(AlignReferenceName));
+                CommandManager.InvalidateRequerySuggested();
+            });
+        }
+
+        private void ClearAlignmentReference()
+        {
+            if (_placement == null) return;
+            _placement.AlignFacePoint     = null;
+            _placement.AlignReferenceName = null;
+            OnPropertyChanged(nameof(HasAlignReference));
+            OnPropertyChanged(nameof(AlignReferenceName));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         // ── Configuração ───────────────────────────────────────────────────
@@ -209,8 +256,10 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         public bool CanClose => !_isSubmitting;
 
-        public RelayCommand PickBeamCommand         { get; }
-        public RelayCommand CalculatePreviewCommand { get; }
-        public RelayCommand CreateCommand           { get; }
+        public RelayCommand PickBeamCommand                 { get; }
+        public RelayCommand CalculatePreviewCommand         { get; }
+        public RelayCommand CreateCommand                   { get; }
+        public RelayCommand SelectAlignmentReferenceCommand { get; }
+        public RelayCommand ClearAlignmentReferenceCommand  { get; }
     }
 }

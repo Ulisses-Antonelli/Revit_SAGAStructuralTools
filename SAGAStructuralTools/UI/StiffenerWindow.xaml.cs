@@ -49,6 +49,7 @@ namespace SAGAStructuralTools.UI
             var viewModel = new StiffenerViewModel(pickEvent, pickHandler, createEvent, createHandler, editContext);
             DataContext = viewModel;
             Title = viewModel.WindowTitle;
+            Closed += (s, e) => viewModel.Dispose();
         }
 
         private void OnCancel(object sender, RoutedEventArgs e)

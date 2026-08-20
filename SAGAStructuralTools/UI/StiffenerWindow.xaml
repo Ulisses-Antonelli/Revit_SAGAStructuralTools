@@ -121,6 +121,33 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Referência de alinhamento (opcional) -->
+                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="ALINHAMENTO (OPCIONAL)" FontWeight="SemiBold" FontSize="12" Foreground="#344563" Margin="0,0,0,4"/>
+                        <TextBlock Text="Clique na face de um pilar (ou numa linha) para a nervura nascer rente a ela, em vez de centrada no ponto clicado na viga."
+                                   TextWrapping="Wrap" Style="{StaticResource FieldLabel}" Margin="0,0,0,10"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Selecionar face de referência" Style="{StaticResource BtnSecondary}"
+                                    HorizontalAlignment="Left" Command="{Binding SelectAlignmentReferenceCommand}"/>
+                            <Button Content="Limpar" Style="{StaticResource BtnSecondary}" Margin="8,0,0,0"
+                                    Command="{Binding ClearAlignmentReferenceCommand}"/>
+                        </StackPanel>
+                        <TextBlock Margin="0,8,0,0" FontSize="12" Foreground="#5E6C84">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="Sem referência — chapa centrada no ponto clicado."/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasAlignReference}" Value="True">
+                                            <Setter Property="Text" Value="{Binding AlignReferenceName, StringFormat='Alinhado à face de: {0}'}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
                 <!-- Configuração -->
                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
                     <StackPanel>

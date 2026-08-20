@@ -53,7 +53,10 @@ namespace SAGAStructuralTools.Core.Stiffener
                 FlangeThicknessMm = placement.FlangeThicknessMm,
                 WebThicknessMm    = placement.WebThicknessMm,
                 FilletRadiusMm    = placement.FilletRadiusMm,
-                BeamName          = placement.BeamName
+                BeamName          = placement.BeamName,
+                HasAlignFace      = placement.AlignFacePoint != null,
+                AlignFace         = RailPointData.FromXyz(placement.AlignFacePoint),
+                AlignReferenceName = placement.AlignReferenceName
             };
         }
 
@@ -207,6 +210,9 @@ namespace SAGAStructuralTools.Core.Stiffener
         public double  WebThicknessMm { get; set; }
         public double? FilletRadiusMm { get; set; }
         public string BeamName { get; set; }
+        public bool   HasAlignFace { get; set; }
+        public RailPointData AlignFace { get; set; } = new RailPointData();
+        public string AlignReferenceName { get; set; }
         public List<string> MemberUniqueIds { get; set; } = new List<string>();
     }
 
@@ -247,7 +253,9 @@ namespace SAGAStructuralTools.Core.Stiffener
                     WebThicknessMm    = data.WebThicknessMm,
                     FilletRadiusMm    = data.FilletRadiusMm,
                     BeamName          = data.BeamName,
-                    BeamId            = ElementId.InvalidElementId
+                    BeamId            = ElementId.InvalidElementId,
+                    AlignFacePoint    = data.HasAlignFace ? data.AlignFace?.ToXyz() : null,
+                    AlignReferenceName = data.AlignReferenceName
                 },
                 MemberUniqueIds = data.MemberUniqueIds ?? new List<string>()
             };
