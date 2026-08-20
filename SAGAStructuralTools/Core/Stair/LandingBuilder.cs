@@ -22,7 +22,8 @@ namespace SAGAStructuralTools.Core.Stair
         public LandingBuilder(Document doc) => _doc = doc;
 
         public void Build(StairDefinition def, StairConfig config,
-                          XYZ startPt, XYZ horizDir, XYZ lateral)
+                          XYZ startPt, XYZ horizDir, XYZ lateral,
+                          ICollection<ElementId> createdIds = null)
         {
             if (!def.HasIntermediateLanding) return;
 
@@ -43,11 +44,12 @@ namespace SAGAStructuralTools.Core.Stair
                 stringerBottom.Y + horizDir.Y * (k + 2) * tFt,
                 stringerBottom.Z + (k + 1) * rFt - thickFt);
 
-            CreateSlab(midOrigin, illFt, halfWFt, thickFt, horizDir, lateral);
+            CreateSlab(midOrigin, illFt, halfWFt, thickFt, horizDir, lateral, createdIds);
         }
 
         private void CreateSlab(XYZ origin, double depthFt, double halfWidthFt,
-                                 double thicknessFt, XYZ horizDir, XYZ lateral)
+                                 double thicknessFt, XYZ horizDir, XYZ lateral,
+                                 ICollection<ElementId> createdIds)
         {
             var p0 = origin + lateral * (-halfWidthFt);
             var p1 = p0     + horizDir * depthFt;
@@ -66,6 +68,7 @@ namespace SAGAStructuralTools.Core.Stair
             var shape = DirectShape.CreateElement(_doc, new ElementId(BuiltInCategory.OST_GenericModel));
             shape.SetShape(new GeometryObject[] { solid });
             shape.SetName("Patamar_Intermediario");
+            createdIds?.Add(shape.Id);
         }
     }
 }

@@ -12,5 +12,6 @@ namespace SAGAStructuralTools.Core.Domain
         public const bool   IncludeTreads             = true;
         public const bool   HasIntermediateLanding    = false;
         public const double IntermediateLandingLength = 1200; // mm
+        public const double LateralOffsetMm           = 0;    // mm — 0 = sem deslocamento (comportamento anterior)
     }
 }

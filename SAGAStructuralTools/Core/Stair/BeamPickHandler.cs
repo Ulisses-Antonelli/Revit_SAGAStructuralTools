@@ -2,17 +2,37 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using SAGAStructuralTools.Core;
+using SAGAStructuralTools.Core.Rail;
 using System;
 
 namespace SAGAStructuralTools.Core.Stair
 {
     /// <summary>
-    /// Handler de ExternalEvent para seleção interativa de vigas estruturais.
+    /// Handler de ExternalEvent para seleção interativa de vigas estruturais (e,
+    /// opcionalmente, pilares — usado no pick de referência de deslocamento lateral).
     /// Captura tanto o ElementId quanto o ponto exato do clique (GlobalPoint),
     /// que é usado para posicionar a escada ao longo da viga.
     /// </summary>
     public class BeamPickHandler : IExternalEventHandler
     {
+        private readonly ISelectionFilter _filter;
+        private readonly string _prompt;
+
+        public BeamPickHandler()
+            : this(new StructuralFramingFilter(), "Selecione a viga estrutural (ESC para cancelar)")
+        {
+        }
+
+        /// <summary>
+        /// Construtor usado pelo pick de referência lateral, que também aceita pilares
+        /// (reaproveita o mesmo filtro de viga/pilar reto usado nas ferramentas de canto).
+        /// </summary>
+        public BeamPickHandler(ISelectionFilter filter, string prompt)
+        {
+            _filter = filter;
+            _prompt = prompt;
+        }
+
         /// <summary>
         /// Disparado após seleção: (ElementId, Nome, PontoDoClique projetado no eixo da viga).
         /// </summary>
@@ -22,12 +42,11 @@ namespace SAGAStructuralTools.Core.Stair
         {
             try
             {
-                var uidoc  = app.ActiveUIDocument;
-                var filter = new StructuralFramingFilter();
-                var sel    = uidoc.Selection.PickObject(
+                var uidoc = app.ActiveUIDocument;
+                var sel   = uidoc.Selection.PickObject(
                     ObjectType.Element,
-                    filter,
-                    "Selecione a viga estrutural (ESC para cancelar)");
+                    _filter,
+                    _prompt);
 
                 var element    = uidoc.Document.GetElement(sel.ElementId);
                 var clickPoint = sel.GlobalPoint;
@@ -69,6 +88,17 @@ namespace SAGAStructuralTools.Core.Stair
     {
         public bool AllowElement(Element elem)
             => elem?.Category?.Id.GetId() == (int)BuiltInCategory.OST_StructuralFraming;
+
+        public bool AllowReference(Reference reference, XYZ position) => false;
+    }
+
+    /// <summary>
+    /// Filtro do pick de referência lateral: viga reta OU pilar (reto ou por ponto) —
+    /// mesmo critério já usado pelas ferramentas de canto arredondado.
+    /// </summary>
+    internal class BeamOrColumnFilter : ISelectionFilter
+    {
+        public bool AllowElement(Element elem) => RoundedCornerMember.IsSelectable(elem);
 
         public bool AllowReference(Reference reference, XYZ position) => false;
     }
