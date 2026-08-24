@@ -85,7 +85,7 @@ namespace SAGAStructuralTools.Core.Alignment
                     "O eixo do componente é paralelo à face de referência — não há onde estender.");
         }
 
-        private static PlanarFace FindBestStopFace(Element element, Line axis, XYZ movingPoint)
+        internal static PlanarFace FindBestStopFace(Element element, Line axis, XYZ movingPoint)
         {
             var options = new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine };
             var geometry = element.get_Geometry(options);
@@ -135,7 +135,7 @@ namespace SAGAStructuralTools.Core.Alignment
             }
         }
 
-        private static XYZ IntersectLineWithPlane(Line line, Plane plane)
+        internal static XYZ IntersectLineWithPlane(Line line, Plane plane)
         {
             double denom = plane.Normal.DotProduct(line.Direction);
             if (Math.Abs(denom) < 1e-9) return null;
