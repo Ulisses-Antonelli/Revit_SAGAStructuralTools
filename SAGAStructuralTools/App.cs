@@ -15,6 +15,7 @@ namespace SAGAStructuralTools
         private LadderSelectionController _ladderSelectionController;
         private StairSelectionController _stairSelectionController;
         private StiffenerSelectionController _stiffenerSelectionController;
+        private EndPlateSelectionController _endPlateSelectionController;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -83,6 +84,17 @@ namespace SAGAStructuralTools
                     className:    "SAGAStructuralTools.Commands.GenerateStiffenerCommand")
                 {
                     ToolTip    = "Gera chapa(s) de reforço (nervura) no vão livre de um perfil W, com chanfro automático para o raio de concordância mesa-alma.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
+                    name:         "GenerateEndPlate",
+                    text:         "Gerar Chapa\nde Topo",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateEndPlateCommand")
+                {
+                    ToolTip    = "Gera chapa de topo (end plate) na extremidade de uma viga ou pilar W, ou na interface de contato entre duas peças.",
                     LargeImage = LoadIcon("saga_32.png", 32),
                     Image      = LoadIcon("saga_16.png", 16)
                 });
@@ -229,6 +241,7 @@ namespace SAGAStructuralTools
                 _ladderSelectionController = new LadderSelectionController(application);
                 _stairSelectionController = new StairSelectionController(application);
                 _stiffenerSelectionController = new StiffenerSelectionController(application);
+                _endPlateSelectionController = new EndPlateSelectionController(application);
 
                 SagaLog.Write("=== App.OnStartup concluído com sucesso ===");
                 return Result.Succeeded;
@@ -298,6 +311,8 @@ namespace SAGAStructuralTools
             _stairSelectionController = null;
             _stiffenerSelectionController?.Dispose();
             _stiffenerSelectionController = null;
+            _endPlateSelectionController?.Dispose();
+            _endPlateSelectionController = null;
             return Result.Succeeded;
         }
 

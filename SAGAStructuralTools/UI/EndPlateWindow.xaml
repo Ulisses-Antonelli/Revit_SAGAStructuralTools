@@ -1,0 +1,173 @@
+<Window x:Class="SAGAStructuralTools.UI.EndPlateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:SAGAStructuralTools.UI.Converters"
+        Title="SAGA — Gerar Chapa de Topo (End Plate)"
+        Width="460" MinWidth="420" Height="600" MinHeight="520"
+        ResizeMode="CanResizeWithGrip"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8F9FB"
+        FontFamily="Segoe UI" FontSize="13">
+
+    <Window.Resources>
+        <converters:FlexibleDoubleConverter x:Key="FlexibleDouble"/>
+
+        <!-- ── Identidade visual compartilhada (mesmos estilos das outras ferramentas) ── -->
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius"    Value="4"/>
+            <Setter Property="Padding"         Value="16"/>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="Foreground" Value="#6B778C"/>
+            <Setter Property="Margin"     Value="0,0,0,4"/>
+        </Style>
+
+        <Style x:Key="CleanInput" TargetType="TextBox">
+            <Setter Property="BorderThickness"   Value="1"/>
+            <Setter Property="BorderBrush"       Value="#DFE1E6"/>
+            <Setter Property="Background"        Value="White"/>
+            <Setter Property="Padding"           Value="8,5,4,5"/>
+            <Setter Property="Foreground"        Value="#172B4D"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize"          Value="13"/>
+        </Style>
+
+        <Style x:Key="BtnPrimary" TargetType="Button">
+            <Setter Property="Background"      Value="#0052CC"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="16,7"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled"   Value="False"><Setter Property="Background" Value="#AABDD8"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"> <Setter Property="Background" Value="#0747A6"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="BtnSecondary" TargetType="Button">
+            <Setter Property="Background"      Value="White"/>
+            <Setter Property="Foreground"      Value="#344563"/>
+            <Setter Property="BorderBrush"     Value="#DFE1E6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#F4F5F7"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground"               Value="#344563"/>
+            <Setter Property="FontSize"                 Value="12"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="20">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BtnSecondary}" Margin="0,0,8,0" Click="OnCancel"/>
+            <Button Content="{Binding CreateActionText}" Style="{StaticResource BtnPrimary}" Command="{Binding CreateCommand}"/>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <!-- Seleção -->
+                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="SELEÇÃO" FontWeight="SemiBold" FontSize="12" Foreground="#344563" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Modo 1 — peça única (chapa no topo)" Style="{StaticResource FieldLabel}"/>
+                        <Button Content="Selecionar viga ou pilar" Style="{StaticResource BtnSecondary}"
+                                HorizontalAlignment="Left" Margin="0,0,0,10" Command="{Binding PickSingleCommand}"/>
+
+                        <TextBlock Text="Modo 2 — duas peças (interface de contato)" Style="{StaticResource FieldLabel}"/>
+                        <Button Content="Selecionar duas peças" Style="{StaticResource BtnSecondary}"
+                                HorizontalAlignment="Left" Command="{Binding PickTwoCommand}"/>
+
+                        <TextBlock Text="{Binding PrimaryMemberName}" Margin="0,10,0,0" FontSize="12" Foreground="#5E6C84"/>
+                        <TextBlock Text="{Binding SecondaryMemberName}" FontSize="12" Foreground="#5E6C84"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Configuração -->
+                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="CONFIGURAÇÃO" FontWeight="SemiBold" FontSize="12" Foreground="#344563" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Espessura da chapa (mm)" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Style="{StaticResource CleanInput}" Margin="0,0,0,10"
+                                 Text="{Binding PlateThicknessMm, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=LostFocus}"/>
+
+                        <TextBlock Text="Margem além do topo/fundo das mesas (mm)" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Style="{StaticResource CleanInput}" Margin="0,0,0,10"
+                                 Text="{Binding MarginVerticalMm, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=LostFocus}"/>
+
+                        <TextBlock Text="Margem além das laterais das mesas (mm)" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Style="{StaticResource CleanInput}" Margin="0,0,0,10"
+                                 Text="{Binding MarginHorizontalMm, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=LostFocus}"/>
+
+                        <CheckBox Content="Modo 2: gerar chapa nas duas peças (não só na primeira)"
+                                  IsChecked="{Binding GenerateBothMembers}"
+                                  IsEnabled="{Binding IsTwoMemberMode}" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Afastamento entre as duas chapas (mm) — 0 = encostadas" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Style="{StaticResource CleanInput}"
+                                 IsEnabled="{Binding IsTwoMemberMode}"
+                                 Text="{Binding GapBetweenPlatesMm, Converter={StaticResource FlexibleDouble}, UpdateSourceTrigger=LostFocus}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Preview -->
+                <Border Style="{StaticResource SectionCard}">
+                    <StackPanel>
+                        <TextBlock Text="PREVIEW" FontWeight="SemiBold" FontSize="12" Foreground="#344563" Margin="0,0,0,10"/>
+
+                        <ItemsControl ItemsSource="{Binding MemberSummaries}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#0052CC" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#B25000" FontSize="12" Margin="0,2,0,2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
