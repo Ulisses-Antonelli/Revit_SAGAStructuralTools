@@ -83,7 +83,7 @@ namespace SAGAStructuralTools
                     assemblyName: assemblyPath,
                     className:    "SAGAStructuralTools.Commands.GenerateStiffenerCommand")
                 {
-                    ToolTip    = "Gera chapa(s) de reforço (nervura) no vão livre de um perfil W, com chanfro automático para o raio de concordância mesa-alma.",
+                    ToolTip    = "Gera chapa(s) de reforço (nervura) no vão livre de uma viga ou pilar em perfil W, com chanfro automático para o raio de concordância mesa-alma.",
                     LargeImage = LoadIcon("saga_32.png", 32),
                     Image      = LoadIcon("saga_16.png", 16)
                 });

@@ -22,7 +22,7 @@ namespace SAGAStructuralTools.Core.Stiffener
         {
             double thickFt = config.PlateThickness / 304.8;
             var half   = placement.AxisDir * (thickFt / 2.0);
-            var center = ResolveCenter(placement, thickFt);
+            var center = ResolveCenter(placement, thickFt, config.FlipAlignmentSide);
 
             foreach (var plate in def.Plates)
             {
@@ -54,14 +54,22 @@ namespace SAGAStructuralTools.Core.Stiffener
         // referência fica rente a ela — recalculado a cada Build a partir da
         // espessura ATUAL, então a face rente nunca se move quando a espessura
         // muda, só a face oposta (a que "cresce" para dentro do vão).
-        private static XYZ ResolveCenter(StiffenerPlacement p, double thickFt)
+        private static XYZ ResolveCenter(StiffenerPlacement p, double thickFt, bool flip)
         {
             if (p.AlignFacePoint == null) return p.InsertionPoint;
 
             double targetT = (p.AlignFacePoint - p.InsertionPoint).DotProduct(p.AxisDir);
             double sign = targetT >= 0 ? 1.0 : -1.0;
+            if (flip) sign = -sign;
             var facePoint = p.InsertionPoint + p.AxisDir * targetT;
-            return facePoint - p.AxisDir * (sign * thickFt / 2.0);
+            // O sinal estava invertido: a chapa nascia com a face errada rente
+            // à referência, deslocada uma espessura inteira para fora do vão
+            // (+metade de um lado em vez de -metade do outro = diferença de
+            // uma espessura cheia). Corrigido invertendo o sentido do deslocamento.
+            // "flip" é o ajuste manual — a heurística de sinal (targetT >= 0)
+            // nem sempre acerta o lado certo dependendo de onde a referência
+            // está em relação ao clique original na peça.
+            return facePoint + p.AxisDir * (sign * thickFt / 2.0);
         }
 
         private static XYZ ToWorld(XYZ center, StiffenerPlacement p, double yMm, double zMm) =>

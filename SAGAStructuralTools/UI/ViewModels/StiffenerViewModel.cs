@@ -26,6 +26,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         private double _plateThicknessMm  = StiffenerDefaults.PlateThickness;
         private double _chamferOverrideMm = 0;
         private bool   _symmetric         = true;
+        private bool   _flipAlignmentSide = false;
 
         public StiffenerViewModel(ExternalEvent pickEvent, StiffenerPickHandler pickHandler,
                                   ExternalEvent createEvent, StiffenerCreationHandler createHandler,
@@ -73,11 +74,13 @@ namespace SAGAStructuralTools.UI.ViewModels
             _plateThicknessMm  = _editContext.Config.PlateThickness;
             _chamferOverrideMm = _editContext.Config.ChamferOverride;
             _symmetric         = _editContext.Config.Symmetric;
+            _flipAlignmentSide = _editContext.Config.FlipAlignmentSide;
             _placement         = _editContext.Placement;
 
             OnPropertyChanged(nameof(PlateThicknessMm));
             OnPropertyChanged(nameof(ChamferOverrideMm));
             OnPropertyChanged(nameof(Symmetric));
+            OnPropertyChanged(nameof(FlipAlignmentSide));
             OnPropertyChanged(nameof(HasPlacement));
             OnPropertyChanged(nameof(BeamName));
             OnPropertyChanged(nameof(HasAlignReference));
@@ -145,6 +148,17 @@ namespace SAGAStructuralTools.UI.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
+        /// <summary>
+        /// Ajuste manual: inverte pra qual lado da referência a chapa nasce —
+        /// a heurística de sinal automática nem sempre acerta dependendo de
+        /// onde a referência está em relação ao clique original na peça.
+        /// </summary>
+        public bool FlipAlignmentSide
+        {
+            get => _flipAlignmentSide;
+            set { if (Set(ref _flipAlignmentSide, value)) CalculatePreview(); }
+        }
+
         // ── Configuração ───────────────────────────────────────────────────
 
         public double PlateThicknessMm
@@ -206,9 +220,10 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private StiffenerConfig BuildConfig() => new StiffenerConfig
         {
-            PlateThickness  = PlateThicknessMm,
-            ChamferOverride = ChamferOverrideMm,
-            Symmetric       = Symmetric
+            PlateThickness    = PlateThicknessMm,
+            ChamferOverride   = ChamferOverrideMm,
+            Symmetric         = Symmetric,
+            FlipAlignmentSide = FlipAlignmentSide
         };
 
         // ── Criação ────────────────────────────────────────────────────────

@@ -1,15 +1,20 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using SAGAStructuralTools.Core.EndPlate;
 using System;
 
 namespace SAGAStructuralTools.Core.Stiffener
 {
     /// <summary>
-    /// Seleção em um único clique: o usuário clica na viga W, no ponto ao longo
-    /// do eixo onde a nervura deve ficar. O ponto do clique também define, pelo
-    /// lado da alma em que caiu, o lado preferencial (usado quando a nervura não
-    /// é simétrica). Mesmo padrão de <see cref="Ladder.LadderPickHandler"/>.
+    /// Seleção em um único clique: o usuário clica na viga ou pilar W, no ponto
+    /// ao longo do eixo onde a nervura deve ficar. O ponto do clique também
+    /// define, pelo lado da alma em que caiu, o lado preferencial (usado quando
+    /// a nervura não é simétrica). Mesmo padrão de <see cref="Ladder.LadderPickHandler"/>.
+    ///
+    /// Reaproveita <see cref="MemberOrientationReader"/> (criado pra chapa de
+    /// topo) pra achar eixo/referencial em qualquer orientação — inclusive
+    /// pilar vertical, que antes era rejeitado aqui.
     /// </summary>
     public class StiffenerPickHandler : IExternalEventHandler
     {
@@ -25,19 +30,19 @@ namespace SAGAStructuralTools.Core.Stiffener
 
                 var reference = uidoc.Selection.PickObject(
                     ObjectType.Element,
-                    new StructuralFramingFilter(),
-                    "Clique na viga W, no ponto ao longo do eixo onde a nervura será inserida (ESC para cancelar).");
+                    new EndPlateMemberFilter(),
+                    "Clique na viga ou pilar W, no ponto ao longo do eixo onde a nervura será inserida (ESC para cancelar).");
 
-                var beam       = doc.GetElement(reference.ElementId) as FamilyInstance;
+                var member     = doc.GetElement(reference.ElementId) as FamilyInstance;
                 var clickPoint = reference.GlobalPoint;
 
-                if (beam == null || !(beam.Location is LocationCurve lc) || !(lc.Curve is Line axis))
+                if (member == null)
                 {
-                    PickFailed?.Invoke("A viga selecionada não possui um eixo reto válido.");
+                    PickFailed?.Invoke("Elemento inválido.");
                     return;
                 }
 
-                if (!WProfileDimensions.TryRead(beam.Symbol, out var hMm, out var bfMm,
+                if (!WProfileDimensions.TryRead(member.Symbol, out var hMm, out var bfMm,
                         out var tfMm, out var twMm, out var filletMm))
                 {
                     PickFailed?.Invoke(
@@ -46,46 +51,37 @@ namespace SAGAStructuralTools.Core.Stiffener
                     return;
                 }
 
-                var axisDir = (axis.GetEndPoint(1) - axis.GetEndPoint(0)).Normalize();
-
-                // "Up" = vertical do mundo projetada no plano perpendicular ao eixo —
-                // a altura (h) do perfil segue a alma vertical, mesma convenção usada
-                // no restante do projeto (escada/gaiola) para vigas W horizontais.
-                var upRaw = XYZ.BasisZ - axisDir * axisDir.DotProduct(XYZ.BasisZ);
-                if (upRaw.GetLength() < 1e-6)
+                if (!MemberOrientationReader.TryGetEnds(member, out var end0, out var end1, out var axisDir))
                 {
-                    PickFailed?.Invoke("Não é possível orientar a nervura em elementos verticais (pilares).");
+                    PickFailed?.Invoke("Não foi possível localizar a geometria da peça selecionada.");
                     return;
                 }
-                var up      = upRaw.Normalize();
-                var lateral = up.CrossProduct(axisDir).Normalize();
 
-                var projection = axis.Project(clickPoint);
-                var insertion  = projection?.XYZPoint ?? clickPoint;
-
-                // O LocationCurve é a linha de referência/analítica da viga, não o
-                // centro geométrico da seção — a posição real depende da Justificação
-                // z (Origem/Topo/Centro/Base) com que a viga foi desenhada. Usamos o
-                // centro vertical da bounding box real (mesma técnica já usada em
-                // LadderPickHandler para achar o topo da viga) para que a nervura
-                // fique centrada no vão livre de verdade, e não na linha de desenho.
-                var bb = beam.get_BoundingBox(null);
-                if (bb == null)
+                if (!MemberOrientationReader.TryGetCrossSectionFrame(member, axisDir, out var lateral, out var up))
                 {
-                    PickFailed?.Invoke("Não foi possível ler a geometria da viga selecionada.");
+                    PickFailed?.Invoke("Não é possível orientar a nervura nessa peça (seção degenerada).");
                     return;
                 }
-                double centerZ = (bb.Max.Z + bb.Min.Z) / 2.0;
-                insertion = new XYZ(insertion.X, insertion.Y, centerZ);
 
-                var offset       = clickPoint - insertion;
-                double lateralComp = offset.DotProduct(lateral);
+                var axisLine    = Line.CreateBound(end0, end1);
+                var projection  = axisLine.Project(clickPoint);
+                var insertionRaw = projection?.XYZPoint ?? clickPoint;
+
+                // A linha/ponto de desenho não é o centro real da seção
+                // (Justificação y/z) — recentra achando uma face real de cada
+                // lado (largura e altura) e andando metade da dimensão
+                // conhecida do perfil pra dentro, mesma técnica da chapa de topo.
+                var insertion = MemberOrientationReader.RecenterOnCrossSection(
+                    member, insertionRaw, lateral, bfMm, up, hMm);
+
+                var offset          = clickPoint - insertion;
+                double lateralComp  = offset.DotProduct(lateral);
                 double preferredSide = Math.Abs(lateralComp) > 1e-6 ? Math.Sign(lateralComp) : 1.0;
 
                 PlacementPicked?.Invoke(new StiffenerPlacement
                 {
-                    BeamId          = beam.Id,
-                    BeamName        = beam.Name,
+                    BeamId          = member.Id,
+                    BeamName        = member.Name,
                     InsertionPoint  = insertion,
                     AxisDir         = axisDir,
                     Up              = up,
@@ -104,18 +100,10 @@ namespace SAGAStructuralTools.Core.Stiffener
             }
             catch (Exception ex)
             {
-                PickFailed?.Invoke($"Falha na seleção da viga: {ex.Message}");
+                PickFailed?.Invoke($"Falha na seleção da peça: {ex.Message}");
             }
         }
 
         public string GetName() => "SAGAPickStiffenerBeam";
-
-        private sealed class StructuralFramingFilter : ISelectionFilter
-        {
-            public bool AllowElement(Element element) =>
-                element?.Category?.Id.GetId() == (int)BuiltInCategory.OST_StructuralFraming;
-
-            public bool AllowReference(Reference reference, XYZ position) => false;
-        }
     }
 }

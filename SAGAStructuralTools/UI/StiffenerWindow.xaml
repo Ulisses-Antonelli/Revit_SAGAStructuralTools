@@ -114,8 +114,8 @@
                 <!-- Seleção da viga -->
                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="VIGA W" FontWeight="SemiBold" FontSize="12" Foreground="#344563" Margin="0,0,0,10"/>
-                        <Button Content="Selecionar viga e ponto" Style="{StaticResource BtnSecondary}"
+                        <TextBlock Text="VIGA OU PILAR W" FontWeight="SemiBold" FontSize="12" Foreground="#344563" Margin="0,0,0,10"/>
+                        <Button Content="Selecionar peça e ponto" Style="{StaticResource BtnSecondary}"
                                 HorizontalAlignment="Left" Command="{Binding PickBeamCommand}"/>
                         <TextBlock Text="{Binding BeamName}" Margin="0,8,0,0" FontSize="12" Foreground="#5E6C84"/>
                     </StackPanel>
@@ -145,6 +145,9 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+
+                        <CheckBox Content="Inverter lado (se a chapa nascer para o lado errado)" Margin="0,10,0,0"
+                                  IsChecked="{Binding FlipAlignmentSide}" IsEnabled="{Binding HasAlignReference}"/>
                     </StackPanel>
                 </Border>
 
