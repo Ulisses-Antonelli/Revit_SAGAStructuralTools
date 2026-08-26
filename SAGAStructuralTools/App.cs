@@ -100,6 +100,17 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(generalPanel, new PushButtonData(
+                    name:         "GenerateQuantitativo",
+                    text:         "Lista de\nPerfis",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateQuantitativoCommand")
+                {
+                    ToolTip    = "Gera o quantitativo de vigas/pilares de aço a partir da seleção atual — comprimento e peso agrupados por perfil e material, exportável em CSV e/ou como Tabela nativa do Revit.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
                     name:         "RealAlign",
                     text:         "Alinhamento\nReal",
                     assemblyName: assemblyPath,
