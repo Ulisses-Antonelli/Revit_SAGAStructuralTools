@@ -111,6 +111,17 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(generalPanel, new PushButtonData(
+                    name:         "ImportNavisworksBridge",
+                    text:         "Importar Malha\n(Navisworks)",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.ImportNavisworksBridgeCommand")
+                {
+                    ToolTip    = "Lê o arquivo-ponte (.json) exportado do Navisworks e recria a malha selecionada como DirectShape — cópia geométrica burra, sem inteligência paramétrica, para locação de fixação de equipamentos.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
                     name:         "RealAlign",
                     text:         "Alinhamento\nReal",
                     assemblyName: assemblyPath,
