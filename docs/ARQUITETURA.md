@@ -1,199 +1,199 @@
 # SAGA Structural Tools — Arquitetura e Estrutura do Projeto
 
-> Documento gerado a partir de análise do código-fonte em 2026-07-08 (branch `feature/metal-stair-generator`).
+> Atualizado em 2026-08-14, a partir de análise completa do código-fonte na branch `develop`. Substitui a versão anterior (2026-07-08), que descrevia só 3 features e já estava bem defasada — faltavam `Core/Ladder`, `Core/Alignment`, as ferramentas de canto/união de guarda-corpo, e o guarda-corpo já não é mais WIP.
 
-## 1. Visão Geral
+## 1. Visão geral
 
-**SAGA Structural Tools** é um add-in nativo para o **Autodesk Revit** (multi-target: 2023 e 2026) escrito em C#, que reúne três ferramentas para projetistas de estruturas metálicas:
+**SAGA Structural Tools** é um add-in para o Autodesk Revit (C#) que reúne ferramentas para projetistas de estruturas metálicas: conversão IFC → famílias Gerdau, geração de escada metálica reta, geração de guarda-corpo (reto/inclinado + ferramentas de edição: união de corrimãos, arredondamento de canto, alinhamento de montantes), geração de escada marinheiro com gaiola de proteção, e ferramentas avulsas de alinhamento (alinhamento real de eixo, alinhar ao ponto de trabalho, interromper viga).
 
-| # | Ferramenta | Botão no Ribbon | Status |
-|---|---|---|---|
-| 1 | **Conversor IFC → Famílias Gerdau** | "Converter IFC para Família" | Funcional (v0.1–v0.3) |
-| 2 | **Gerador de Escada Metálica** | "Gerar Escada Metálica" | Funcional (v0.4–v0.7, com patamar intermediário) |
-| 3 | **Gerador de Guarda-Corpo Metálico** | "Gerar Guarda-Corpo Metálico" | Em desenvolvimento (WIP — montantes/corrimão OK, fechamento em quadro/travessas pendente) |
-
-Todas as três compartilham a mesma DLL (`SAGAStructuralTools.dll`), a mesma aba do Ribbon ("SAGA Tools") e seguem o padrão **MVVM** com separação estrita entre lógica de domínio (sem dependência da API do Revit) e código de integração com o Revit.
+O projeto começou como MVVM limpo (3 features: conversão IFC, escada, guarda-corpo). Ele cresceu bastante desde então, e o crescimento não foi uniforme — algumas features novas seguiram o mesmo padrão MVVM, outras foram implementadas como "comandos gordos" sem ViewModel. A Seção 5 documenta essa divergência explicitamente, e a Seção 6 lista os pontos onde nomenclatura e camadas ficaram confusas — é o material-base para a conversa sobre reorganização.
 
 ---
 
-## 2. Stack técnica
-
-- **Linguagem:** C# 8.0
-- **UI:** WPF (XAML) + code-behind mínimo
-- **Multi-targeting** (`SAGAStructuralTools.csproj`):
-  - `net48` → Revit 2023 (`RevitAPI.dll`/`RevitAPIUI.dll` referenciadas de `C:\Program Files\Autodesk\Revit 2023`)
-  - `net8.0-windows` → Revit 2026 (referenciadas de um diretório local de DLLs 2026)
-  - Ambas as referências são `Private=false` (não copiadas para o output — evita duplicar assemblies que o Revit já carrega)
-- **Deploy automático pós-build**: o `.csproj` tem um target MSBuild (`DeployToRevit`) que copia a DLL, o `.addin` e os ícones para `C:\ProgramData\Autodesk\Revit\Addins\2023` ou `...\2026` conforme o `TargetFramework` compilado.
-- **Registro do add-in:** `SAGAStructuralTools.addin` (manifesto XML lido pelo Revit na inicialização), aponta para `SAGAStructuralTools.App` como `IExternalApplication`.
-- **Sem testes automatizados** no repositório atualmente. A camada `Core/Domain` foi desenhada para ser testável (zero dependência do Revit), mas nenhum projeto de teste existe ainda.
-
----
-
-## 3. Estrutura de diretórios
+## 2. Estrutura de diretórios (atual)
 
 ```
 SAGAStructuralTools/
-├── App.cs                        # IExternalApplication — registra a aba/ribbon e os 3 botões
-├── SagaLog.cs                    # Logger simples para arquivo (SAGA_Debug.txt), debug de crashes
-├── SAGAStructuralTools.csproj    # multi-target net48/net8.0-windows + deploy automático
-├── SAGAStructuralTools.addin     # manifesto do add-in Revit
+├── App.cs                        # IExternalApplication — registra ribbon e todos os botões
+├── SagaLog.cs                    # logger de arquivo (SAGA_Debug.txt) — mas ver nota na Seção 6.4
 │
 ├── Commands/                     # IExternalCommand — pontos de entrada dos botões do Ribbon
-│   ├── ConvertIfcCommand.cs      # abre MainWindow (modal)
-│   ├── GenerateStairCommand.cs   # abre StairWindow (não-modal)
-│   └── GenerateRailCommand.cs    # abre RailWindow em thread STA dedicada (não-modal)
+│   ├── ConvertIfcCommand.cs
+│   ├── GenerateStairCommand.cs
+│   ├── GenerateRailCommand.cs / GenerateInclinedRailCommand.cs / EditRailCommand.cs
+│   ├── GenerateLadderCommand.cs
+│   ├── RealAlignCommand.cs / AlignToWorkPointCommand.cs / SplitBeamCommand.cs
+│   ├── AlignRailPostsCommand.cs / MatchRailPropertiesCommand.cs / SaveRailPresetCommand.cs
+│   ├── RoundRailCornerCommand.cs
+│   └── JoinHandrailsCommand.cs   # 1525 linhas — o maior comando do repositório
 │
-├── Core/                         # Lógica de negócio, sem UI
-│   ├── ElementIdExtensions.cs    # helper para diferença de API ElementId entre net48/net8
+├── Core/
+│   ├── CatalogTextReader.cs      # solto, sem subpasta (ver Seção 6.5)
+│   ├── ElementIdExtensions.cs    # solto, sem subpasta (ver Seção 6.5)
+│   │
+│   ├── Domain/                   # ★ cálculo puro — ZERO dependência de Revit, testável isoladamente
+│   │   ├── StairCalculator.cs + StairDefaults.cs + BlondelRule.cs + LandingCalculator.cs
+│   │   ├── RailCalculator.cs + RailDefaults.cs
+│   │   └── LadderCalculator.cs + LadderDefaults.cs
+│   │
+│   ├── Models/                   # DTOs/POCOs — configs e resultados de cálculo
+│   │   ├── StairConfig.cs / StairDefinition.cs
+│   │   ├── RailConfig.cs / RailDefinition.cs / RailSegment.cs* / BarConfig.cs
+│   │   ├── LadderConfig.cs / LadderDefinition.cs
+│   │   └── ProfileMapping.cs / ConversionResult.cs
+│   │   (*RailSegment.cs referencia Autodesk.Revit.DB — quebra a convenção "DTO puro" da pasta)
+│   │
 │   ├── Conversion/
-│   │   └── ElementConverter.cs   # substitui elementos IFC por famílias nativas (transação por elemento)
+│   │   └── ElementConverter.cs   # substitui elementos IFC por famílias nativas
 │   ├── Mapping/
-│   │   ├── GerdauCatalog.cs      # indexa .rfa + catálogos .txt (de-para de nomes)
-│   │   └── ProfileMatcher.cs     # regex + normalização de nomenclatura IFC → Gerdau
-│   ├── Domain/                   # ★ cálculo puro, ZERO dependência de Revit — testável isoladamente
-│   │   ├── StairCalculator.cs    # nº de degraus, espelho, pisada, patamares, inclinação
-│   │   ├── StairDefaults.cs
-│   │   ├── BlondelRule.cs        # regra de conforto de escadas (2h + p = 63~64cm)
-│   │   ├── LandingCalculator.cs  # profundidade de patamares de extremidade
-│   │   ├── RailCalculator.cs     # distribuição de montantes (por qtd / vão máx / eixo fixo)
-│   │   └── RailDefaults.cs
-│   ├── Stair/                    # construção de geometria da escada na API do Revit
-│   │   ├── BeamPickHandler.cs        # ExternalEvent — seleção interativa de viga + ponto de clique
-│   │   ├── StairCreationHandler.cs   # ExternalEvent — orquestra a criação em transação
-│   │   ├── StringerBuilder.cs        # cria longarinas (vigas inclinadas), patamares, flip U/Canal
-│   │   ├── TreadBuilder.cs           # cria degraus como DirectShape (sólido extrudado)
-│   │   ├── LandingBuilder.cs         # cria a chapa do patamar intermediário (DirectShape)
-│   │   └── ProfileGeometryReader.cs  # lê parâmetros do FamilySymbol p/ offset lateral correto (W/I vs U/Canal)
-│   ├── Rail/                     # construção de geometria do guarda-corpo na API do Revit
-│   │   ├── LinePickHandler.cs        # ExternalEvent — seleção de múltiplas linhas de perímetro
-│   │   ├── RailCreationHandler.cs    # ExternalEvent — orquestra criação (posts + corrimão + fechamento)
-│   │   ├── PostBuilder.cs            # cria montantes (viga ou pilar, conforme categoria da família)
-│   │   ├── HandrailBuilder.cs        # cria o corrimão (viga inclinada/horizontal no topo dos montantes)
-│   │   └── InfillBuilder.cs          # ★ STUB — travessas/quadro de fechamento ainda não implementados
-│   └── Models/                   # DTOs/POCOs compartilhados entre Domain, Core e UI
-│       ├── StairConfig.cs / StairDefinition.cs
-│       ├── RailConfig.cs / RailDefinition.cs / RailSegment.cs / BarConfig.cs
-│       ├── ProfileMapping.cs / ConversionResult.cs
+│   │   ├── GerdauCatalog.cs      # indexa .rfa + catálogos .txt
+│   │   └── ProfileMatcher.cs     # regex + normalização IFC → Gerdau
+│   │
+│   ├── Stair/                    # geometria da escada reta na API do Revit
+│   │   ├── BeamPickHandler.cs / StairCreationHandler.cs
+│   │   └── StringerBuilder.cs / TreadBuilder.cs / LandingBuilder.cs / ProfileGeometryReader.cs
+│   │
+│   ├── Rail/                     # ★ a pasta mais heterogênea — 14 arquivos, ~4800 linhas
+│   │   ├── LinePickHandler.cs / RailCreationHandler.cs
+│   │   ├── PostBuilder.cs / HandrailBuilder.cs / InfillBuilder.cs
+│   │   ├── RailAssemblyStore.cs / RailPresetStore.cs
+│   │   ├── RailFamilySymbolResolver.cs / GeometryMeasure.cs / SectionSize.cs
+│   │   ├── RailRunGeometry.cs
+│   │   ├── RoundedCornerMember.cs / RoundedCornerStore.cs
+│   │   └── RoundedCornerService.cs   # 2726 linhas — o maior arquivo do repositório
+│   │
+│   ├── Ladder/                   # geometria da escada marinheiro na API do Revit
+│   │   ├── LadderPickHandler.cs / LadderCreationHandler.cs
+│   │   ├── LadderBuilder.cs      # 723 linhas
+│   │   ├── LadderAssemblyStore.cs / LadderPresetStore.cs
+│   │   └── LadderPlacement.cs
+│   │
+│   └── Alignment/                # ferramentas avulsas de reposicionamento de elementos
+│       ├── RealAlignmentService.cs
+│       ├── WorkPointAlignmentService.cs
+│       └── SplitBeamService.cs
 │
-├── UI/                            # WPF Views + ViewModels (MVVM)
-│   ├── MainWindow.xaml(.cs)      # janela do conversor IFC (modal)
-│   ├── StairWindow.xaml(.cs)     # janela do gerador de escada (não-modal)
-│   ├── RailWindow.xaml(.cs)      # janela do gerador de guarda-corpo (não-modal, thread STA própria)
-│   ├── Converters/
-│   │   └── EnumToBoolConverter.cs  # bind de RadioButton ↔ enum (DistributionMode, InfillMode etc.)
-│   └── ViewModels/
-│       ├── ViewModelBase.cs      # INotifyPropertyChanged genérico
-│       ├── RelayCommand.cs       # ICommand genérico (padrão MVVM clássico)
-│       ├── MainViewModel.cs      # lógica do conversor IFC (catálogo, progresso, log)
-│       ├── StairViewModel.cs     # lógica da escada (seleção de vigas, preview, criação)
-│       ├── RailViewModel.cs      # lógica do guarda-corpo (seleção de linhas, abas de config, preview)
-│       └── BarConfigVm.cs        # VM de linha da grade de travessas horizontais
-│
-└── Resources/Icons/              # ícones do Ribbon (PNG, 16px/32px) + logo
+└── UI/
+    ├── MainWindow.xaml(.cs) / StairWindow.xaml(.cs) / RailWindow.xaml(.cs) / LadderWindow.xaml(.cs)
+    ├── RoundedCornerWindow.xaml(.cs) / HandrailJoinWindow.xaml(.cs) / BatchHandrailJoinWindow.xaml(.cs)
+    ├── SaveRailPresetWindow.xaml(.cs)
+    ├── RailSelectionController.cs / LadderSelectionController.cs / RailToolSession.cs  # não são Views (Seção 6.7)
+    ├── Converters/
+    │   └── EnumToBoolConverter.cs / FlexibleDoubleConverter.cs / InverseBoolToVisibilityConverter.cs
+    └── ViewModels/
+        ├── ViewModelBase.cs / RelayCommand.cs
+        ├── MainViewModel.cs / StairViewModel.cs
+        ├── RailViewModel.cs      # 1172 linhas — o maior ViewModel
+        ├── LadderViewModel.cs    # 738 linhas
+        └── BarConfigVm.cs
 ```
 
 ---
 
-## 4. Padrão arquitetural
+## 3. Responsabilidade de cada pasta
 
-O projeto segue **MVVM** com uma 4ª camada extra ("Domain") explicitamente isolada da API do Revit:
+| Pasta | O que contém, de fato |
+|---|---|
+| **`Commands/`** | Pontos de entrada `IExternalCommand`. Internamente inconsistente: metade só abre uma janela e retorna; a outra metade (`JoinHandrailsCommand`, `RoundRailCornerCommand`, `MatchRailPropertiesCommand`) contém laço de seleção, matemática de geometria, transação e diálogos — tudo dentro do comando. |
+| **`Core/` (raiz)** | Dois utilitários genéricos sem feature dona (`CatalogTextReader`, `ElementIdExtensions`), soltos enquanto toda outra responsabilidade ganhou subpasta própria. |
+| **`Core/Domain/`** | A única pasta que cumpre 100% o que o nome promete: cálculo puro, sem `using Autodesk.Revit.*` em lugar nenhum. `*Calculator` + `*Defaults` para escada reta, guarda-corpo e escada marinheiro. |
+| **`Core/Models/`** | DTOs/POCOs (configs de entrada, resultados de cálculo), a maioria serializável em XML para presets. Quase todos sem dependência do Revit — exceto `RailSegment.cs`. |
+| **`Core/Conversion/`** + **`Core/Mapping/`** | Suporte à conversão IFC: substituição de elementos (`ElementConverter`), indexação de catálogo Gerdau e casamento de nomenclatura IFC↔Gerdau. |
+| **`Core/Stair/`** | Construção de geometria da escada reta: pick de vigas, builders de longarina/degrau/patamar, handler de criação. |
+| **`Core/Rail/`** | A pasta mais carregada do projeto — 14 arquivos misturando quatro responsabilidades distintas sem separação por subpasta: persistência (`*AssemblyStore`, `*PresetStore`), construção de geometria (`*Builder`), orquestração de transação (`*CreationHandler`/`*PickHandler`), e o gigante `RoundedCornerService` (matemática de arco tangente + validação + criação de elemento, tudo junto). |
+| **`Core/Ladder/`** | Mesmo padrão de `Core/Rail/` (persistência + builder + handlers), só que para a escada marinheiro — e sem o `RoundedCornerService`-sized problema. |
+| **`Core/Alignment/`** | Três serviços pequenos e de responsabilidade única, cada um 1:1 com um `Commands/*Command` fino que só faz o laço de seleção e delega a matemática pra cá. É o canto mais bem organizado do `Core/`. |
+| **`UI/` (raiz)** | Views (janelas WPF) — mas também três classes que não são Views (`RailSelectionController`, `LadderSelectionController`, `RailToolSession`): orquestram Alt+clique-para-editar e `ExternalEvent`, sem XAML nenhum. |
+| **`UI/Converters/`** | Três `IValueConverter` pequenos e de responsabilidade única — a pasta mais "limpa" do projeto. |
+| **`UI/ViewModels/`** | ViewModels MVVM — mas só das features que têm janela principal com `DataContext` (escada, guarda-corpo, escada marinheiro, conversor IFC). As ferramentas de edição (canto, união, alinhar montantes) não têm ViewModel — ver Seção 5. |
+
+---
+
+## 4. Padrão arquitetural (onde ele é seguido)
 
 ```
 Commands (IExternalCommand)
       │  abre janela, injeta UIApplication/ExternalEvents
       ▼
-UI/Views (XAML)  ⇄  UI/ViewModels (estado, comandos, binding)
+UI/Views (XAML)  ⇄  UI/ViewModels (estado, RelayCommand, binding)
       │                     │
       │                     ▼
       │              Core/Domain (cálculo puro — sem Revit, testável)
       │                     │
       ▼                     ▼
-Core/Stair, Core/Rail, Core/Conversion, Core/Mapping
-      (IExternalEventHandler — únicas classes que tocam a Revit API a partir de janelas não-modais)
+Core/Stair, Core/Rail, Core/Ladder, Core/Conversion, Core/Mapping
+      (IExternalEventHandler — únicas classes que tocam a API do Revit a partir de janelas não-modais)
 ```
 
-### Por que `ExternalEvent` / `IExternalEventHandler`?
-
-Janelas WPF não-modais (`Show()`, como `StairWindow` e `RailWindow`) não rodam dentro do contexto de API válido do Revit — cliques de botão não são "eventos Revit". Todo acesso à `Document`/`Transaction` a partir dessas janelas passa por um `IExternalEventHandler` (`BeamPickHandler`, `StairCreationHandler`, `LinePickHandler`, `RailCreationHandler`), cujo `Execute(UIApplication)` só roda quando o Revit está pronto para receber chamadas de API. Isso está documentado em comentários no próprio código (`StairCreationHandler.cs:10-16`).
-
-### Por que a `RailWindow` roda em thread STA dedicada?
-
-`GenerateRailCommand.cs` cria a janela em uma `Thread` STA separada (com seu próprio `Dispatcher.Run()`), diferente da `StairWindow` que roda na thread principal do Revit. O comentário no código indica que isso evita um crash (`0xe0434352`) causado por conflito entre o pipeline de composição WPF/Direct3D e o pipeline de renderização do Revit quando compartilham a mesma thread. É uma decisão específica de estabilidade, não um padrão a repetir sem necessidade — `StairWindow` e `MainWindow` não precisam disso.
-
-### `Core/Domain` — a camada "pura"
-
-`StairCalculator`, `BlondelRule`, `LandingCalculator` e `RailCalculator` não importam `Autodesk.Revit.*`. Trabalham só com `double`/`int`/os `Models` (POCOs). Isso os torna unit-testáveis sem precisar do Revit rodando — hoje não há testes, mas a arquitetura já viabiliza isso.
+Esse fluxo é real e funciona bem para **4 das features**: conversão IFC, escada reta, guarda-corpo (gerar/editar) e escada marinheiro. O `Core/Domain` cumpre a promessa de zero acoplamento ao Revit. Mas esse diagrama **não descreve o projeto inteiro** — as ferramentas de edição de guarda-corpo (união, canto, alinhar montantes) seguem um fluxo diferente, sem ViewModel. Ver Seção 5.
 
 ---
 
-## 5. As três funcionalidades em detalhe
+## 5. Census MVVM — onde o padrão é seguido e onde não é
 
-### 5.1 Conversor IFC → Famílias Gerdau
+| Feature | Padrão | Fluxo |
+|---|---|---|
+| Conversão IFC | MVVM completo | `ConvertIfcCommand` → `MainWindow` → `MainViewModel` → `ElementConverter`/`Mapping/*` |
+| Escada reta | MVVM completo | `GenerateStairCommand` → `StairWindow` → `StairViewModel` → `StairCalculator` → `Core/Stair/*` |
+| Guarda-corpo (gerar/editar) | MVVM completo | `RailWindow` → `RailViewModel` (1172 linhas) → `RailCalculator` → `PostBuilder`/`HandrailBuilder`/`InfillBuilder` |
+| Escada marinheiro | MVVM completo | `LadderWindow` → `LadderViewModel` (738 linhas) → `LadderCalculator` → `LadderBuilder` |
+| Alinhamento avulso (`RealAlignCommand`, `SplitBeamCommand`, `AlignToWorkPointCommand`) | **Sem ViewModel**, mas fino | Laço de seleção direto no `Execute()`, delega 100% da matemática pro `Core/Alignment/*Service` correspondente. Sem janela própria. |
+| Canto/união de guarda-corpo (`RoundRailCornerCommand`, `JoinHandrailsCommand`, `AlignRailPostsCommand`, `MatchRailPropertiesCommand`) | **Sem ViewModel, comando gordo** | Laço de seleção + matemática + transação + diálogo, tudo dentro do `Commands/*.cs`. Janelas auxiliares (`RoundedCornerWindow`, `HandrailJoinWindow`) só pedem parâmetro, com validação no code-behind — não têm `DataContext`. |
 
-**Fluxo:** `ConvertIfcCommand` → `MainWindow` (modal) → `MainViewModel`.
-
-1. Usuário aponta um diretório local com famílias `.rfa` da Gerdau (persistido em `SAGAStructuralTools.settings`, ao lado da DLL).
-2. `GerdauCatalog.Load()` varre o diretório recursivamente. Para cada `.rfa`:
-   - Se existir um catálogo de tipos `.txt` homônimo (padrão Revit "type catalog"), indexa cada linha (nome do tipo + massa linear no campo 11 para perfis U).
-   - Senão, indexa o próprio arquivo como família de tipo único.
-   - Classifica automaticamente como viga ou pilar pelo nome do arquivo ("Pilar"/"Coluna" = pilar; "Viga" tem prioridade e nunca é pilar).
-3. Usuário clica em converter. `MainViewModel.ConvertSync()`:
-   - Detecta se há um `RevitLinkInstance` (IFC vinculado) ativo; senão usa o próprio documento host.
-   - Coleta elementos estruturais (`DirectShape` em categorias de viga/pilar/genérico + `FamilyInstance` de pilar).
-   - Para cada elemento, `ProfileMatcher` extrai a designação do perfil do nome (regex para métrico `W200x35.9`, U imperial `U8"x17.1` via massa linear, L imperial `L2"x3/16`) e normaliza para o padrão Gerdau.
-   - `ElementConverter.ConvertAll()` processa cada elemento em sua **própria Transaction** (rollback isolado por elemento — uma falha não aborta o lote). Extrai o eixo geométrico do elemento original (via `LocationCurve` nativa, ou via geometria sólida/bounding box para `DirectShape` de IFC), carrega/ativa o `FamilySymbol` correspondente e cria uma nova `FamilyInstance` nativa na mesma posição/orientação.
-4. Resultado por elemento (`Success` / `NotFound` / `GeometryError`) é logado na UI em tempo real e salvo em arquivo de log ao final.
-
-### 5.2 Gerador de Escada Metálica
-
-**Fluxo:** `GenerateStairCommand` → `StairWindow` (não-modal) → `StairViewModel`.
-
-1. Usuário seleciona interativamente a viga inferior e a viga superior (`BeamPickHandler`, via `ExternalEvent`), clicando sobre elas na vista — o ponto de clique é projetado no eixo da viga para precisão. Há validação de que a viga "superior" está de fato acima em Z, e o ponto de conexão superior é realinhado para manter a escada reta em planta.
-2. Usuário configura: largura, pisada, espessura do degrau, aplicação da Regra de Blondel, centralização, inclusão de degraus, patamar intermediário (opcional) e seleciona a família/tipo da longarina.
-3. **Cálculo (`StairCalculator`, puro):**
-   - Determina nº de degraus e altura de espelho a partir do desnível total (usa `TargetRiserHeight` como ponto de partida, ou `BlondelRule.BestFit` se Blondel estiver ativo).
-   - Posiciona o patamar intermediário no degrau mais próximo do centro do lance.
-   - Calcula profundidade dos patamares de extremidade (`LandingCalculator`), descontando o comprimento do patamar intermediário.
-   - Valida se o desenvolvimento total cabe na distância entre vigas; gera warnings (patamares curtos, escada não cabe, etc.).
-4. **Criação (`StairCreationHandler` → `StringerBuilder`):**
-   - Cria as longarinas como vigas estruturais inclinadas (par esquerdo/direito), incluindo trechos de patamar inferior/superior e, se houver, o segmento do patamar intermediário.
-   - Perfis tipo U/Canal recebem `FlipHand` via rotação de 180° no parâmetro "Rotação do corte transversal" no banzo direito, para ficarem costas-a-costas — com correção de justificação Z (Top↔Bottom) para manter a altura correta.
-   - `ProfileGeometryReader` lê parâmetros do `FamilySymbol` (`bf`, `b`, `Aba`, etc.) para calcular o offset lateral correto entre o eixo da longarina e a face de referência do perfil.
-   - `LandingBuilder` cria a chapa do patamar intermediário como `DirectShape`.
-   - `TreadBuilder` cria cada degrau como `DirectShape` (placa retangular extrudada), com ajuste de posição para degraus após o patamar intermediário.
-5. Toda a criação roda em uma única `Transaction`, com rollback total em caso de erro.
-
-### 5.3 Gerador de Guarda-Corpo Metálico (WIP)
-
-**Fluxo:** `GenerateRailCommand` → `RailWindow` (não-modal, thread STA própria) → `RailViewModel`.
-
-1. Usuário seleciona múltiplas linhas de perímetro (`LinePickHandler`, `PickObjects` com `Enter` para confirmar).
-2. Configuração dividida em abas: distribuição de montantes (por quantidade fixa / vão máximo / espaçamento de eixo fixo), família do montante, família do corrimão (altura, offset, justificação), fechamento (travessas horizontais ou quadro com cantoneira), terminais.
-3. **Cálculo (`RailCalculator`, puro):** para cada segmento de linha, calcula os offsets de posição de cada montante conforme o modo de distribuição escolhido (`ByCount`, `MaxSpan`, `FixedAxis`).
-4. **Criação (`RailCreationHandler`):**
-   - `PostBuilder`: cria os montantes — suporta família de Viga (inclinada entre base e topo) ou de Pilar (com ajuste de offset de topo).
-   - `HandrailBuilder`: cria o corrimão como viga horizontal/inclinada na altura configurada, com offset lateral e justificação.
-   - `InfillBuilder`: **stub vazio** — travessas horizontais e fechamento em quadro (cantoneira) estão planejados para v0.2 mas ainda não implementados (`TODO` explícito no código).
+**Isso não é aleatório — é uma divisão real:** "janela MVVM para *criar* uma peça nova" vs. "comando imperativo para *editar* uma peça existente". O problema é que essa divisão nunca foi escrita em lugar nenhum, então quem olha o projeto pela primeira vez lê como inconsistência, não como decisão.
 
 ---
 
-## 6. Convenções e decisões notáveis do código
+## 6. Nomenclatura e camadas confusas — pontos concretos
 
-- **Unidades:** a API do Revit trabalha internamente em pés; todo o código de domínio/UI trabalha em **milímetros**, com conversão explícita `/ 304.8` ou `* 304.8` nos pontos de fronteira (builders).
-- **Logging:** cada subsistema grava em um arquivo de texto próprio ao lado da DLL (`SAGA_Debug.txt`, `SAGA_StairLog.txt`, `SAGA_RailLog.txt`) — não há framework de logging, é `File.AppendAllText` direto, pensado para debugar crashes do add-in em produção sem depender de um debugger anexado.
-- **ElementId multi-target:** `ElementId.IntegerValue` foi removido no Revit 2025+ em favor de `ElementId.Value` (long). `ElementIdExtensions.GetId()` abstrai isso via `#if NET8_0_OR_GREATER`.
-- **Supressão de warnings do Revit:** `ElementConverter` usa um `IFailuresPreprocessor` (`SuppressRevitWarnings`) para descartar avisos não-fatais (ex: "viga fora da linha central") durante a conversão em lote.
-- **Persistência de configuração simples:** caminho do catálogo e diretório de log do conversor IFC são salvos em texto plano (`SAGAStructuralTools.settings`, duas linhas) — não há um sistema de settings mais robusto.
+Isso é o que embasa a sensação de "código não tão claro e objetivo" citada na conversa que motivou este documento.
+
+**6.1 — `RoundedCornerService.cs` (2726 linhas) faz mais do que o nome promete.**
+Um "Service" normalmente sugere uma camada fina. Este arquivo é simultaneamente: motor de matemática de arco tangente (4 modos de conexão), camada de validação (lança `InvalidOperationException` com texto de UI em português), camada de criação de elemento Revit, e um contêiner de ~10 tipos DTO aninhados (`RoundedCornerPlan`, `RoundedCornerCompoundPlan` etc.) que fariam mais sentido em `Core/Models`.
+
+**6.2 — `JoinHandrailsCommand.cs` (1525 linhas) é o "comando gordo" mais extremo.**
+Ao contrário de `RealAlignCommand`/`SplitBeamCommand`/`AlignToWorkPointCommand` (finos, delegam tudo pro `Core/Alignment`), este comando contém matemática de transformação de coordenadas, distância ponto-segmento, construção de eixo de referência, orquestração de `TransactionGroup` e fluxo de diálogo — tudo junto, sem um `Core/*Service` por trás.
+
+**6.3 — Padrão "comando fino que delega" não é seguido por igual.**
+`RealAlignCommand`/`SplitBeamCommand`/`AlignToWorkPointCommand` seguem esse padrão. `JoinHandrailsCommand`/`RoundRailCornerCommand`/`MatchRailPropertiesCommand` não — mesmo já existindo `RoundedCornerService` pra absorver parte dessa lógica.
+
+**6.4 — Logging duplicado 5 vezes.**
+`SagaLog.cs` existe como logger compartilhado, mas `LadderBuilder`, `LadderCreationHandler`, `HandrailBuilder`, `InfillBuilder`, `PostBuilder`, `StairCreationHandler`, `StringerBuilder`, `TreadBuilder` e `MainViewModel` cada um define seu próprio `Log()`/`LogPath` privado, escrevendo em arquivos separados (`SAGA_LadderLog.txt`, `SAGA_RailLog.txt`, `SAGA_StairLog.txt`...). Mesma responsabilidade, ~5 implementações independentes.
+
+**6.5 — `RailAssemblyStore`/`LadderAssemblyStore` e `RailPresetStore`/`LadderPresetStore` são pares quase idênticos, copiados em vez de compartilhados.**
+Mesmo formato (`Create`/`Attach`/`TryRead`/`FindMemberIds` de um lado; persistência de preset em XML do outro), GUID de schema diferente. Um bug corrigido num não se propaga pro outro automaticamente.
+
+**6.6 — `Core/` tem dois arquivos órfãos sem subpasta.**
+`CatalogTextReader.cs` e `ElementIdExtensions.cs` estão soltos na raiz de `Core/` enquanto toda outra responsabilidade — por menor que seja — ganhou pasta própria. `CatalogTextReader` só é usado por `Core/Mapping/GerdauCatalog.cs` e provavelmente pertence lá.
+
+**6.7 — Controllers de seleção moram em `UI/` mas não são Views.**
+`RailSelectionController`, `LadderSelectionController` e `RailToolSession` só lidam com `SelectionChanged`/`Idling`/`ExternalEvent` — zero XAML. Estão hoje na mesma pasta que janelas de verdade, misturando "apresentação" com "orquestração de sessão do Revit".
+
+**6.8 — Janelas sem ViewModel fazem validação no code-behind.**
+`HandrailJoinWindow`, `RoundedCornerWindow`, `BatchHandrailJoinWindow` e `SaveRailPresetWindow` não têm `*ViewModel` correspondente — parsing/validação de input vive direto no code-behind. Razoável pra um diálogo modal pequeno, mas não tem nenhuma pista de nomenclatura que avise "esta janela não segue MVVM" antes de abrir o arquivo.
+
+**6.9 — `Core/Rail` e `Core/Ladder` misturam 4 responsabilidades sem subpasta.**
+Persistência (`*AssemblyStore`), preset (`*PresetStore`), construção de geometria (`*Builder`) e orquestração de transação (`*CreationHandler`/`*PickHandler`) são todos arquivos irmãos, no mesmo nível. Quem quer achar "onde a geometria do guarda-corpo é de fato construída" precisa varrer os 14 arquivos de `Core/Rail/` sem nenhuma pista de pasta.
+
+**6.10 — Três `*PickHandler` reimplementam o mesmo padrão sem base comum.**
+`LinePickHandler`, `LadderPickHandler`, `BeamPickHandler` fazem a mesma coisa conceitual (selecionar um elemento, levantar um evento tipado) com assinaturas de evento diferentes (`LinePicked`/`PlacementPicked`/`BeamPicked`) e nenhuma interface compartilhada além do `IExternalEventHandler` do próprio Revit.
 
 ---
 
-## 7. Estado atual / pendências conhecidas
+## 7. Convenções que já funcionam bem (vale preservar)
 
-Com base no histórico de commits e no código:
+- **Unidades:** Revit trabalha em pés internamente; todo o domínio/UI trabalha em milímetros, convertendo explicitamente (`/ 304.8`, `* 304.8`) só nas bordas (builders). Consistente em todo o projeto.
+- **`Core/Domain` sem dependência do Revit:** decisão respeitada à risca — nenhum `Calculator`/`Defaults` importa `Autodesk.Revit.*`. É o pedaço do projeto mais próximo de "testável de verdade" hoje.
+- **`ElementIdExtensions.GetId()`:** abstrai a mudança de `ElementId.IntegerValue` → `ElementId.Value` entre versões do Revit num único lugar.
+- **`Core/Alignment/*Service` + `Commands/*Command` fino:** o padrão mais limpo do repositório pra ferramentas pequenas — vale usar como modelo ao refatorar `JoinHandrailsCommand`/`RoundRailCornerCommand`.
 
-- Conversor IFC: **maduro** (v0.1 → v0.3), com tratamento de casos de perfis inclinados, seção variável e pilares.
-- Gerador de escada: **maduro** (v0.4 → v0.7), incluindo patamar intermediário completo (cálculo + geometria + UI).
-- Gerador de guarda-corpo: **em progresso** — montantes e corrimão funcionam; fechamento (travessas/quadro) é stub (`InfillBuilder`); commit mais recente (`8ecbafd`) descreve como "WIP".
-- **Sem suíte de testes automatizados** apesar da camada `Core/Domain` ser desenhada para isso.
-- `Instruções_API_REVIT.md` na raiz contém a especificação original de MVP (em português) que motivou o conversor IFC — é a "bússola" original do projeto e ainda reflete fielmente a arquitetura MVVM implementada.
+---
+
+## 8. Direção futura (não agora)
+
+Registro da conversa, pra não se perder — **nada disto é pra ser executado já**, é só a direção que ficou combinada de "pensar":
+
+- Organização por **feature folder** (cada feature — escada, guarda-corpo, escada marinheiro, conversão IFC, alinhamento — com sua própria pasta contendo View, ViewModel, Domain, Builder, Models, tudo junto), no espírito do que uma estrutura de projeto React/React Native costuma fazer, em vez de separar por "tipo técnico de arquivo" (`Core/`, `UI/`) como é hoje.
+- Camadas inspiradas em **atomic design**: separar o que é "átomo" reaproveitável (ex.: `GeometryMeasure`, `SectionSize`, os `*PickHandler`, os conversores WPF) do que é específico de uma feature — hoje esses dois níveis estão misturados nas mesmas pastas.
+- Eleger, aos poucos, o que vira **código realmente compartilhável** entre features (persistência de assembly, persistência de preset, logging, o padrão pick-handler) — hoje cada feature reimplementa sua própria versão em vez de um núcleo comum, no espírito do que um módulo `shared`/`common` faz num projeto KMP.
+- Qualquer um desses pontos deve ser feito **incremental**, feature por feature, não como uma reescrita geral.
