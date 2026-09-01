@@ -144,6 +144,17 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(generalPanel, new PushButtonData(
+                    name:         "GenerateFlatshot",
+                    text:         "Registro\n(Flatshot)",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.GenerateFlatshotCommand")
+                {
+                    ToolTip    = "Congela a vista ativa (geometria e cotas) numa Vista de Desenho nova, independente do modelo — mudanças futuras em perfis/chapas não afetam mais esse registro.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
                     name:         "AlignAnnotationRotation",
                     text:         "Rotacionar Texto\npor Referência",
                     assemblyName: assemblyPath,
