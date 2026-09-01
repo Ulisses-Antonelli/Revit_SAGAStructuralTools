@@ -53,9 +53,13 @@ namespace SAGAStructuralTools.Core.Quantitativo
 
             BuildFields(doc, schedule.Definition, lote);
 
-            var textTypeId = GetOrCreateTextType(doc, "SAGA - Arial 2mm", "Arial", sizeMm: 2.0);
-            if (textTypeId != ElementId.InvalidElementId)
-                schedule.BodyTextTypeId = textTypeId;
+            var bodyTextTypeId = GetOrCreateTextType(doc, "SAGA - Arial 2mm", "Arial", sizeMm: 2.0, bold: false);
+            if (bodyTextTypeId != ElementId.InvalidElementId)
+                schedule.BodyTextTypeId = bodyTextTypeId;
+
+            var headerTextTypeId = GetOrCreateTextType(doc, "SAGA - Arial 2.5mm Negrito", "Arial", sizeMm: 2.5, bold: true);
+            if (headerTextTypeId != ElementId.InvalidElementId)
+                schedule.HeaderTextTypeId = headerTextTypeId;
 
             return (schedule, null);
         }
@@ -140,7 +144,7 @@ namespace SAGAStructuralTools.Core.Quantitativo
         private static readonly BuiltInParameter[] SizeParamCandidates =
             { BuiltInParameter.TEXT_SIZE, BuiltInParameter.TEXT_STYLE_SIZE };
 
-        private static ElementId GetOrCreateTextType(Document doc, string name, string fontName, double sizeMm)
+        private static ElementId GetOrCreateTextType(Document doc, string name, string fontName, double sizeMm, bool bold)
         {
             double sizeFt = UnitUtils.ConvertToInternalUnits(sizeMm, UnitTypeId.Millimeters);
 
@@ -153,8 +157,10 @@ namespace SAGAStructuralTools.Core.Quantitativo
             {
                 var font = FindParam(t, FontParamCandidates)?.AsString();
                 var size = FindParam(t, SizeParamCandidates)?.AsDouble();
+                var isBold = t.get_Parameter(BuiltInParameter.TEXT_STYLE_BOLD)?.AsInteger();
                 return string.Equals(font, fontName, StringComparison.OrdinalIgnoreCase)
-                    && size.HasValue && Math.Abs(size.Value - sizeFt) < 1e-6;
+                    && size.HasValue && Math.Abs(size.Value - sizeFt) < 1e-6
+                    && isBold.HasValue && (isBold.Value != 0) == bold;
             });
             if (match != null) return match.Id;
 
@@ -166,7 +172,9 @@ namespace SAGAStructuralTools.Core.Quantitativo
 
             bool fontSet = FindParam(target, FontParamCandidates) is Parameter fp && !fp.IsReadOnly && fp.Set(fontName);
             bool sizeSet = FindParam(target, SizeParamCandidates) is Parameter sp && !sp.IsReadOnly && sp.Set(sizeFt);
-            SagaLog.Write($"Quantitativo: TextNoteType '{name}' - fonte definida={fontSet}, tamanho definido={sizeSet}.");
+            var boldParam = target.get_Parameter(BuiltInParameter.TEXT_STYLE_BOLD);
+            bool boldSet = boldParam != null && !boldParam.IsReadOnly && boldParam.Set(bold ? 1 : 0);
+            SagaLog.Write($"Quantitativo: TextNoteType '{name}' - fonte definida={fontSet}, tamanho definido={sizeSet}, negrito definido={boldSet}.");
 
             return target.Id;
         }
