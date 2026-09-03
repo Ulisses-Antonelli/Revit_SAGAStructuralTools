@@ -27,10 +27,12 @@ namespace SAGAStructuralTools
 
                 RibbonPanel generalPanel;
                 RibbonPanel railPanel;
+                RibbonPanel basePlatePanel;
                 try
                 {
                     generalPanel = application.CreateRibbonPanel(tabName, "Ferramentas Estruturais");
                     railPanel = application.CreateRibbonPanel(tabName, "Guarda-Corpos");
+                    basePlatePanel = application.CreateRibbonPanel(tabName, "Placas de Base");
                 }
                 catch (Exception ex)
                 {
@@ -40,6 +42,17 @@ namespace SAGAStructuralTools
 
                 var assemblyPath = Assembly.GetExecutingAssembly().Location;
                 SagaLog.Write($"Assembly: {assemblyPath}");
+
+                TryAddButton(basePlatePanel, new PushButtonData(
+                    name:         "BasePlate",
+                    text:         "Placa de\nBase",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.BasePlateCommand")
+                {
+                    ToolTip    = "Abrir ferramenta de dimensionamento de placas de base",
+                    LargeImage = LoadIcon("base_plate_32.png", 32),
+                    Image      = LoadIcon("base_plate_16.png", 16)
+                });
 
                 TryAddButton(generalPanel, new PushButtonData(
                     name:         "ConvertIfc",
