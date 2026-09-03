@@ -85,11 +85,11 @@ namespace SAGAStructuralTools.BasePlate.Domain
                 "Distancia minima entre chumbador e borda.");
 
             double minimumAnchorSpacing = 3.0 * input.AnchorDiameterMm;
-            double spacingX = CalculateAnchorSpacing(
+            double spacingX = BoltLayoutService.CalculateSpacingX(
                 input.PlateLengthXmm,
                 input.AnchorEdgeDistanceXmm,
                 input.AnchorsX);
-            double spacingY = CalculateAnchorSpacing(
+            double spacingY = BoltLayoutService.CalculateSpacingY(
                 input.PlateLengthYmm,
                 input.AnchorEdgeDistanceYmm,
                 input.AnchorsY);
@@ -107,6 +107,7 @@ namespace SAGAStructuralTools.BasePlate.Domain
                 input.AnchorDiameterMm - 2.0 * input.CorrosionAllowanceMm);
 
             AddPreliminaryResults(result, input);
+            AddAnchorDemandVerifications(result, input);
 
             // TODO: Implementar formulas de espessura de placa.
             // TODO: Implementar verificacoes de nervuras.
@@ -207,6 +208,92 @@ namespace SAGAStructuralTools.BasePlate.Domain
                 : 0;
         }
 
+        private static void AddAnchorDemandVerifications(
+            BasePlateCalculationResult result,
+            BasePlateInput input)
+        {
+            double corrodedDiameter = Math.Max(0, result.CorrodedAnchorDiameterMm);
+            double anchorAreaMm2 = Math.PI * corrodedDiameter * corrodedDiameter / 4.0;
+
+            double steelTensionResistanceTf = ToTf(0.75 * input.AnchorFuMpa * anchorAreaMm2);
+            double steelShearResistanceTf = ToTf(0.45 * input.AnchorFuMpa * anchorAreaMm2);
+
+            double concreteTensionResistanceTf = ToTf(
+                0.75 * 8.0 * Math.Sqrt(Math.Max(0, input.ConcreteFckMpa)) *
+                Math.Pow(Math.Max(0, input.EmbedmentLengthMm), 1.5));
+            double concreteShearResistanceTf = ToTf(
+                0.75 * 0.60 * Math.Sqrt(Math.Max(0, input.ConcreteFckMpa)) *
+                Math.Max(0, corrodedDiameter) *
+                Math.Max(0, input.EmbedmentLengthMm));
+
+            double concreteUtilization = InteractionPower(
+                result.AnchorTensionTf,
+                concreteTensionResistanceTf,
+                result.AnchorShearTf,
+                concreteShearResistanceTf,
+                5.0 / 3.0);
+            double steelUtilization1 = InteractionPower(
+                result.AnchorTensionTf,
+                steelTensionResistanceTf,
+                result.AnchorShearTf,
+                steelShearResistanceTf,
+                2.0);
+            double steelUtilization2 = Math.Max(
+                Ratio(result.AnchorTensionTf, steelTensionResistanceTf),
+                Ratio(result.AnchorShearTf, steelShearResistanceTf));
+
+            result.AnchorConcreteUtilization = concreteUtilization;
+            result.AnchorSteelUtilization1 = steelUtilization1;
+            result.AnchorSteelUtilization2 = steelUtilization2;
+
+            result.Verifications.Add(new VerificationResult
+            {
+                Name = "Concreto-chumbador",
+                Status = concreteUtilization <= 1.0
+                    ? VerificationStatus.Passed
+                    : VerificationStatus.Failed,
+                Message = "Verificacao preliminar de tracao e cisalhamento no concreto.",
+                CalculatedValue = concreteUtilization,
+                RequiredValue = 1.0,
+                Unit = ""
+            });
+
+            result.Verifications.Add(new VerificationResult
+            {
+                Name = "Aco",
+                Status = steelUtilization1 <= 1.0 && steelUtilization2 <= 1.0
+                    ? VerificationStatus.Passed
+                    : VerificationStatus.Failed,
+                Message = "Verificacao preliminar de tracao e cisalhamento no aco dos chumbadores.",
+                CalculatedValue = Math.Max(steelUtilization1, steelUtilization2),
+                RequiredValue = 1.0,
+                Unit = ""
+            });
+        }
+
+        private static double InteractionPower(
+            double tensionDemand,
+            double tensionResistance,
+            double shearDemand,
+            double shearResistance,
+            double exponent)
+        {
+            return Math.Pow(Ratio(tensionDemand, tensionResistance), exponent) +
+                Math.Pow(Ratio(shearDemand, shearResistance), exponent);
+        }
+
+        private static double Ratio(double demand, double resistance)
+        {
+            if (demand <= 0) return 0;
+            if (resistance <= 0) return double.PositiveInfinity;
+            return demand / resistance;
+        }
+
+        private static double ToTf(double forceN)
+        {
+            return forceN / 9806.65;
+        }
+
         private static void ValidatePositive(
             BasePlateCalculationResult result,
             string name,
@@ -282,19 +369,11 @@ namespace SAGAStructuralTools.BasePlate.Domain
             });
         }
 
-        private static double CalculateAnchorSpacing(
-            double plateLength,
-            double edgeDistance,
-            int anchorCount)
-        {
-            if (anchorCount < 2) return 0;
-            return (plateLength - 2.0 * edgeDistance) / (anchorCount - 1);
-        }
-
         private static int CalculateTotalAnchors(BasePlateInput input)
         {
-            if (input.AnchorsX < 0 || input.AnchorsY < 0) return 0;
-            return input.AnchorsX + input.AnchorsY;
+            return BoltLayoutService.CalculateTotalAnchors(
+                input.AnchorsX,
+                input.AnchorsY);
         }
     }
 }

@@ -4,6 +4,7 @@ namespace SAGAStructuralTools.BasePlate.Domain
     {
         Passed,
         Failed,
+        Pending,
         Warning
     }
 }

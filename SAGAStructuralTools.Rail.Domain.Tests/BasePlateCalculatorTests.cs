@@ -87,6 +87,37 @@ namespace SAGAStructuralTools.Rail.Domain.Tests
                 new BasePlateCalculator().Calculate(null));
         }
 
+        [Fact]
+        public void CalculatesTotalAnchorsFromPerimeterLayout()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.AnchorsX = 3;
+            input.AnchorsY = 3;
+            input.TotalAnchors = 99;
+
+            new BasePlateCalculator().Calculate(input);
+
+            Assert.Equal(8, input.TotalAnchors);
+        }
+
+        [Fact]
+        public void DoesNotApproveAnchorChecksWhenTensionExceedsPreliminaryResistance()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.TensionForceTf = -500000;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.False(result.IsApproved);
+            Assert.True(result.AnchorTensionTf > 0);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "Concreto-chumbador" &&
+                v.Status == VerificationStatus.Failed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "Aco" &&
+                v.Status == VerificationStatus.Failed);
+        }
+
         private static BasePlateInput CreateValidInput()
         {
             return new BasePlateInput
@@ -97,10 +128,10 @@ namespace SAGAStructuralTools.Rail.Domain.Tests
                 FlangeThicknessMm = 9.5,
                 CompressionForceTf = 20,
                 TensionForceTf = 0,
-                MomentX_TfM = 1.5,
-                MomentY_TfM = 0.8,
-                ShearX_Tf = 2,
-                ShearY_Tf = 1,
+                MomentX_TfM = 0,
+                MomentY_TfM = 0,
+                ShearX_Tf = 0,
+                ShearY_Tf = 0,
                 PlateFyMpa = 250,
                 PlateFuMpa = 400,
                 ConcreteFckMpa = 30,

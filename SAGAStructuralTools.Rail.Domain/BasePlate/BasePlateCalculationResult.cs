@@ -19,6 +19,6 @@ namespace SAGAStructuralTools.BasePlate.Domain
             new List<VerificationResult>();
 
         public bool IsApproved =>
-            !Verifications.Any(v => v.Status == VerificationStatus.Failed);
+            Verifications.All(v => v.Status == VerificationStatus.Passed);
     }
 }

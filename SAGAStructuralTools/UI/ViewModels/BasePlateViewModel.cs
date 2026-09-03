@@ -1,4 +1,4 @@
-using SAGAStructuralTools.BasePlate.Domain;
+﻿using SAGAStructuralTools.BasePlate.Domain;
 using SAGAStructuralTools.UI.Converters;
 using System;
 using System.Collections.ObjectModel;
@@ -12,6 +12,7 @@ namespace SAGAStructuralTools.UI.ViewModels
     public class BasePlateViewModel : ViewModelBase
     {
         private readonly BasePlateCalculator _calculator = new BasePlateCalculator();
+        private readonly BoltLayoutService _boltLayoutService = new BoltLayoutService();
         private bool _isUpdating;
         private bool _canCreateConnection;
         private string _overallStatusText;
@@ -21,6 +22,16 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _anchorShearResult;
         private string _minimumPlateThickness;
         private string _minimumStiffenerThickness;
+        private double _sketchPlateLengthX;
+        private double _sketchPlateLengthY;
+        private double _sketchProfileDepth;
+        private double _sketchProfileFlangeWidth;
+        private double _sketchAnchorDiameter;
+        private double _sketchAnchorEdgeDistanceX;
+        private double _sketchAnchorEdgeDistanceY;
+        private double _sketchPlateThickness;
+        private double _sketchStiffenerHeight;
+        private double _sketchStiffenerThickness;
         private string _depthMm;
         private string _flangeWidthMm;
         private string _webThicknessMm;
@@ -62,6 +73,8 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         public ObservableCollection<BasePlateVerificationItem> Verifications { get; } =
             new ObservableCollection<BasePlateVerificationItem>();
+        public ObservableCollection<BoltPoint> BoltPoints { get; } =
+            new ObservableCollection<BoltPoint>();
 
         public ICommand CreateConnectionCommand { get; }
 
@@ -104,6 +117,16 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string AnchorShearResult { get => _anchorShearResult; private set => Set(ref _anchorShearResult, value); }
         public string MinimumPlateThickness { get => _minimumPlateThickness; private set => Set(ref _minimumPlateThickness, value); }
         public string MinimumStiffenerThickness { get => _minimumStiffenerThickness; private set => Set(ref _minimumStiffenerThickness, value); }
+        public double SketchPlateLengthX { get => _sketchPlateLengthX; private set => Set(ref _sketchPlateLengthX, value); }
+        public double SketchPlateLengthY { get => _sketchPlateLengthY; private set => Set(ref _sketchPlateLengthY, value); }
+        public double SketchProfileDepth { get => _sketchProfileDepth; private set => Set(ref _sketchProfileDepth, value); }
+        public double SketchProfileFlangeWidth { get => _sketchProfileFlangeWidth; private set => Set(ref _sketchProfileFlangeWidth, value); }
+        public double SketchAnchorDiameter { get => _sketchAnchorDiameter; private set => Set(ref _sketchAnchorDiameter, value); }
+        public double SketchAnchorEdgeDistanceX { get => _sketchAnchorEdgeDistanceX; private set => Set(ref _sketchAnchorEdgeDistanceX, value); }
+        public double SketchAnchorEdgeDistanceY { get => _sketchAnchorEdgeDistanceY; private set => Set(ref _sketchAnchorEdgeDistanceY, value); }
+        public double SketchPlateThickness { get => _sketchPlateThickness; private set => Set(ref _sketchPlateThickness, value); }
+        public double SketchStiffenerHeight { get => _sketchStiffenerHeight; private set => Set(ref _sketchStiffenerHeight, value); }
+        public double SketchStiffenerThickness { get => _sketchStiffenerThickness; private set => Set(ref _sketchStiffenerThickness, value); }
 
         protected override void OnPropertyChanged(string name = null)
         {
@@ -162,6 +185,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 AnchorShearResult = Format(result.AnchorShearTf);
                 MinimumPlateThickness = Format(result.MinimumPlateThicknessMm);
                 MinimumStiffenerThickness = Format(result.MinimumStiffenerThicknessMm);
+                UpdateSketch(input);
                 AddRows(input, result);
                 CanCreateConnection = Verifications.All(v => v.IsOk);
                 SetOverallStatus(CanCreateConnection);
@@ -173,6 +197,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 AnchorShearResult = "";
                 MinimumPlateThickness = "";
                 MinimumStiffenerThickness = "";
+                BoltPoints.Clear();
                 Verifications.Add(BasePlateVerificationItem.Create("Entrada", false, ex.Message));
                 CanCreateConnection = false;
                 SetOverallStatus(false);
@@ -186,30 +211,49 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private void AddRows(BasePlateInput input, BasePlateCalculationResult result)
         {
-            AddFromResult(result, "lx > bf", "Aumentar dimensão lx da placa de base.");
-            AddFromResult(result, "ly > d", "Aumentar dimensão ly da placa de base.");
-            AddComputed("nbx/nby", input.AnchorsX >= 2 && input.AnchorsY >= 2, "Informe ao menos 2 chumbadores em cada direção.");
-            AddFromResult(result, "Chumbador-borda", "Aumentar distância entre o chumbador e a borda da placa.");
-            AddComputed("Chumbador-nervura", true, "Aumentar distância entre o chumbador e a nervura.");
+            AddFromResult(result, "lx > bf", "Aumentar dimensÃ£o lx da placa de base.");
+            AddFromResult(result, "ly > d", "Aumentar dimensÃ£o ly da placa de base.");
+            AddComputed("nbx/nby", input.AnchorsX >= 2 && input.AnchorsY >= 2, "Informe ao menos 2 chumbadores em cada direÃ§Ã£o.");
+            AddFromResult(result, "Chumbador-borda", "Aumentar distÃ¢ncia entre o chumbador e a borda da placa.");
+            AddComputed("Chumbador-nervura", true, "Aumentar distÃ¢ncia entre o chumbador e a nervura.");
             if (input.HasMiddleStiffener)
-                AddComputed("Nervura média", true, "Aumentar a distância entre os chumbadores e a nervura média.");
-            AddFromResult(result, "Chumbador-chumbador", "Aumentar distância entre chumbadores.");
+                AddComputed("Nervura mÃ©dia", true, "Aumentar a distÃ¢ncia entre os chumbadores e a nervura mÃ©dia.");
+            AddFromResult(result, "Chumbador-chumbador", "Aumentar distÃ¢ncia entre chumbadores.");
             AddComputed("tpl", input.PlateThicknessMm >= result.MinimumPlateThicknessMm, "Aumentar espessura da placa de base.", result.MinimumPlateThicknessMm > 0 ? input.PlateThicknessMm / result.MinimumPlateThicknessMm : 0);
             AddComputed("tn", input.StiffenerHeightMm <= 0 || input.StiffenerThicknessMm >= result.MinimumStiffenerThicknessMm, "Aumentar espessura das nervuras.", result.MinimumStiffenerThicknessMm > 0 ? input.StiffenerThicknessMm / result.MinimumStiffenerThicknessMm : 0);
-            AddComputed("Pressão concreto", result.ConcretePressureTfM2 <= result.ConcreteResistanceTfM2, "Pressão elevada no concreto. Aumentar as dimensões da placa de base ou revisar o concreto.", result.ConcreteResistanceTfM2 > 0 ? result.ConcretePressureTfM2 / result.ConcreteResistanceTfM2 : 0, "Compressão");
-            AddComputed("Concreto-chumbador", true, "Falha na ancoragem no concreto. Reavaliar os chumbadores, o embutimento ou o concreto.");
-            AddComputed("Aço", true, "Falha no chumbador. Aumentar o diâmetro, a resistência ou a quantidade de chumbadores.");
+            AddComputed("PressÃ£o concreto", result.ConcretePressureTfM2 <= result.ConcreteResistanceTfM2, "PressÃ£o elevada no concreto. Aumentar as dimensÃµes da placa de base ou revisar o concreto.", result.ConcreteResistanceTfM2 > 0 ? result.ConcretePressureTfM2 / result.ConcreteResistanceTfM2 : 0, "CompressÃ£o");
+            AddFromResult(result, "Concreto-chumbador", "Falha na ancoragem no concreto. Reavaliar os chumbadores, o embutimento ou o concreto.", "Concreto-chumbador", result.AnchorConcreteUtilization);
+            AddFromResult(result, "Aco", "Falha no chumbador. Aumentar o diâmetro, a resistência ou a quantidade de chumbadores.", "Aço", Math.Max(result.AnchorSteelUtilization1, result.AnchorSteelUtilization2));
         }
 
         private void AddFromResult(BasePlateCalculationResult result, string verificationName, string errorMessage)
         {
+            AddFromResult(result, verificationName, errorMessage, verificationName);
+        }
+
+        private void AddFromResult(
+            BasePlateCalculationResult result,
+            string verificationName,
+            string errorMessage,
+            string displayName)
+        {
+            AddFromResult(result, verificationName, errorMessage, displayName, 0);
+        }
+
+        private void AddFromResult(
+            BasePlateCalculationResult result,
+            string verificationName,
+            string errorMessage,
+            string displayName,
+            double utilization)
+        {
             VerificationResult verification = result.Verifications.FirstOrDefault(v => v.Name == verificationName);
             if (verification == null)
             {
-                AddComputed(verificationName, true, errorMessage);
+                AddComputed(displayName, true, errorMessage);
                 return;
             }
-            AddComputed(verificationName, verification.Status != VerificationStatus.Failed, errorMessage);
+            AddComputed(displayName, verification.Status == VerificationStatus.Passed, errorMessage, utilization);
         }
 
         private void AddComputed(
@@ -231,7 +275,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             int anchorsX = ReadInt(AnchorsX, "nbx");
             int anchorsY = ReadInt(AnchorsY, "nby");
-            int totalAnchors = Math.Max(0, anchorsX + anchorsY);
+            int totalAnchors = BoltLayoutService.CalculateTotalAnchors(anchorsX, anchorsY);
             TotalAnchors = totalAnchors.ToString(CultureInfo.GetCultureInfo("pt-BR"));
             return new BasePlateInput
             {
@@ -260,7 +304,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 AnchorLengthMm = ReadDouble(AnchorLengthMm, "lb"),
                 EmbedmentLengthMm = ReadDouble(AnchorLengthMm, "lb"),
                 HasHook = HasHook,
-                CorrosionAllowanceMm = ReadDouble(CorrosionAllowanceMm, "ecorrosão"),
+                CorrosionAllowanceMm = ReadDouble(CorrosionAllowanceMm, "ecorrosÃ£o"),
                 TotalAnchors = totalAnchors,
                 AnchorsX = anchorsX,
                 AnchorsY = anchorsY,
@@ -276,16 +320,47 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             if (int.TryParse(AnchorsX, NumberStyles.Integer, CultureInfo.GetCultureInfo("pt-BR"), out int anchorsX) &&
                 int.TryParse(AnchorsY, NumberStyles.Integer, CultureInfo.GetCultureInfo("pt-BR"), out int anchorsY))
-                TotalAnchors = (anchorsX + anchorsY).ToString(CultureInfo.GetCultureInfo("pt-BR"));
+                TotalAnchors = BoltLayoutService.CalculateTotalAnchors(anchorsX, anchorsY)
+                    .ToString(CultureInfo.GetCultureInfo("pt-BR"));
             else
                 TotalAnchors = "";
+        }
+
+        private void UpdateSketch(BasePlateInput input)
+        {
+            SketchPlateLengthX = input.PlateLengthXmm;
+            SketchPlateLengthY = input.PlateLengthYmm;
+            SketchProfileDepth = input.DepthMm;
+            SketchProfileFlangeWidth = input.FlangeWidthMm;
+            SketchAnchorDiameter = input.AnchorDiameterMm;
+            SketchAnchorEdgeDistanceX = input.AnchorEdgeDistanceXmm;
+            SketchAnchorEdgeDistanceY = input.AnchorEdgeDistanceYmm;
+            SketchPlateThickness = input.PlateThicknessMm;
+            SketchStiffenerHeight = input.StiffenerHeightMm;
+            SketchStiffenerThickness = input.StiffenerThicknessMm;
+
+            BoltPoints.Clear();
+            if (input.AnchorsX < 2 || input.AnchorsY < 2) return;
+            if (input.PlateLengthXmm <= 2 * input.AnchorEdgeDistanceXmm) return;
+            if (input.PlateLengthYmm <= 2 * input.AnchorEdgeDistanceYmm) return;
+
+            foreach (BoltPoint point in _boltLayoutService.GeneratePerimeterLayout(
+                input.PlateLengthXmm,
+                input.PlateLengthYmm,
+                input.AnchorEdgeDistanceXmm,
+                input.AnchorEdgeDistanceYmm,
+                input.AnchorsX,
+                input.AnchorsY))
+            {
+                BoltPoints.Add(point);
+            }
         }
 
         private static double ReadDouble(string text, string fieldName)
         {
             if (FlexibleDoubleConverter.TryParse(text, out double value))
                 return value;
-            throw new InvalidOperationException($"{fieldName}: valor inválido.");
+            throw new InvalidOperationException($"{fieldName}: valor invÃ¡lido.");
         }
 
         private static int ReadInt(string text, string fieldName)
@@ -293,15 +368,15 @@ namespace SAGAStructuralTools.UI.ViewModels
             if (int.TryParse(text, NumberStyles.Integer, CultureInfo.GetCultureInfo("pt-BR"), out int value))
                 return value;
             if (fieldName == "nbx" || fieldName == "nby")
-                throw new InvalidOperationException("Informe ao menos 2 chumbadores em cada direção.");
-            throw new InvalidOperationException($"{fieldName}: número inteiro inválido.");
+                throw new InvalidOperationException("Informe ao menos 2 chumbadores em cada direÃ§Ã£o.");
+            throw new InvalidOperationException($"{fieldName}: nÃºmero inteiro invÃ¡lido.");
         }
 
         private void SetOverallStatus(bool isOk)
         {
             OverallStatusText = isOk
-                ? "✓ Todas as verificações foram atendidas. A ligação está apta para criação."
-                : "✕ Existem verificações pendentes. Corrija os itens destacados em vermelho antes de criar a ligação.";
+                ? "âœ“ Todas as verificaÃ§Ãµes foram atendidas. A ligaÃ§Ã£o estÃ¡ apta para criaÃ§Ã£o."
+                : "âœ• Existem verificaÃ§Ãµes pendentes. Corrija os itens destacados em vermelho antes de criar a ligaÃ§Ã£o.";
             OverallStatusBackground = isOk
                 ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
                 : new SolidColorBrush(Color.FromRgb(0xB4, 0x23, 0x18));
@@ -323,6 +398,16 @@ namespace SAGAStructuralTools.UI.ViewModels
                 name == nameof(AnchorShearResult) ||
                 name == nameof(MinimumPlateThickness) ||
                 name == nameof(MinimumStiffenerThickness) ||
+                name == nameof(SketchPlateLengthX) ||
+                name == nameof(SketchPlateLengthY) ||
+                name == nameof(SketchProfileDepth) ||
+                name == nameof(SketchProfileFlangeWidth) ||
+                name == nameof(SketchAnchorDiameter) ||
+                name == nameof(SketchAnchorEdgeDistanceX) ||
+                name == nameof(SketchAnchorEdgeDistanceY) ||
+                name == nameof(SketchPlateThickness) ||
+                name == nameof(SketchStiffenerHeight) ||
+                name == nameof(SketchStiffenerThickness) ||
                 name == nameof(TotalAnchors);
         }
     }

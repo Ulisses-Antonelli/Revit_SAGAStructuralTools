@@ -69,7 +69,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <GroupBox Header="Perfil" Margin="0,0,0,10">
+                    <Expander Header="2. Perfil metálico" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <TextBlock Text="d (mm)" VerticalAlignment="Center"/>
                             <TextBox Text="{Binding DepthMm, UpdateSourceTrigger=PropertyChanged}"/>
@@ -80,9 +80,9 @@
                             <TextBlock Text="tf (mm)" VerticalAlignment="Center"/>
                             <TextBox Text="{Binding FlangeThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
-                    </GroupBox>
+                    </Expander>
 
-                    <GroupBox Header="Esforços" Margin="0,0,0,10">
+                    <Expander Header="1. Esforços de cálculo" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Nc (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.CompressionForce}"/></StackPanel>
                             <TextBox Text="{Binding CompressionForceTf, UpdateSourceTrigger=PropertyChanged}"/>
@@ -97,9 +97,9 @@
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Vy (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ShearY}"/></StackPanel>
                             <TextBox Text="{Binding ShearY_Tf, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
-                    </GroupBox>
+                    </Expander>
 
-                    <GroupBox Header="Chumbadores" Margin="0,0,0,10">
+                    <Expander Header="4. Chumbadores" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="db (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorDiameter}"/></StackPanel>
                             <TextBox Text="{Binding AnchorDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
@@ -130,11 +130,11 @@
                             <StackPanel Orientation="Horizontal"><TextBlock Text="b1 (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorEdgeDistanceY}"/></StackPanel>
                             <TextBox Text="{Binding AnchorEdgeDistanceYmm, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
-                    </GroupBox>
+                    </Expander>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
-                    <GroupBox Header="Placa de Base" Margin="0,0,0,10">
+                    <Expander Header="3. Placa de base e materiais" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="lx (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthX}"/></StackPanel>
                             <TextBox Text="{Binding PlateLengthXmm, UpdateSourceTrigger=PropertyChanged}"/>
@@ -147,9 +147,9 @@
                             <StackPanel Orientation="Horizontal"><TextBlock Text="fu,pl (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFu}"/></StackPanel>
                             <TextBox Text="{Binding PlateFuMpa, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
-                    </GroupBox>
+                    </Expander>
 
-                    <GroupBox Header="Nervuras" Margin="0,0,0,10">
+                    <Expander Header="5. Nervuras" IsExpanded="False" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="tn (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerThickness}"/></StackPanel>
                             <TextBox Text="{Binding StiffenerThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
@@ -158,18 +158,18 @@
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Nervura média?"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MiddleStiffeners}"/></StackPanel>
                             <CheckBox IsChecked="{Binding HasMiddleStiffener, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
-                    </GroupBox>
+                    </Expander>
 
-                    <GroupBox Header="Concreto" Margin="0,0,0,10">
+                    <Expander Header="Concreto" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="fck (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteFck}"/></StackPanel>
                             <TextBox Text="{Binding ConcreteFckMpa, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"/></StackPanel>
                             <TextBox Text="{Binding ConcreteAreaRatioA2A1, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
-                    </GroupBox>
+                    </Expander>
 
-                    <GroupBox Header="Resultados" Margin="0,0,0,10">
+                    <Expander Header="Resultados" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <TextBlock Text="Fty,d (ton)"/>
                             <TextBox Text="{Binding AnchorTensionResult, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
@@ -180,7 +180,27 @@
                             <TextBlock Text="tnmin (mm)"/>
                             <TextBox Text="{Binding MinimumStiffenerThickness, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
                         </UniformGrid>
-                    </GroupBox>
+                    </Expander>
+
+                    <Expander Header="6. Croqui técnico da base" IsExpanded="True" Margin="0,0,0,10">
+                        <Border Margin="10"
+                                Height="280"
+                                BorderBrush="#333333"
+                                BorderThickness="1"
+                                Background="White">
+                            <ui:BasePlateSketchControl PlateLengthX="{Binding SketchPlateLengthX, Mode=OneWay}"
+                                                       PlateLengthY="{Binding SketchPlateLengthY, Mode=OneWay}"
+                                                       ProfileDepth="{Binding SketchProfileDepth, Mode=OneWay}"
+                                                       ProfileFlangeWidth="{Binding SketchProfileFlangeWidth, Mode=OneWay}"
+                                                       AnchorDiameter="{Binding SketchAnchorDiameter, Mode=OneWay}"
+                                                       AnchorEdgeDistanceX="{Binding SketchAnchorEdgeDistanceX, Mode=OneWay}"
+                                                       AnchorEdgeDistanceY="{Binding SketchAnchorEdgeDistanceY, Mode=OneWay}"
+                                                       PlateThickness="{Binding SketchPlateThickness, Mode=OneWay}"
+                                                       StiffenerHeight="{Binding SketchStiffenerHeight, Mode=OneWay}"
+                                                       StiffenerThickness="{Binding SketchStiffenerThickness, Mode=OneWay}"
+                                                       BoltPoints="{Binding BoltPoints, Mode=OneWay}"/>
+                        </Border>
+                    </Expander>
                 </StackPanel>
             </Grid>
         </ScrollViewer>
