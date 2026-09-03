@@ -211,17 +211,17 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private void AddRows(BasePlateInput input, BasePlateCalculationResult result)
         {
-            AddFromResult(result, "lx > bf", "Aumentar dimensÃ£o lx da placa de base.");
-            AddFromResult(result, "ly > d", "Aumentar dimensÃ£o ly da placa de base.");
-            AddComputed("nbx/nby", input.AnchorsX >= 2 && input.AnchorsY >= 2, "Informe ao menos 2 chumbadores em cada direÃ§Ã£o.");
-            AddFromResult(result, "Chumbador-borda", "Aumentar distÃ¢ncia entre o chumbador e a borda da placa.");
-            AddComputed("Chumbador-nervura", true, "Aumentar distÃ¢ncia entre o chumbador e a nervura.");
+            AddFromResult(result, "lx > bf", "Aumentar dimensão lx da placa de base.");
+            AddFromResult(result, "ly > d", "Aumentar dimensão ly da placa de base.");
+            AddComputed("nbx/nby", input.AnchorsX >= 2 && input.AnchorsY >= 2, "Informe ao menos 2 chumbadores em cada direção.");
+            AddFromResult(result, "Chumbador-borda", "Aumentar distância entre o chumbador e a borda da placa.");
+            AddComputed("Chumbador-nervura", true, "Aumentar distância entre o chumbador e a nervura.");
             if (input.HasMiddleStiffener)
-                AddComputed("Nervura mÃ©dia", true, "Aumentar a distÃ¢ncia entre os chumbadores e a nervura mÃ©dia.");
-            AddFromResult(result, "Chumbador-chumbador", "Aumentar distÃ¢ncia entre chumbadores.");
+                AddComputed("Nervura média", true, "Aumentar a distância entre os chumbadores e a nervura média.");
+            AddFromResult(result, "Chumbador-chumbador", "Aumentar distância entre chumbadores.");
             AddComputed("tpl", input.PlateThicknessMm >= result.MinimumPlateThicknessMm, "Aumentar espessura da placa de base.", result.MinimumPlateThicknessMm > 0 ? input.PlateThicknessMm / result.MinimumPlateThicknessMm : 0);
             AddComputed("tn", input.StiffenerHeightMm <= 0 || input.StiffenerThicknessMm >= result.MinimumStiffenerThicknessMm, "Aumentar espessura das nervuras.", result.MinimumStiffenerThicknessMm > 0 ? input.StiffenerThicknessMm / result.MinimumStiffenerThicknessMm : 0);
-            AddComputed("PressÃ£o concreto", result.ConcretePressureTfM2 <= result.ConcreteResistanceTfM2, "PressÃ£o elevada no concreto. Aumentar as dimensÃµes da placa de base ou revisar o concreto.", result.ConcreteResistanceTfM2 > 0 ? result.ConcretePressureTfM2 / result.ConcreteResistanceTfM2 : 0, "CompressÃ£o");
+            AddComputed("Pressão concreto", result.ConcretePressureTfM2 <= result.ConcreteResistanceTfM2, "Pressão elevada no concreto. Aumentar as dimensões da placa de base ou revisar o concreto.", result.ConcreteResistanceTfM2 > 0 ? result.ConcretePressureTfM2 / result.ConcreteResistanceTfM2 : 0, "Compressão");
             AddFromResult(result, "Concreto-chumbador", "Falha na ancoragem no concreto. Reavaliar os chumbadores, o embutimento ou o concreto.", "Concreto-chumbador", result.AnchorConcreteUtilization);
             AddFromResult(result, "Aco", "Falha no chumbador. Aumentar o diâmetro, a resistência ou a quantidade de chumbadores.", "Aço", Math.Max(result.AnchorSteelUtilization1, result.AnchorSteelUtilization2));
         }
@@ -304,7 +304,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 AnchorLengthMm = ReadDouble(AnchorLengthMm, "lb"),
                 EmbedmentLengthMm = ReadDouble(AnchorLengthMm, "lb"),
                 HasHook = HasHook,
-                CorrosionAllowanceMm = ReadDouble(CorrosionAllowanceMm, "ecorrosÃ£o"),
+                CorrosionAllowanceMm = ReadDouble(CorrosionAllowanceMm, "ecorrosão"),
                 TotalAnchors = totalAnchors,
                 AnchorsX = anchorsX,
                 AnchorsY = anchorsY,
@@ -360,7 +360,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             if (FlexibleDoubleConverter.TryParse(text, out double value))
                 return value;
-            throw new InvalidOperationException($"{fieldName}: valor invÃ¡lido.");
+            throw new InvalidOperationException($"{fieldName}: valor inválido.");
         }
 
         private static int ReadInt(string text, string fieldName)
@@ -368,15 +368,15 @@ namespace SAGAStructuralTools.UI.ViewModels
             if (int.TryParse(text, NumberStyles.Integer, CultureInfo.GetCultureInfo("pt-BR"), out int value))
                 return value;
             if (fieldName == "nbx" || fieldName == "nby")
-                throw new InvalidOperationException("Informe ao menos 2 chumbadores em cada direÃ§Ã£o.");
-            throw new InvalidOperationException($"{fieldName}: nÃºmero inteiro invÃ¡lido.");
+                throw new InvalidOperationException("Informe ao menos 2 chumbadores em cada direção.");
+            throw new InvalidOperationException($"{fieldName}: número inteiro inválido.");
         }
 
         private void SetOverallStatus(bool isOk)
         {
             OverallStatusText = isOk
-                ? "âœ“ Todas as verificaÃ§Ãµes foram atendidas. A ligaÃ§Ã£o estÃ¡ apta para criaÃ§Ã£o."
-                : "âœ• Existem verificaÃ§Ãµes pendentes. Corrija os itens destacados em vermelho antes de criar a ligaÃ§Ã£o.";
+                ? "✓ Todas as verificações foram atendidas. A ligação está apta para criação."
+                : "✕ Existem verificações pendentes. Corrija os itens destacados em vermelho antes de criar a ligação.";
             OverallStatusBackground = isOk
                 ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
                 : new SolidColorBrush(Color.FromRgb(0xB4, 0x23, 0x18));
@@ -412,3 +412,4 @@ namespace SAGAStructuralTools.UI.ViewModels
         }
     }
 }
+
