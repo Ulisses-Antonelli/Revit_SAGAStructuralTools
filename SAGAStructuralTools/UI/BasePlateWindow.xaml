@@ -25,10 +25,12 @@
             <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
             <Setter Property="ToolTipService.ShowDuration" Value="15000"/>
         </Style>
-        <Style x:Key="InfoIconStyle" TargetType="TextBlock">
-            <Setter Property="Text" Value="â“˜"/>
+        <Style x:Key="InfoIconStyle" TargetType="Border">
+            <Setter Property="Width" Value="13"/>
+            <Setter Property="Height" Value="13"/>
             <Setter Property="Margin" Value="5,0,0,0"/>
-            <Setter Property="Foreground" Value="#4A90E2"/>
+            <Setter Property="CornerRadius" Value="6.5"/>
+            <Setter Property="Background" Value="#4A90E2"/>
             <Setter Property="Cursor" Value="Help"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
@@ -56,7 +58,7 @@
                        FontWeight="SemiBold"
                        Foreground="#172B4D"/>
             <TextBlock Margin="0,5,0,0"
-                       Text="Dados organizados no padrÃ£o da planilha"
+                       Text="Dados organizados no padrão da planilha"
                        Foreground="#5E6C84"/>
         </StackPanel>
 
@@ -69,24 +71,24 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <Expander Header="1. EsforÃ§os de cÃ¡lculo" IsExpanded="True" Margin="0,0,0,10">
+                    <Expander Header="1. Esforços de cálculo" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nc (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.CompressionForce}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nc (tf)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.CompressionForce}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding CompressionForceTf, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nt (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TensionForce}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nt (tf)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TensionForce}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding TensionForceTf, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mx (tf.m)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MomentX}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mx (tf.m)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MomentX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding MomentX_TfM, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="My (tf.m)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MomentY}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="My (tf.m)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MomentY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding MomentY_TfM, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Vx (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ShearX}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Vx (tf)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ShearX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ShearX_Tf, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Vy (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ShearY}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Vy (tf)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ShearY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ShearY_Tf, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </Expander>
 
-                    <Expander Header="2. Perfil metÃ¡lico" IsExpanded="True" Margin="0,0,0,10">
+                    <Expander Header="2. Perfil metálico" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
                             <TextBlock Text="d (mm)" VerticalAlignment="Center"/>
                             <TextBox Text="{Binding DepthMm, UpdateSourceTrigger=PropertyChanged}"/>
@@ -101,48 +103,48 @@
 
                     <Expander Header="3. Placa de base e materiais" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="lx (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthX}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="lx (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateLengthXmm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="ly (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthY}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="ly (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateLengthYmm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="tpl (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateThickness}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="tpl (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateThickness}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="fy,pl (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFy}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fy,pl (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFy}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateFyMpa, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="fu,pl (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFu}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fu,pl (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFu}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateFuMpa, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </Expander>
 
                     <Expander Header="4. Nervuras" IsExpanded="False" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="tn (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerThickness}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="tn (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerThickness}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding StiffenerThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="hn (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerHeight}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="hn (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerHeight}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding StiffenerHeightMm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nervura mÃ©dia?"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MiddleStiffeners}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nervura média?"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MiddleStiffeners}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <CheckBox IsChecked="{Binding HasMiddleStiffener, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </Expander>
                     <Expander Header="5. Chumbadores" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="db (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorDiameter}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="db (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorDiameter}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="lb (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorLength}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="lb (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorLength}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorLengthMm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Com gancho?"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorHook}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Com gancho?"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorHook}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <CheckBox IsChecked="{Binding HasHook, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="ecorrosÃ£o (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorCorrosion}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="ecorrosão (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorCorrosion}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding CorrosionAllowanceMm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="fy,b (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorFy}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fy,b (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorFy}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorFyMpa, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="fu,b (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorFu}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fu,b (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorFu}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorFuMpa, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="nbx"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsX}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="nbx"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorsX, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="nby"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsY}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="nby"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorsY, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="ntot"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TotalAnchors}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="ntot"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TotalAnchors}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding TotalAnchors, Mode=OneWay}"
                                      IsReadOnly="True"
                                      IsReadOnlyCaretVisible="False"
@@ -150,9 +152,9 @@
                                      Focusable="False"
                                      IsHitTestVisible="False"
                                      Background="#EEF0F3"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="a1 (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorEdgeDistanceX}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="a1 (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorEdgeDistanceX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorEdgeDistanceXmm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="b1 (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorEdgeDistanceY}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="b1 (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorEdgeDistanceY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorEdgeDistanceYmm, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </Expander>
@@ -162,9 +164,9 @@
                 <StackPanel Grid.Column="2">
                     <Expander Header="6. Concreto" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="fck (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteFck}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fck (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteFck}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ConcreteFckMpa, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ConcreteAreaRatioA2A1, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </Expander>
@@ -175,6 +177,14 @@
                             <TextBox Text="{Binding AnchorTensionResult, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
                             <TextBlock Text="Fv,d (ton)"/>
                             <TextBox Text="{Binding AnchorShearResult, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                            <TextBlock Text="Rc,v (ton)"/>
+                            <TextBox Text="{Binding AnchorConcreteShearResistance, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                            <TextBlock Text="Rc,t (ton)"/>
+                            <TextBox Text="{Binding AnchorConcreteTensionResistance, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                            <TextBlock Text="Rs,v (ton)"/>
+                            <TextBox Text="{Binding AnchorSteelShearResistance, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                            <TextBlock Text="Rs,t (ton)"/>
+                            <TextBox Text="{Binding AnchorSteelTensionResistance, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
                             <TextBlock Text="tplmin (mm)"/>
                             <TextBox Text="{Binding MinimumPlateThickness, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
                             <TextBlock Text="tnmin (mm)"/>
@@ -182,7 +192,7 @@
                         </UniformGrid>
                     </Expander>
 
-                    <Expander Header="8. Croqui tÃ©cnico da base" IsExpanded="True" Margin="0,0,0,10">
+                    <Expander Header="8. Croqui técnico da base" IsExpanded="True" Margin="0,0,0,10">
                         <Border Margin="10"
                                 Height="280"
                                 BorderBrush="#333333"
@@ -205,7 +215,7 @@
             </Grid>
         </ScrollViewer>
 
-        <GroupBox Grid.Row="2" Header="VERIFICAÃ‡Ã•ES" Margin="0,14,0,0">
+        <GroupBox Grid.Row="2" Header="VERIFICAÇÕES" Margin="0,14,0,0">
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -229,7 +239,7 @@
                           RowHeight="42"
                           CellStyle="{StaticResource VerificationCellStyle}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="VerificaÃ§Ã£o" Binding="{Binding Name, Mode=OneWay}" Width="210"/>
+                        <DataGridTextColumn Header="Verificação" Binding="{Binding Name, Mode=OneWay}" Width="210"/>
                         <DataGridTemplateColumn Header="Resultado" Width="*">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -240,7 +250,7 @@
                                             <Run Text="{Binding ResultText, Mode=OneWay}"/>
                                         </TextBlock>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Utilization, Mode=OneWay, StringFormat=UtilizaÃ§Ã£o: {0:P1}}" FontSize="11"/>
+                                            <TextBlock Text="{Binding Utilization, Mode=OneWay, StringFormat=Utilização: {0:P1}}" FontSize="11"/>
                                             <TextBlock Text="  "/>
                                             <TextBlock Text="{Binding GoverningCase, Mode=OneWay, StringFormat=Caso governante: {0}}" FontSize="11"/>
                                         </StackPanel>
@@ -254,7 +264,7 @@
         </GroupBox>
 
         <StackPanel Grid.Row="3" Margin="0,14,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Criar ligaÃ§Ã£o"
+            <Button Content="Criar ligação"
                     Width="120"
                     Height="34"
                     Margin="0,0,8,0"
@@ -270,4 +280,5 @@
         </StackPanel>
     </Grid>
 </Window>
+
 

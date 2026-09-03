@@ -118,6 +118,24 @@ namespace SAGAStructuralTools.Rail.Domain.Tests
                 v.Status == VerificationStatus.Failed);
         }
 
+        [Fact]
+        public void CalculatesConcreteAndSteelAnchorResistances()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.ShearX_Tf = 2;
+            input.ShearY_Tf = 1;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.True(result.AnchorConcreteShearResistanceTf > 0);
+            Assert.True(result.AnchorConcreteTensionResistanceTf > 0);
+            Assert.True(result.AnchorSteelShearResistanceTf > 0);
+            Assert.True(result.AnchorSteelTensionResistanceTf > 0);
+            Assert.True(result.AnchorConcreteUtilization < 1);
+            Assert.True(result.AnchorSteelUtilization1 < 1);
+            Assert.True(result.AnchorSteelUtilization2 < 1);
+        }
+
         private static BasePlateInput CreateValidInput()
         {
             return new BasePlateInput

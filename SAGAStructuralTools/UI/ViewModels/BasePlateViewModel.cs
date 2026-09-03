@@ -20,6 +20,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         private Brush _overallStatusForeground;
         private string _anchorTensionResult;
         private string _anchorShearResult;
+        private string _anchorConcreteShearResistance;
+        private string _anchorConcreteTensionResistance;
+        private string _anchorSteelShearResistance;
+        private string _anchorSteelTensionResistance;
         private string _minimumPlateThickness;
         private string _minimumStiffenerThickness;
         private double _sketchPlateLengthX;
@@ -115,6 +119,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         public Brush OverallStatusForeground { get => _overallStatusForeground; private set => Set(ref _overallStatusForeground, value); }
         public string AnchorTensionResult { get => _anchorTensionResult; private set => Set(ref _anchorTensionResult, value); }
         public string AnchorShearResult { get => _anchorShearResult; private set => Set(ref _anchorShearResult, value); }
+        public string AnchorConcreteShearResistance { get => _anchorConcreteShearResistance; private set => Set(ref _anchorConcreteShearResistance, value); }
+        public string AnchorConcreteTensionResistance { get => _anchorConcreteTensionResistance; private set => Set(ref _anchorConcreteTensionResistance, value); }
+        public string AnchorSteelShearResistance { get => _anchorSteelShearResistance; private set => Set(ref _anchorSteelShearResistance, value); }
+        public string AnchorSteelTensionResistance { get => _anchorSteelTensionResistance; private set => Set(ref _anchorSteelTensionResistance, value); }
         public string MinimumPlateThickness { get => _minimumPlateThickness; private set => Set(ref _minimumPlateThickness, value); }
         public string MinimumStiffenerThickness { get => _minimumStiffenerThickness; private set => Set(ref _minimumStiffenerThickness, value); }
         public double SketchPlateLengthX { get => _sketchPlateLengthX; private set => Set(ref _sketchPlateLengthX, value); }
@@ -183,6 +191,10 @@ namespace SAGAStructuralTools.UI.ViewModels
                 BasePlateCalculationResult result = _calculator.Calculate(input);
                 AnchorTensionResult = Format(result.AnchorTensionTf);
                 AnchorShearResult = Format(result.AnchorShearTf);
+                AnchorConcreteShearResistance = Format(result.AnchorConcreteShearResistanceTf);
+                AnchorConcreteTensionResistance = Format(result.AnchorConcreteTensionResistanceTf);
+                AnchorSteelShearResistance = Format(result.AnchorSteelShearResistanceTf);
+                AnchorSteelTensionResistance = Format(result.AnchorSteelTensionResistanceTf);
                 MinimumPlateThickness = Format(result.MinimumPlateThicknessMm);
                 MinimumStiffenerThickness = Format(result.MinimumStiffenerThicknessMm);
                 UpdateSketch(input);
@@ -195,6 +207,10 @@ namespace SAGAStructuralTools.UI.ViewModels
                 SagaLog.Exception("BasePlateViewModel.Recalculate", ex);
                 AnchorTensionResult = "";
                 AnchorShearResult = "";
+                AnchorConcreteShearResistance = "";
+                AnchorConcreteTensionResistance = "";
+                AnchorSteelShearResistance = "";
+                AnchorSteelTensionResistance = "";
                 MinimumPlateThickness = "";
                 MinimumStiffenerThickness = "";
                 BoltPoints.Clear();
@@ -396,6 +412,10 @@ namespace SAGAStructuralTools.UI.ViewModels
                 name == nameof(OverallStatusForeground) ||
                 name == nameof(AnchorTensionResult) ||
                 name == nameof(AnchorShearResult) ||
+                name == nameof(AnchorConcreteShearResistance) ||
+                name == nameof(AnchorConcreteTensionResistance) ||
+                name == nameof(AnchorSteelShearResistance) ||
+                name == nameof(AnchorSteelTensionResistance) ||
                 name == nameof(MinimumPlateThickness) ||
                 name == nameof(MinimumStiffenerThickness) ||
                 name == nameof(SketchPlateLengthX) ||

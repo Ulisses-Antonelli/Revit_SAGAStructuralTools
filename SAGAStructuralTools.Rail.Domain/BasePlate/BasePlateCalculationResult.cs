@@ -12,6 +12,10 @@ namespace SAGAStructuralTools.BasePlate.Domain
         public double AnchorTensionTf { get; set; }
         public double AnchorShearTf { get; set; }
         public double CorrodedAnchorDiameterMm { get; set; }
+        public double AnchorConcreteShearResistanceTf { get; set; }
+        public double AnchorConcreteTensionResistanceTf { get; set; }
+        public double AnchorSteelShearResistanceTf { get; set; }
+        public double AnchorSteelTensionResistanceTf { get; set; }
         public double AnchorConcreteUtilization { get; set; }
         public double AnchorSteelUtilization1 { get; set; }
         public double AnchorSteelUtilization2 { get; set; }

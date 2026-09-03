@@ -212,19 +212,38 @@ namespace SAGAStructuralTools.BasePlate.Domain
             BasePlateCalculationResult result,
             BasePlateInput input)
         {
+            const double gammaSteel = 1.35;
+            const double gammaConcrete = 1.40;
+
             double corrodedDiameter = Math.Max(0, result.CorrodedAnchorDiameterMm);
-            double anchorAreaMm2 = Math.PI * corrodedDiameter * corrodedDiameter / 4.0;
+            double grossAreaMm2 = Math.PI * corrodedDiameter * corrodedDiameter / 4.0;
+            double threadAreaMm2 = 0.75 * grossAreaMm2;
+            double embedmentMm = Math.Max(0, input.EmbedmentLengthMm);
+            double edgeMm = Math.Max(0, Math.Min(input.AnchorEdgeDistanceXmm, input.AnchorEdgeDistanceYmm));
+            double edgeFactor = embedmentMm > 0
+                ? Math.Min(1.0, edgeMm / (1.5 * embedmentMm))
+                : 0;
+            double fckSqrt = Math.Sqrt(Math.Max(0, input.ConcreteFckMpa));
 
-            double steelTensionResistanceTf = ToTf(0.75 * input.AnchorFuMpa * anchorAreaMm2);
-            double steelShearResistanceTf = ToTf(0.45 * input.AnchorFuMpa * anchorAreaMm2);
+            // NBR 8800: resistencia de barras redondas/parafusos por area efetiva
+            // e interacao tracao + cisalhamento. Coeficientes mantidos explicitos
+            // para revisao quando a memoria completa da planilha for integrada.
+            double steelTensionResistanceTf = ToTf(input.AnchorFuMpa * threadAreaMm2 / gammaSteel);
+            double steelShearResistanceTf = ToTf(0.40 * input.AnchorFuMpa * grossAreaMm2 / gammaSteel);
 
+            // NBR 6118 trata chumbadores como carga local por inserto e remete a
+            // arrancamento/esmagamento, literatura tecnica e ensaios de fornecedor.
+            // Esta rotina usa um modelo CCD simplificado e conservador para triagem.
             double concreteTensionResistanceTf = ToTf(
-                0.75 * 8.0 * Math.Sqrt(Math.Max(0, input.ConcreteFckMpa)) *
-                Math.Pow(Math.Max(0, input.EmbedmentLengthMm), 1.5));
+                7.2 * fckSqrt * Math.Pow(embedmentMm, 1.5) * edgeFactor / gammaConcrete);
             double concreteShearResistanceTf = ToTf(
-                0.75 * 0.60 * Math.Sqrt(Math.Max(0, input.ConcreteFckMpa)) *
-                Math.Max(0, corrodedDiameter) *
-                Math.Max(0, input.EmbedmentLengthMm));
+                1.5 * fckSqrt * Math.Sqrt(corrodedDiameter) *
+                Math.Pow(embedmentMm, 1.5) * Math.Pow(edgeFactor, 1.5) / gammaConcrete);
+
+            result.AnchorConcreteShearResistanceTf = concreteShearResistanceTf;
+            result.AnchorConcreteTensionResistanceTf = concreteTensionResistanceTf;
+            result.AnchorSteelShearResistanceTf = steelShearResistanceTf;
+            result.AnchorSteelTensionResistanceTf = steelTensionResistanceTf;
 
             double concreteUtilization = InteractionPower(
                 result.AnchorTensionTf,
@@ -238,9 +257,11 @@ namespace SAGAStructuralTools.BasePlate.Domain
                 result.AnchorShearTf,
                 steelShearResistanceTf,
                 2.0);
-            double steelUtilization2 = Math.Max(
-                Ratio(result.AnchorTensionTf, steelTensionResistanceTf),
-                Ratio(result.AnchorShearTf, steelShearResistanceTf));
+            double combinedTensionLimitTf = Math.Max(
+                0,
+                ToTf(input.AnchorFuMpa * grossAreaMm2 / gammaSteel) -
+                1.90 * result.AnchorShearTf);
+            double steelUtilization2 = Ratio(result.AnchorTensionTf, combinedTensionLimitTf);
 
             result.AnchorConcreteUtilization = concreteUtilization;
             result.AnchorSteelUtilization1 = steelUtilization1;
