@@ -1,21 +1,52 @@
 <Window x:Class="SAGAStructuralTools.UI.BasePlateWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SAGAStructuralTools.UI"
         Title="Dimensionamento de Placa de Base"
-        Width="760"
-        Height="640"
-        MinWidth="700"
-        MinHeight="560"
+        Width="980"
+        Height="760"
+        MinWidth="860"
+        MinHeight="640"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         Language="pt-BR"
         Background="#F8F9FB"
         FontFamily="Segoe UI"
         FontSize="13">
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Margin" Value="0,2,0,2"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="15000"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,4,0,4"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="15000"/>
+        </Style>
+        <Style x:Key="InfoIconStyle" TargetType="TextBlock">
+            <Setter Property="Text" Value="ⓘ"/>
+            <Setter Property="Margin" Value="5,0,0,0"/>
+            <Setter Property="Foreground" Value="#4A90E2"/>
+            <Setter Property="Cursor" Value="Help"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="15000"/>
+        </Style>
+        <Style x:Key="VerificationCellStyle" TargetType="DataGridCell">
+            <Setter Property="Background" Value="{Binding Background, Mode=OneWay}"/>
+            <Setter Property="Foreground" Value="{Binding Foreground, Mode=OneWay}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+    </Window.Resources>
+
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="260"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -25,7 +56,7 @@
                        FontWeight="SemiBold"
                        Foreground="#172B4D"/>
             <TextBlock Margin="0,5,0,0"
-                       Text="Verificações iniciais de geometria e chumbadores"
+                       Text="Dados organizados no padrão da planilha"
                        Foreground="#5E6C84"/>
         </StackPanel>
 
@@ -40,125 +71,182 @@
                 <StackPanel Grid.Column="0">
                     <GroupBox Header="Perfil" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <TextBlock Text="Altura d (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="DepthTextBox" Text="300"/>
-                            <TextBlock Text="Mesa bf (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="FlangeWidthTextBox" Text="150"/>
-                            <TextBlock Text="Alma tw (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="WebThicknessTextBox" Text="6,3"/>
-                            <TextBlock Text="Mesa tf (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="FlangeThicknessTextBox" Text="9,5"/>
+                            <TextBlock Text="d (mm)" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding DepthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="bf (mm)" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding FlangeWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="tw (mm)" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding WebThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="tf (mm)" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding FlangeThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </GroupBox>
 
                     <GroupBox Header="Esforços" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <TextBlock Text="Normal N (tf)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AxialForceTextBox" Text="20"/>
-                            <TextBlock Text="Momento Mx (tf.m)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="MomentXTextBox" Text="1,5"/>
-                            <TextBlock Text="Momento My (tf.m)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="MomentYTextBox" Text="0,8"/>
-                            <TextBlock Text="Cortante Vx (tf)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="ShearXTextBox" Text="2"/>
-                            <TextBlock Text="Cortante Vy (tf)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="ShearYTextBox" Text="1"/>
-                        </UniformGrid>
-                    </GroupBox>
-
-                    <GroupBox Header="Materiais" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
-                            <TextBlock Text="Placa fy (MPa)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="PlateFyTextBox" Text="250"/>
-                            <TextBlock Text="Placa fu (MPa)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="PlateFuTextBox" Text="400"/>
-                            <TextBlock Text="Concreto fck (MPa)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="ConcreteFckTextBox" Text="30"/>
-                            <TextBlock Text="Chumbador fy (MPa)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AnchorFyTextBox" Text="250"/>
-                            <TextBlock Text="Chumbador fu (MPa)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AnchorFuTextBox" Text="400"/>
-                            <TextBlock Text="Coluna fy (MPa)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="ColumnFyTextBox" Text="250"/>
-                            <TextBlock Text="Coluna fu (MPa)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="ColumnFuTextBox" Text="400"/>
-                        </UniformGrid>
-                    </GroupBox>
-                </StackPanel>
-
-                <StackPanel Grid.Column="2">
-                    <GroupBox Header="Placa" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
-                            <TextBlock Text="Lx (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="PlateLengthXTextBox" Text="300"/>
-                            <TextBlock Text="Ly (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="PlateLengthYTextBox" Text="450"/>
-                            <TextBlock Text="Espessura (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="PlateThicknessTextBox" Text="19"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nc (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.CompressionForce}"/></StackPanel>
+                            <TextBox Text="{Binding CompressionForceTf, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nt (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TensionForce}"/></StackPanel>
+                            <TextBox Text="{Binding TensionForceTf, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mx (tf.m)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MomentX}"/></StackPanel>
+                            <TextBox Text="{Binding MomentX_TfM, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="My (tf.m)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MomentY}"/></StackPanel>
+                            <TextBox Text="{Binding MomentY_TfM, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Vx (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ShearX}"/></StackPanel>
+                            <TextBox Text="{Binding ShearX_Tf, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Vy (tf)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ShearY}"/></StackPanel>
+                            <TextBox Text="{Binding ShearY_Tf, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </GroupBox>
 
                     <GroupBox Header="Chumbadores" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <TextBlock Text="Diâmetro (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AnchorDiameterTextBox" Text="19"/>
-                            <TextBlock Text="Embutimento (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="EmbedmentLengthTextBox" Text="250"/>
-                            <TextBlock Text="Corrosão (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="CorrosionAllowanceTextBox" Text="0"/>
-                            <TextBlock Text="Quantidade X" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AnchorsXTextBox" Text="2"/>
-                            <TextBlock Text="Quantidade Y" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AnchorsYTextBox" Text="2"/>
-                            <TextBlock Text="Borda X (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AnchorEdgeDistanceXTextBox" Text="60"/>
-                            <TextBlock Text="Borda Y (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="AnchorEdgeDistanceYTextBox" Text="70"/>
-                            <CheckBox x:Name="HasHookCheckBox" Content="Com gancho" IsChecked="True"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="db (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorDiameter}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="lb (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorLength}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorLengthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Com gancho?"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorHook}"/></StackPanel>
+                            <CheckBox IsChecked="{Binding HasHook, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="ecorrosão (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorCorrosion}"/></StackPanel>
+                            <TextBox Text="{Binding CorrosionAllowanceMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fy,b (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorFy}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorFyMpa, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fu,b (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorFu}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorFuMpa, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="nbx"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsX}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorsX, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="nby"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsY}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorsY, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="ntot"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TotalAnchors}"/></StackPanel>
+                            <TextBox Text="{Binding TotalAnchors, Mode=OneWay}"
+                                     IsReadOnly="True"
+                                     IsReadOnlyCaretVisible="False"
+                                     IsTabStop="False"
+                                     Focusable="False"
+                                     IsHitTestVisible="False"
+                                     Background="#EEF0F3"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="a1 (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorEdgeDistanceX}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorEdgeDistanceXmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="b1 (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorEdgeDistanceY}"/></StackPanel>
+                            <TextBox Text="{Binding AnchorEdgeDistanceYmm, UpdateSourceTrigger=PropertyChanged}"/>
+                        </UniformGrid>
+                    </GroupBox>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <GroupBox Header="Placa de Base" Margin="0,0,0,10">
+                        <UniformGrid Columns="2" Margin="10">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="lx (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthX}"/></StackPanel>
+                            <TextBox Text="{Binding PlateLengthXmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="ly (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthY}"/></StackPanel>
+                            <TextBox Text="{Binding PlateLengthYmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="tpl (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateThickness}"/></StackPanel>
+                            <TextBox Text="{Binding PlateThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fy,pl (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFy}"/></StackPanel>
+                            <TextBox Text="{Binding PlateFyMpa, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fu,pl (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFu}"/></StackPanel>
+                            <TextBox Text="{Binding PlateFuMpa, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </GroupBox>
 
                     <GroupBox Header="Nervuras" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10">
-                            <TextBlock Text="Espessura (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="StiffenerThicknessTextBox" Text="0"/>
-                            <TextBlock Text="Altura (mm)" VerticalAlignment="Center"/>
-                            <TextBox x:Name="StiffenerHeightTextBox" Text="0"/>
-                            <CheckBox x:Name="HasMiddleStiffenerCheckBox"
-                                      Content="Nervura intermediária"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="tn (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerThickness}"/></StackPanel>
+                            <TextBox Text="{Binding StiffenerThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="hn (mm)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerHeight}"/></StackPanel>
+                            <TextBox Text="{Binding StiffenerHeightMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Nervura média?"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MiddleStiffeners}"/></StackPanel>
+                            <CheckBox IsChecked="{Binding HasMiddleStiffener, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </GroupBox>
 
-                    <GroupBox Header="Resultado">
-                        <StackPanel Margin="10">
-                            <TextBlock x:Name="SummaryTextBlock"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap"/>
-                            <TextBlock x:Name="VerificationTextBlock"
-                                       Margin="0,8,0,0"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
+                    <GroupBox Header="Concreto" Margin="0,0,0,10">
+                        <UniformGrid Columns="2" Margin="10">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="fck (MPa)"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteFck}"/></StackPanel>
+                            <TextBox Text="{Binding ConcreteFckMpa, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><TextBlock Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"/></StackPanel>
+                            <TextBox Text="{Binding ConcreteAreaRatioA2A1, UpdateSourceTrigger=PropertyChanged}"/>
+                        </UniformGrid>
+                    </GroupBox>
+
+                    <GroupBox Header="Resultados" Margin="0,0,0,10">
+                        <UniformGrid Columns="2" Margin="10">
+                            <TextBlock Text="Fty,d (ton)"/>
+                            <TextBox Text="{Binding AnchorTensionResult, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                            <TextBlock Text="Fv,d (ton)"/>
+                            <TextBox Text="{Binding AnchorShearResult, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                            <TextBlock Text="tplmin (mm)"/>
+                            <TextBox Text="{Binding MinimumPlateThickness, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                            <TextBlock Text="tnmin (mm)"/>
+                            <TextBox Text="{Binding MinimumStiffenerThickness, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
+                        </UniformGrid>
                     </GroupBox>
                 </StackPanel>
             </Grid>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="2" Margin="0,14,0,0"
-                    Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Calcular"
-                    Width="100"
+        <GroupBox Grid.Row="2" Header="VERIFICAÇÕES" Margin="0,14,0,0">
+            <Grid Margin="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Padding="10" Margin="0,0,0,8" Background="{Binding OverallStatusBackground, Mode=OneWay}">
+                    <TextBlock Text="{Binding OverallStatusText, Mode=OneWay}"
+                               Foreground="{Binding OverallStatusForeground, Mode=OneWay}"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                </Border>
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Verifications, Mode=OneWay}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="None"
+                          RowHeight="42"
+                          CellStyle="{StaticResource VerificationCellStyle}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Verificação" Binding="{Binding Name, Mode=OneWay}" Width="210"/>
+                        <DataGridTemplateColumn Header="Resultado" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock FontWeight="SemiBold" TextWrapping="Wrap">
+                                            <Run Text="{Binding Icon, Mode=OneWay}"/>
+                                            <Run Text=" "/>
+                                            <Run Text="{Binding ResultText, Mode=OneWay}"/>
+                                        </TextBlock>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Utilization, Mode=OneWay, StringFormat=Utilização: {0:P1}}" FontSize="11"/>
+                                            <TextBlock Text="  "/>
+                                            <TextBlock Text="{Binding GoverningCase, Mode=OneWay, StringFormat=Caso governante: {0}}" FontSize="11"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </GroupBox>
+
+        <StackPanel Grid.Row="3" Margin="0,14,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Criar ligação"
+                    Width="120"
                     Height="34"
                     Margin="0,0,8,0"
-                    IsDefault="True"
-                    Click="Calculate_Click"
-                    Background="#0052CC"
-                    Foreground="White"
-                    BorderBrush="#0052CC"/>
+                    Command="{Binding CreateConnectionCommand}"
+                    IsEnabled="{Binding CanCreateConnection, Mode=OneWay}"
+                    ToolTip="{x:Static ui:ToolTipTexts.CreateButton}"/>
             <Button Content="Fechar"
                     Width="92"
                     Height="34"
                     IsCancel="True"
-                    Click="Close_Click"/>
+                    Click="Close_Click"
+                    ToolTip="{x:Static ui:ToolTipTexts.CloseButton}"/>
         </StackPanel>
     </Grid>
 </Window>
