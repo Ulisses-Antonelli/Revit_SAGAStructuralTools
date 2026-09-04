@@ -22,12 +22,18 @@ namespace SAGAStructuralTools.Core.BasePlate
             double lyMm,
             double plateThicknessMm,
             double plateFyMpa,
-            double plateFuMpa)
+            double plateFuMpa,
+            double anchorDiameterMm,
+            int anchorsX,
+            int anchorsY,
+            double anchorEdgeDistanceXmm,
+            double anchorEdgeDistanceYmm)
         {
             if (column == null) throw new ArgumentNullException(nameof(column));
             if (lxMm <= 0) throw new ArgumentOutOfRangeException(nameof(lxMm), "lx deve ser maior que zero.");
             if (lyMm <= 0) throw new ArgumentOutOfRangeException(nameof(lyMm), "ly deve ser maior que zero.");
             if (plateThicknessMm <= 0) throw new ArgumentOutOfRangeException(nameof(plateThicknessMm), "tpl deve ser maior que zero.");
+            if (anchorDiameterMm <= 0) throw new ArgumentOutOfRangeException(nameof(anchorDiameterMm), "db deve ser maior que zero.");
 
             EnsureBasePlateProjectParameters();
 
@@ -63,6 +69,20 @@ namespace SAGAStructuralTools.Core.BasePlate
                 basisZ.Negate(),
                 thickness,
                 solidOptions);
+            solid = CutAnchorHoles(
+                solid,
+                origin,
+                basisX,
+                basisY,
+                basisZ,
+                thickness,
+                lxMm,
+                lyMm,
+                anchorDiameterMm,
+                anchorsX,
+                anchorsY,
+                anchorEdgeDistanceXmm,
+                anchorEdgeDistanceYmm);
 
             DirectShape shape = DirectShape.CreateElement(
                 _document,
@@ -106,6 +126,78 @@ namespace SAGAStructuralTools.Core.BasePlate
             SetNumberParameter(shape, "SGA_FU_PL", plateFuMpa);
             SetNumberParameter(shape, "SGA_COLUMN_ID", column.Id.Value);
             SetTextParameter(shape, "SGA_COLUMN_UID", column.UniqueId);
+        }
+
+        private static Solid CutAnchorHoles(
+            Solid plateSolid,
+            XYZ origin,
+            XYZ basisX,
+            XYZ basisY,
+            XYZ basisZ,
+            double plateThicknessFt,
+            double lxMm,
+            double lyMm,
+            double anchorDiameterMm,
+            int anchorsX,
+            int anchorsY,
+            double anchorEdgeDistanceXmm,
+            double anchorEdgeDistanceYmm)
+        {
+            if (anchorsX < 2 || anchorsY < 2) return plateSolid;
+            if (lxMm <= 2.0 * anchorEdgeDistanceXmm) return plateSolid;
+            if (lyMm <= 2.0 * anchorEdgeDistanceYmm) return plateSolid;
+
+            IReadOnlyList<BoltPoint> boltPoints = new BoltLayoutService()
+                .GeneratePerimeterLayout(
+                    lxMm,
+                    lyMm,
+                    anchorEdgeDistanceXmm,
+                    anchorEdgeDistanceYmm,
+                    anchorsX,
+                    anchorsY);
+            double holeRadiusFt = UnitUtils.ConvertToInternalUnits(anchorDiameterMm / 2.0, UnitTypeId.Millimeters);
+            double cutDepthFt = plateThicknessFt * 1.20;
+            XYZ cutDirection = basisZ.Negate();
+
+            Solid current = plateSolid;
+            foreach (BoltPoint boltPoint in boltPoints)
+            {
+                XYZ holeCenter = origin +
+                    basisX * UnitUtils.ConvertToInternalUnits(boltPoint.X, UnitTypeId.Millimeters) +
+                    basisY * UnitUtils.ConvertToInternalUnits(boltPoint.Y, UnitTypeId.Millimeters) +
+                    basisZ * (plateThicknessFt * 0.10);
+                Solid cutter = CreateCylindricalCutter(holeCenter, basisX, basisY, cutDirection, holeRadiusFt, cutDepthFt);
+                current = BooleanOperationsUtils.ExecuteBooleanOperation(
+                    current,
+                    cutter,
+                    BooleanOperationsType.Difference);
+            }
+
+            return current;
+        }
+
+        private static Solid CreateCylindricalCutter(
+            XYZ center,
+            XYZ basisX,
+            XYZ basisY,
+            XYZ direction,
+            double radius,
+            double depth)
+        {
+            var loop = new CurveLoop();
+            loop.Append(Arc.Create(
+                center + basisX * radius,
+                center - basisX * radius,
+                center + basisY * radius));
+            loop.Append(Arc.Create(
+                center - basisX * radius,
+                center + basisX * radius,
+                center - basisY * radius));
+
+            return GeometryCreationUtilities.CreateExtrusionGeometry(
+                new List<CurveLoop> { loop },
+                direction,
+                depth);
         }
 
         private void EnsureBasePlateProjectParameters()

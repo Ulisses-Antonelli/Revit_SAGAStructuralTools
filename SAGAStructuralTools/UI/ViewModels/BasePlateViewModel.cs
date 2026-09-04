@@ -8,10 +8,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Xml.Linq;
 
 namespace SAGAStructuralTools.UI.ViewModels
 {
@@ -88,6 +90,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _concreteAreaRatioA2A1;
         private string _concreteEdgeDistanceXmm;
         private string _concreteEdgeDistanceYmm;
+        private string _configurationName;
+        private string _selectedConfigurationName;
 
         public BasePlateViewModel()
             : this(null)
@@ -98,7 +102,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             _uiDocument = uiDocument;
             CreateConnectionCommand = new RelayCommand(_ => CreateConnection(), _ => CanCreateConnection);
+            SaveConfigurationCommand = new RelayCommand(_ => SaveCurrentConfiguration());
+            DeleteConfigurationCommand = new RelayCommand(_ => DeleteCurrentConfiguration(), _ => !string.IsNullOrWhiteSpace(ConfigurationName));
             ResetDefaults();
+            LoadConfigurationNames();
             Recalculate();
         }
 
@@ -115,6 +122,10 @@ namespace SAGAStructuralTools.UI.ViewModels
             ConcreteStrengthCatalog.Options;
 
         public ICommand CreateConnectionCommand { get; }
+        public ICommand SaveConfigurationCommand { get; }
+        public ICommand DeleteConfigurationCommand { get; }
+        public ObservableCollection<string> SavedConfigurationNames { get; } =
+            new ObservableCollection<string>();
 
         public string DepthMm { get => _depthMm; set => Set(ref _depthMm, value); }
         public string FlangeWidthMm { get => _flangeWidthMm; set => Set(ref _flangeWidthMm, value); }
@@ -203,6 +214,17 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string ConcreteAreaRatioA2A1 { get => _concreteAreaRatioA2A1; set => Set(ref _concreteAreaRatioA2A1, value); }
         public string ConcreteEdgeDistanceXmm { get => _concreteEdgeDistanceXmm; set => Set(ref _concreteEdgeDistanceXmm, value); }
         public string ConcreteEdgeDistanceYmm { get => _concreteEdgeDistanceYmm; set => Set(ref _concreteEdgeDistanceYmm, value); }
+        public string ConfigurationName { get => _configurationName; set => Set(ref _configurationName, value); }
+        public string SelectedConfigurationName
+        {
+            get => _selectedConfigurationName;
+            set
+            {
+                if (!Set(ref _selectedConfigurationName, value) || string.IsNullOrWhiteSpace(value)) return;
+                ConfigurationName = value;
+                LoadConfiguration(value);
+            }
+        }
         public bool CanCreateConnection { get => _canCreateConnection; private set => Set(ref _canCreateConnection, value); }
         public string OverallStatusText { get => _overallStatusText; private set => Set(ref _overallStatusText, value); }
         public Brush OverallStatusBackground { get => _overallStatusBackground; private set => Set(ref _overallStatusBackground, value); }
@@ -243,6 +265,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         private void ResetDefaults()
         {
             _isUpdating = true;
+            ConfigurationName = "Padrao";
             DepthMm = "300";
             FlangeWidthMm = "150";
             WebThicknessMm = "6,3";
@@ -276,6 +299,140 @@ namespace SAGAStructuralTools.UI.ViewModels
             ConcreteEdgeDistanceXmm = "300";
             ConcreteEdgeDistanceYmm = "300";
             _isUpdating = false;
+        }
+
+        private void LoadConfigurationNames()
+        {
+            SavedConfigurationNames.Clear();
+            XDocument document = LoadConfigurationsDocument();
+            foreach (XElement item in document.Root.Elements("configuration")
+                .OrderBy(element => (string)element.Attribute("name")))
+            {
+                string name = (string)item.Attribute("name");
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    SavedConfigurationNames.Add(name);
+                }
+            }
+        }
+
+        private void SaveCurrentConfiguration()
+        {
+            string name = string.IsNullOrWhiteSpace(ConfigurationName)
+                ? "Padrao"
+                : ConfigurationName.Trim();
+            XDocument document = LoadConfigurationsDocument();
+            XElement existing = document.Root.Elements("configuration")
+                .FirstOrDefault(element => string.Equals((string)element.Attribute("name"), name, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                existing.Remove();
+            }
+
+            document.Root.Add(new XElement(
+                "configuration",
+                new XAttribute("name", name),
+                CreateField("DepthMm", DepthMm),
+                CreateField("FlangeWidthMm", FlangeWidthMm),
+                CreateField("WebThicknessMm", WebThicknessMm),
+                CreateField("FlangeThicknessMm", FlangeThicknessMm),
+                CreateField("CompressionForceTf", CompressionForceTf),
+                CreateField("TensionForceTf", TensionForceTf),
+                CreateField("MomentX_TfM", MomentX_TfM),
+                CreateField("MomentY_TfM", MomentY_TfM),
+                CreateField("ShearX_Tf", ShearX_Tf),
+                CreateField("ShearY_Tf", ShearY_Tf),
+                CreateField("AnchorDiameterMm", AnchorDiameterMm),
+                CreateField("AnchorLengthMm", AnchorLengthMm),
+                CreateField("HasHook", HasHook.ToString(CultureInfo.InvariantCulture)),
+                CreateField("CorrosionAllowanceMm", CorrosionAllowanceMm),
+                CreateField("AnchorFyMpa", AnchorFyMpa),
+                CreateField("AnchorFuMpa", AnchorFuMpa),
+                CreateField("AnchorsX", AnchorsX),
+                CreateField("AnchorsY", AnchorsY),
+                CreateField("AnchorEdgeDistanceXmm", AnchorEdgeDistanceXmm),
+                CreateField("AnchorEdgeDistanceYmm", AnchorEdgeDistanceYmm),
+                CreateField("PlateLengthXmm", PlateLengthXmm),
+                CreateField("PlateLengthYmm", PlateLengthYmm),
+                CreateField("PlateThicknessMm", PlateThicknessMm),
+                CreateField("PlateFyMpa", PlateFyMpa),
+                CreateField("PlateFuMpa", PlateFuMpa),
+                CreateField("StiffenerThicknessMm", StiffenerThicknessMm),
+                CreateField("StiffenerHeightMm", StiffenerHeightMm),
+                CreateField("HasMiddleStiffener", HasMiddleStiffener.ToString(CultureInfo.InvariantCulture)),
+                CreateField("ConcreteFckMpa", ConcreteFckMpa),
+                CreateField("ConcreteAreaRatioA2A1", ConcreteAreaRatioA2A1),
+                CreateField("ConcreteEdgeDistanceXmm", ConcreteEdgeDistanceXmm),
+                CreateField("ConcreteEdgeDistanceYmm", ConcreteEdgeDistanceYmm)));
+
+            Directory.CreateDirectory(Path.GetDirectoryName(ConfigurationFilePath));
+            document.Save(ConfigurationFilePath);
+            LoadConfigurationNames();
+            SelectedConfigurationName = name;
+        }
+
+        private void DeleteCurrentConfiguration()
+        {
+            if (string.IsNullOrWhiteSpace(ConfigurationName)) return;
+
+            XDocument document = LoadConfigurationsDocument();
+            XElement existing = document.Root.Elements("configuration")
+                .FirstOrDefault(element => string.Equals((string)element.Attribute("name"), ConfigurationName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (existing == null) return;
+
+            existing.Remove();
+            Directory.CreateDirectory(Path.GetDirectoryName(ConfigurationFilePath));
+            document.Save(ConfigurationFilePath);
+            LoadConfigurationNames();
+            SelectedConfigurationName = null;
+        }
+
+        private void LoadConfiguration(string name)
+        {
+            XDocument document = LoadConfigurationsDocument();
+            XElement configuration = document.Root.Elements("configuration")
+                .FirstOrDefault(element => string.Equals((string)element.Attribute("name"), name, StringComparison.OrdinalIgnoreCase));
+            if (configuration == null) return;
+
+            _isUpdating = true;
+            DepthMm = ReadField(configuration, "DepthMm", DepthMm);
+            FlangeWidthMm = ReadField(configuration, "FlangeWidthMm", FlangeWidthMm);
+            WebThicknessMm = ReadField(configuration, "WebThicknessMm", WebThicknessMm);
+            FlangeThicknessMm = ReadField(configuration, "FlangeThicknessMm", FlangeThicknessMm);
+            CompressionForceTf = ReadField(configuration, "CompressionForceTf", CompressionForceTf);
+            TensionForceTf = ReadField(configuration, "TensionForceTf", TensionForceTf);
+            MomentX_TfM = ReadField(configuration, "MomentX_TfM", MomentX_TfM);
+            MomentY_TfM = ReadField(configuration, "MomentY_TfM", MomentY_TfM);
+            ShearX_Tf = ReadField(configuration, "ShearX_Tf", ShearX_Tf);
+            ShearY_Tf = ReadField(configuration, "ShearY_Tf", ShearY_Tf);
+            AnchorDiameterMm = ReadField(configuration, "AnchorDiameterMm", AnchorDiameterMm);
+            SelectedAnchorOption = HeavyHexNutCatalog.FindByDiameter(ParseDoubleOrDefault(AnchorDiameterMm, 19.05));
+            AnchorLengthMm = ReadField(configuration, "AnchorLengthMm", AnchorLengthMm);
+            HasHook = ReadBoolField(configuration, "HasHook", HasHook);
+            CorrosionAllowanceMm = ReadField(configuration, "CorrosionAllowanceMm", CorrosionAllowanceMm);
+            AnchorFyMpa = ReadField(configuration, "AnchorFyMpa", AnchorFyMpa);
+            AnchorFuMpa = ReadField(configuration, "AnchorFuMpa", AnchorFuMpa);
+            SelectedAnchorsX = ClampAnchorCount(ReadIntOrDefault(ReadField(configuration, "AnchorsX", AnchorsX), SelectedAnchorsX));
+            SelectedAnchorsY = ClampAnchorCount(ReadIntOrDefault(ReadField(configuration, "AnchorsY", AnchorsY), SelectedAnchorsY));
+            AnchorEdgeDistanceXmm = ReadField(configuration, "AnchorEdgeDistanceXmm", AnchorEdgeDistanceXmm);
+            AnchorEdgeDistanceYmm = ReadField(configuration, "AnchorEdgeDistanceYmm", AnchorEdgeDistanceYmm);
+            PlateLengthXmm = ReadField(configuration, "PlateLengthXmm", PlateLengthXmm);
+            PlateLengthYmm = ReadField(configuration, "PlateLengthYmm", PlateLengthYmm);
+            PlateThicknessMm = ReadField(configuration, "PlateThicknessMm", PlateThicknessMm);
+            SelectedPlateThicknessOption = PlateThicknessCatalog.FindByThickness(ParseDoubleOrDefault(PlateThicknessMm, 19.0));
+            PlateFyMpa = ReadField(configuration, "PlateFyMpa", PlateFyMpa);
+            PlateFuMpa = ReadField(configuration, "PlateFuMpa", PlateFuMpa);
+            StiffenerThicknessMm = ReadField(configuration, "StiffenerThicknessMm", StiffenerThicknessMm);
+            SelectedStiffenerThicknessOption = PlateThicknessCatalog.FindByThickness(ParseDoubleOrDefault(StiffenerThicknessMm, 6.35));
+            StiffenerHeightMm = ReadField(configuration, "StiffenerHeightMm", StiffenerHeightMm);
+            HasMiddleStiffener = ReadBoolField(configuration, "HasMiddleStiffener", HasMiddleStiffener);
+            ConcreteFckMpa = ReadField(configuration, "ConcreteFckMpa", ConcreteFckMpa);
+            SelectedConcreteStrengthOption = ConcreteStrengthCatalog.FindByFck(ParseDoubleOrDefault(ConcreteFckMpa, 30.0));
+            ConcreteAreaRatioA2A1 = ReadField(configuration, "ConcreteAreaRatioA2A1", ConcreteAreaRatioA2A1);
+            ConcreteEdgeDistanceXmm = ReadField(configuration, "ConcreteEdgeDistanceXmm", ConcreteEdgeDistanceXmm);
+            ConcreteEdgeDistanceYmm = ReadField(configuration, "ConcreteEdgeDistanceYmm", ConcreteEdgeDistanceYmm);
+            _isUpdating = false;
+            Recalculate();
         }
 
         private void Recalculate()
@@ -333,6 +490,71 @@ namespace SAGAStructuralTools.UI.ViewModels
                 _isUpdating = false;
                 CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        private static string ConfigurationFilePath =>
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SAGAStructuralTools",
+                "BasePlateConfigurations.xml");
+
+        private static XDocument LoadConfigurationsDocument()
+        {
+            if (!File.Exists(ConfigurationFilePath))
+            {
+                return new XDocument(new XElement("basePlateConfigurations"));
+            }
+
+            try
+            {
+                return XDocument.Load(ConfigurationFilePath);
+            }
+            catch
+            {
+                return new XDocument(new XElement("basePlateConfigurations"));
+            }
+        }
+
+        private static XElement CreateField(string name, string value)
+        {
+            return new XElement(
+                "field",
+                new XAttribute("name", name),
+                new XAttribute("value", value ?? ""));
+        }
+
+        private static string ReadField(XElement configuration, string name, string fallback)
+        {
+            XElement field = configuration.Elements("field")
+                .FirstOrDefault(element => (string)element.Attribute("name") == name);
+            return field == null ? fallback : (string)field.Attribute("value") ?? fallback;
+        }
+
+        private static bool ReadBoolField(XElement configuration, string name, bool fallback)
+        {
+            string value = ReadField(configuration, name, fallback.ToString(CultureInfo.InvariantCulture));
+            return bool.TryParse(value, out bool result) ? result : fallback;
+        }
+
+        private static double ParseDoubleOrDefault(string text, double fallback)
+        {
+            return double.TryParse(text, NumberStyles.Float, CultureInfo.GetCultureInfo("pt-BR"), out double value)
+                ? value
+                : fallback;
+        }
+
+        private static int ReadIntOrDefault(string text, int fallback)
+        {
+            return int.TryParse(text, NumberStyles.Integer, CultureInfo.GetCultureInfo("pt-BR"), out int value)
+                ? value
+                : fallback;
+        }
+
+        private static int ClampAnchorCount(int value)
+        {
+            if (value <= 2) return 2;
+            if (value >= 4) return 4;
+            return 3;
         }
 
         private void AddRows(BasePlateInput input, BasePlateCalculationResult result)
@@ -548,7 +770,12 @@ namespace SAGAStructuralTools.UI.ViewModels
                             input.PlateLengthYmm,
                             input.PlateThicknessMm,
                             input.PlateFyMpa,
-                            input.PlateFuMpa);
+                            input.PlateFuMpa,
+                            input.AnchorDiameterMm,
+                            input.AnchorsX,
+                            input.AnchorsY,
+                            input.AnchorEdgeDistanceXmm,
+                            input.AnchorEdgeDistanceYmm);
                     }
 
                     TransactionStatus status = transaction.Commit();
@@ -706,6 +933,8 @@ namespace SAGAStructuralTools.UI.ViewModels
                 name == nameof(ConcreteUtilizationBackground) ||
                 name == nameof(SteelUtilization1Background) ||
                 name == nameof(SteelUtilization2Background) ||
+                name == nameof(ConfigurationName) ||
+                name == nameof(SelectedConfigurationName) ||
                 name == nameof(SketchPlateLengthX) ||
                 name == nameof(SketchPlateLengthY) ||
                 name == nameof(SketchProfileDepth) ||

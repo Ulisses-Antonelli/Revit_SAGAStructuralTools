@@ -1,6 +1,8 @@
 using SAGAStructuralTools.BasePlate.Domain;
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 
@@ -114,14 +116,8 @@ namespace SAGAStructuralTools.UI
             DrawHorizontalDimension(dc, plate.Left, plate.Right, plate.Top - 22, "ly", dimPen, text);
             DrawVerticalDimension(dc, plate.Left - 24, plate.Top, plate.Bottom, "lx", dimPen, text);
 
-            double a1 = Math.Max(0, AnchorEdgeDistanceX) * scale;
-            double b1 = Math.Max(0, AnchorEdgeDistanceY) * scale;
-            DrawHorizontalDimension(dc, plate.Left, plate.Left + a1, plate.Top - 9, "a1", dimPen, text);
-            DrawHorizontalDimension(dc, plate.Left + a1, plate.Right - a1, plate.Top - 9, "a2", dimPen, text);
-            DrawHorizontalDimension(dc, plate.Right - a1, plate.Right, plate.Top - 9, "a1", dimPen, text);
-            DrawVerticalDimension(dc, plate.Left - 10, plate.Top, plate.Top + b1, "b1", dimPen, text);
-            DrawVerticalDimension(dc, plate.Left - 10, plate.Top + b1, plate.Bottom - b1, "b2", dimPen, text);
-            DrawVerticalDimension(dc, plate.Left - 10, plate.Bottom - b1, plate.Bottom, "b1", dimPen, text);
+            DrawHorizontalBoltChainDimensions(dc, plate, center, scale, plate.Top - 9, dimPen, text);
+            DrawVerticalBoltChainDimensions(dc, plate, center, scale, plate.Left - 10, dimPen, text);
             DrawPlanSummary(dc, new Point(plate.Left, plate.Bottom + 10), text);
 
             Point calloutStart = new Point(plate.Right - 18, plate.Top + 18);
@@ -130,16 +126,102 @@ namespace SAGAStructuralTools.UI
             DrawText(dc, "tpl", text, new Point(calloutEnd.X + 2, calloutEnd.Y - 7), 10);
         }
 
+        private void DrawHorizontalBoltChainDimensions(
+            DrawingContext dc,
+            Rect plate,
+            Point center,
+            double scale,
+            double y,
+            Pen dimPen,
+            Brush text)
+        {
+            List<double> boltXCoordinates = GetUniqueBoltCoordinates(point => point.X)
+                .Select(x => center.X + x * scale)
+                .Where(x => x > plate.Left && x < plate.Right)
+                .OrderBy(x => x)
+                .ToList();
+            if (boltXCoordinates.Count == 0) return;
+
+            var chain = new List<double> { plate.Left };
+            chain.AddRange(boltXCoordinates);
+            chain.Add(plate.Right);
+
+            for (int i = 0; i < chain.Count - 1; i++)
+            {
+                string label = i == 0 || i == chain.Count - 2 ? "a1" : "a2";
+                DrawHorizontalDimension(dc, chain[i], chain[i + 1], y, label, dimPen, text);
+            }
+        }
+
+        private void DrawVerticalBoltChainDimensions(
+            DrawingContext dc,
+            Rect plate,
+            Point center,
+            double scale,
+            double x,
+            Pen dimPen,
+            Brush text)
+        {
+            List<double> boltYCoordinates = GetUniqueBoltCoordinates(point => point.Y)
+                .Select(y => center.Y - y * scale)
+                .Where(y => y > plate.Top && y < plate.Bottom)
+                .OrderBy(y => y)
+                .ToList();
+            if (boltYCoordinates.Count == 0) return;
+
+            var chain = new List<double> { plate.Top };
+            chain.AddRange(boltYCoordinates);
+            chain.Add(plate.Bottom);
+
+            for (int i = 0; i < chain.Count - 1; i++)
+            {
+                string label = i == 0 || i == chain.Count - 2 ? "b1" : "b2";
+                DrawVerticalDimension(dc, x, chain[i], chain[i + 1], label, dimPen, text);
+            }
+        }
+
+        private List<double> GetUniqueBoltCoordinates(Func<BoltPoint, double> selector)
+        {
+            var coordinates = new List<double>();
+            if (BoltPoints == null) return coordinates;
+
+            foreach (object item in BoltPoints)
+            {
+                var point = item as BoltPoint;
+                if (point == null) continue;
+
+                double value = selector(point);
+                if (coordinates.Any(existing => Math.Abs(existing - value) < 0.001)) continue;
+                coordinates.Add(value);
+            }
+
+            return coordinates;
+        }
+
         private void DrawPlanSummary(DrawingContext dc, Point origin, Brush text)
         {
-            double a2 = Math.Max(0, PlateLengthX - 2.0 * AnchorEdgeDistanceX);
-            double b2 = Math.Max(0, PlateLengthY - 2.0 * AnchorEdgeDistanceY);
+            double a2 = GetBoltAxisSpacing(point => point.X);
+            double b2 = GetBoltAxisSpacing(point => point.Y);
             DrawText(dc, $"lx = {FormatMm(PlateLengthX)} mm", text, origin, 10);
             DrawText(dc, $"ly = {FormatMm(PlateLengthY)} mm", text, new Point(origin.X + 96, origin.Y), 10);
             DrawText(dc, $"a1 = {FormatMm(AnchorEdgeDistanceX)} mm", text, new Point(origin.X, origin.Y + 16), 10);
             DrawText(dc, $"a2 = {FormatMm(a2)} mm", text, new Point(origin.X + 96, origin.Y + 16), 10);
             DrawText(dc, $"b1 = {FormatMm(AnchorEdgeDistanceY)} mm", text, new Point(origin.X, origin.Y + 32), 10);
             DrawText(dc, $"b2 = {FormatMm(b2)} mm", text, new Point(origin.X + 96, origin.Y + 32), 10);
+        }
+
+        private double GetBoltAxisSpacing(Func<BoltPoint, double> selector)
+        {
+            List<double> coordinates = GetUniqueBoltCoordinates(selector)
+                .OrderBy(value => value)
+                .ToList();
+            if (coordinates.Count < 2) return 0;
+
+            return coordinates
+                .Zip(coordinates.Skip(1), (first, second) => second - first)
+                .Where(spacing => spacing > 0.001)
+                .DefaultIfEmpty(0)
+                .Min();
         }
 
         private void DrawProfilePlan(DrawingContext dc, Point center, double scale, Pen pen)
