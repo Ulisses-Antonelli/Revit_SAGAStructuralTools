@@ -772,6 +772,8 @@ namespace SAGAStructuralTools.UI.ViewModels
                             input.PlateFyMpa,
                             input.PlateFuMpa,
                             input.AnchorDiameterMm,
+                            input.AnchorLengthMm,
+                            input.HasHook,
                             input.AnchorsX,
                             input.AnchorsY,
                             input.AnchorEdgeDistanceXmm,
