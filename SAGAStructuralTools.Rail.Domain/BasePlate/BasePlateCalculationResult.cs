@@ -16,6 +16,16 @@ namespace SAGAStructuralTools.BasePlate.Domain
         public double AnchorConcreteTensionResistanceTf { get; set; }
         public double AnchorSteelShearResistanceTf { get; set; }
         public double AnchorSteelTensionResistanceTf { get; set; }
+        public double AnchorConcreteTensionBreakoutResistanceTf { get; set; }
+        public double AnchorConcretePulloutResistanceTf { get; set; }
+        public double AnchorConcreteSideFaceBlowoutResistanceTf { get; set; }
+        public double AnchorConcreteShearBreakoutResistanceTf { get; set; }
+        public double AnchorConcretePryoutResistanceTf { get; set; }
+        public double AnchorSteelThreadTensionResistanceTf { get; set; }
+        public double AnchorSteelGrossShearResistanceTf { get; set; }
+        public string GoverningConcreteTensionMechanism { get; set; }
+        public string GoverningConcreteShearMechanism { get; set; }
+        public string GoverningSteelMechanism { get; set; }
         public double AnchorConcreteUtilization { get; set; }
         public double AnchorSteelUtilization1 { get; set; }
         public double AnchorSteelUtilization2 { get; set; }

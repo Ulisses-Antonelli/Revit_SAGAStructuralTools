@@ -131,9 +131,55 @@ namespace SAGAStructuralTools.Rail.Domain.Tests
             Assert.True(result.AnchorConcreteTensionResistanceTf > 0);
             Assert.True(result.AnchorSteelShearResistanceTf > 0);
             Assert.True(result.AnchorSteelTensionResistanceTf > 0);
+            Assert.False(string.IsNullOrWhiteSpace(result.GoverningConcreteTensionMechanism));
+            Assert.False(string.IsNullOrWhiteSpace(result.GoverningConcreteShearMechanism));
+            Assert.False(string.IsNullOrWhiteSpace(result.GoverningSteelMechanism));
             Assert.True(result.AnchorConcreteUtilization < 1);
             Assert.True(result.AnchorSteelUtilization1 < 1);
             Assert.True(result.AnchorSteelUtilization2 < 1);
+        }
+
+        [Fact]
+        public void ReducesConcreteAnchorResistanceNearEdges()
+        {
+            BasePlateInput referenceInput = CreateValidInput();
+            referenceInput.ConcreteEdgeDistanceXmm = 700;
+            referenceInput.ConcreteEdgeDistanceYmm = 700;
+
+            BasePlateInput nearEdgeInput = CreateValidInput();
+            nearEdgeInput.ConcreteEdgeDistanceXmm = 60;
+            nearEdgeInput.ConcreteEdgeDistanceYmm = 60;
+
+            var reference = new BasePlateCalculator().Calculate(referenceInput);
+            var nearEdge = new BasePlateCalculator().Calculate(nearEdgeInput);
+
+            Assert.True(nearEdge.AnchorConcreteTensionResistanceTf <
+                reference.AnchorConcreteTensionResistanceTf);
+            Assert.True(nearEdge.AnchorConcreteShearResistanceTf <
+                reference.AnchorConcreteShearResistanceTf);
+        }
+
+        [Fact]
+        public void DoesNotUsePlateHoleEdgeDistanceAsConcreteFreeEdgeDistance()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.MomentX_TfM = 1.5;
+            input.MomentY_TfM = 0.8;
+            input.ShearX_Tf = 2;
+            input.ShearY_Tf = 1;
+            input.AnchorDiameterMm = 25;
+            input.EmbedmentLengthMm = 700;
+            input.AnchorEdgeDistanceXmm = 60;
+            input.AnchorEdgeDistanceYmm = 70;
+            input.ConcreteEdgeDistanceXmm = 700;
+            input.ConcreteEdgeDistanceYmm = 700;
+            input.HasHook = true;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.True(result.AnchorConcreteTensionResistanceTf > result.AnchorTensionTf);
+            Assert.True(result.AnchorConcreteShearResistanceTf > result.AnchorShearTf);
+            Assert.True(result.AnchorConcreteUtilization < 1.0);
         }
 
         private static BasePlateInput CreateValidInput()
@@ -153,6 +199,8 @@ namespace SAGAStructuralTools.Rail.Domain.Tests
                 PlateFyMpa = 250,
                 PlateFuMpa = 400,
                 ConcreteFckMpa = 30,
+                ConcreteEdgeDistanceXmm = 300,
+                ConcreteEdgeDistanceYmm = 300,
                 AnchorFyMpa = 250,
                 AnchorFuMpa = 400,
                 ColumnFyMpa = 250,

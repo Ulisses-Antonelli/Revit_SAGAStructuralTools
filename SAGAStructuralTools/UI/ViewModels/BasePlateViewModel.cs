@@ -67,6 +67,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         private bool _hasMiddleStiffener;
         private string _concreteFckMpa;
         private string _concreteAreaRatioA2A1;
+        private string _concreteEdgeDistanceXmm;
+        private string _concreteEdgeDistanceYmm;
 
         public BasePlateViewModel()
         {
@@ -113,6 +115,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         public bool HasMiddleStiffener { get => _hasMiddleStiffener; set => Set(ref _hasMiddleStiffener, value); }
         public string ConcreteFckMpa { get => _concreteFckMpa; set => Set(ref _concreteFckMpa, value); }
         public string ConcreteAreaRatioA2A1 { get => _concreteAreaRatioA2A1; set => Set(ref _concreteAreaRatioA2A1, value); }
+        public string ConcreteEdgeDistanceXmm { get => _concreteEdgeDistanceXmm; set => Set(ref _concreteEdgeDistanceXmm, value); }
+        public string ConcreteEdgeDistanceYmm { get => _concreteEdgeDistanceYmm; set => Set(ref _concreteEdgeDistanceYmm, value); }
         public bool CanCreateConnection { get => _canCreateConnection; private set => Set(ref _canCreateConnection, value); }
         public string OverallStatusText { get => _overallStatusText; private set => Set(ref _overallStatusText, value); }
         public Brush OverallStatusBackground { get => _overallStatusBackground; private set => Set(ref _overallStatusBackground, value); }
@@ -177,6 +181,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             StiffenerHeightMm = "0";
             ConcreteFckMpa = "30";
             ConcreteAreaRatioA2A1 = "1";
+            ConcreteEdgeDistanceXmm = "300";
+            ConcreteEdgeDistanceYmm = "300";
             _isUpdating = false;
         }
 
@@ -238,8 +244,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             AddComputed("tpl", input.PlateThicknessMm >= result.MinimumPlateThicknessMm, "Aumentar espessura da placa de base.", result.MinimumPlateThicknessMm > 0 ? input.PlateThicknessMm / result.MinimumPlateThicknessMm : 0);
             AddComputed("tn", input.StiffenerHeightMm <= 0 || input.StiffenerThicknessMm >= result.MinimumStiffenerThicknessMm, "Aumentar espessura das nervuras.", result.MinimumStiffenerThicknessMm > 0 ? input.StiffenerThicknessMm / result.MinimumStiffenerThicknessMm : 0);
             AddComputed("Pressão concreto", result.ConcretePressureTfM2 <= result.ConcreteResistanceTfM2, "Pressão elevada no concreto. Aumentar as dimensões da placa de base ou revisar o concreto.", result.ConcreteResistanceTfM2 > 0 ? result.ConcretePressureTfM2 / result.ConcreteResistanceTfM2 : 0, "Compressão");
-            AddFromResult(result, "Concreto-chumbador", "Falha na ancoragem no concreto. Reavaliar os chumbadores, o embutimento ou o concreto.", "Concreto-chumbador", result.AnchorConcreteUtilization);
-            AddFromResult(result, "Aco", "Falha no chumbador. Aumentar o diâmetro, a resistência ou a quantidade de chumbadores.", "Aço", Math.Max(result.AnchorSteelUtilization1, result.AnchorSteelUtilization2));
+            AddFromResult(result, "Concreto-chumbador", "Falha na ancoragem no concreto. Reavaliar os chumbadores, o embutimento ou o concreto.", "Concreto-chumbador", result.AnchorConcreteUtilization, GetConcreteGoverningCase(result));
+            AddFromResult(result, "Aco", "Falha no chumbador. Aumentar o diâmetro, a resistência ou a quantidade de chumbadores.", "Aço", Math.Max(result.AnchorSteelUtilization1, result.AnchorSteelUtilization2), result.GoverningSteelMechanism);
         }
 
         private void AddFromResult(BasePlateCalculationResult result, string verificationName, string errorMessage)
@@ -263,13 +269,24 @@ namespace SAGAStructuralTools.UI.ViewModels
             string displayName,
             double utilization)
         {
+            AddFromResult(result, verificationName, errorMessage, displayName, utilization, null);
+        }
+
+        private void AddFromResult(
+            BasePlateCalculationResult result,
+            string verificationName,
+            string errorMessage,
+            string displayName,
+            double utilization,
+            string governingCase)
+        {
             VerificationResult verification = result.Verifications.FirstOrDefault(v => v.Name == verificationName);
             if (verification == null)
             {
                 AddComputed(displayName, true, errorMessage);
                 return;
             }
-            AddComputed(displayName, verification.Status == VerificationStatus.Passed, errorMessage, utilization);
+            AddComputed(displayName, verification.Status == VerificationStatus.Passed, errorMessage, utilization, governingCase);
         }
 
         private void AddComputed(
@@ -309,6 +326,8 @@ namespace SAGAStructuralTools.UI.ViewModels
                 PlateFuMpa = ReadDouble(PlateFuMpa, "fu,pl"),
                 ConcreteFckMpa = ReadDouble(ConcreteFckMpa, "fck"),
                 ConcreteAreaRatioA2A1 = ReadDouble(ConcreteAreaRatioA2A1, "A2/A1"),
+                ConcreteEdgeDistanceXmm = ReadDouble(ConcreteEdgeDistanceXmm, "cx"),
+                ConcreteEdgeDistanceYmm = ReadDouble(ConcreteEdgeDistanceYmm, "cy"),
                 AnchorFyMpa = ReadDouble(AnchorFyMpa, "fy,b"),
                 AnchorFuMpa = ReadDouble(AnchorFuMpa, "fu,b"),
                 ColumnFyMpa = ReadDouble(PlateFyMpa, "fy,pl"),
@@ -402,6 +421,22 @@ namespace SAGAStructuralTools.UI.ViewModels
         private static string Format(double value)
         {
             return value.ToString("0.###", CultureInfo.GetCultureInfo("pt-BR"));
+        }
+
+        private static string GetConcreteGoverningCase(BasePlateCalculationResult result)
+        {
+            if (result.AnchorConcreteUtilization <= 0) return null;
+
+            double tensionRatio = result.AnchorConcreteTensionResistanceTf > 0
+                ? result.AnchorTensionTf / result.AnchorConcreteTensionResistanceTf
+                : double.PositiveInfinity;
+            double shearRatio = result.AnchorConcreteShearResistanceTf > 0
+                ? result.AnchorShearTf / result.AnchorConcreteShearResistanceTf
+                : double.PositiveInfinity;
+
+            return tensionRatio >= shearRatio
+                ? result.GoverningConcreteTensionMechanism
+                : result.GoverningConcreteShearMechanism;
         }
 
         private static bool IsOutputProperty(string name)

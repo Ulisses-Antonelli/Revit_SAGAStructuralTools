@@ -168,6 +168,10 @@
                             <TextBox Text="{Binding ConcreteFckMpa, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ConcreteAreaRatioA2A1, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="cx (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteEdgeDistanceX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
+                            <TextBox Text="{Binding ConcreteEdgeDistanceXmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="cy (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteEdgeDistanceY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
+                            <TextBox Text="{Binding ConcreteEdgeDistanceYmm, UpdateSourceTrigger=PropertyChanged}"/>
                         </UniformGrid>
                     </Expander>
 

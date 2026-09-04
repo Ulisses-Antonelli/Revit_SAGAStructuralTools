@@ -29,6 +29,8 @@ namespace SAGAStructuralTools.UI
         public const string MiddleStiffeners = "Existência ou não se nervura adicional nos eixos centrais da placa de base";
         public const string ConcreteFck = "Fck do concreto";
         public const string ConcreteAreaRatio = "Relação entre área projetada de concreto e área da placa de base. Valor 1 é conservador em relação a valores maiores. Não pode ser inferior a 1.";
+        public const string ConcreteEdgeDistanceX = "Distância do eixo do chumbador até a borda livre do bloco ou pedestal de concreto, no sentido X.";
+        public const string ConcreteEdgeDistanceY = "Distância do eixo do chumbador até a borda livre do bloco ou pedestal de concreto, no sentido Y.";
         public const string CreateButton = "Criação ainda desabilitada nesta etapa";
         public const string CloseButton = "Fecha a janela da ferramenta";
     }

@@ -18,6 +18,8 @@ namespace SAGAStructuralTools.BasePlate.Domain
             ValidatePositive(result, "PlateFyMpa", input.PlateFyMpa, "MPa");
             ValidatePositive(result, "PlateFuMpa", input.PlateFuMpa, "MPa");
             ValidatePositive(result, "ConcreteFckMpa", input.ConcreteFckMpa, "MPa");
+            ValidatePositive(result, "ConcreteEdgeDistanceXmm", input.ConcreteEdgeDistanceXmm, "mm");
+            ValidatePositive(result, "ConcreteEdgeDistanceYmm", input.ConcreteEdgeDistanceYmm, "mm");
             ValidatePositive(result, "AnchorFyMpa", input.AnchorFyMpa, "MPa");
             ValidatePositive(result, "AnchorFuMpa", input.AnchorFuMpa, "MPa");
             ValidatePositive(result, "ColumnFyMpa", input.ColumnFyMpa, "MPa");
@@ -219,31 +221,64 @@ namespace SAGAStructuralTools.BasePlate.Domain
             double grossAreaMm2 = Math.PI * corrodedDiameter * corrodedDiameter / 4.0;
             double threadAreaMm2 = 0.75 * grossAreaMm2;
             double embedmentMm = Math.Max(0, input.EmbedmentLengthMm);
-            double edgeMm = Math.Max(0, Math.Min(input.AnchorEdgeDistanceXmm, input.AnchorEdgeDistanceYmm));
+            double edgeMm = Math.Max(0, Math.Min(input.ConcreteEdgeDistanceXmm, input.ConcreteEdgeDistanceYmm));
             double edgeFactor = embedmentMm > 0
                 ? Math.Min(1.0, edgeMm / (1.5 * embedmentMm))
                 : 0;
+            double hookFactor = input.HasHook ? 1.35 : 1.0;
             double fckSqrt = Math.Sqrt(Math.Max(0, input.ConcreteFckMpa));
+            double fck = Math.Max(0, input.ConcreteFckMpa);
 
             // NBR 8800: resistencia de barras redondas/parafusos por area efetiva
             // e interacao tracao + cisalhamento. Coeficientes mantidos explicitos
             // para revisao quando a memoria completa da planilha for integrada.
             double steelTensionResistanceTf = ToTf(input.AnchorFuMpa * threadAreaMm2 / gammaSteel);
             double steelShearResistanceTf = ToTf(0.40 * input.AnchorFuMpa * grossAreaMm2 / gammaSteel);
+            result.AnchorSteelThreadTensionResistanceTf = steelTensionResistanceTf;
+            result.AnchorSteelGrossShearResistanceTf = steelShearResistanceTf;
 
-            // NBR 6118 trata chumbadores como carga local por inserto e remete a
-            // arrancamento/esmagamento, literatura tecnica e ensaios de fornecedor.
-            // Esta rotina usa um modelo CCD simplificado e conservador para triagem.
-            double concreteTensionResistanceTf = ToTf(
-                7.2 * fckSqrt * Math.Pow(embedmentMm, 1.5) * edgeFactor / gammaConcrete);
-            double concreteShearResistanceTf = ToTf(
+            // NBR 6118:2026 fornece os principios de verificacao do concreto em ELU.
+            // Para chumbadores, a verificacao deve distinguir ruptura do concreto
+            // por cone/arrancamento, aderencia/arrancamento local, fendilhamento
+            // lateral e cisalhamento junto a borda. O modelo abaixo e uma triagem
+            // CCD conservadora ate a integracao da memoria normativa completa.
+            double tensionBreakoutTf = ToTf(
+                7.2 * fckSqrt * Math.Pow(embedmentMm, 1.5) *
+                edgeFactor / gammaConcrete);
+            double pulloutTf = ToTf(
+                2.5 * fck * Math.PI * corrodedDiameter * embedmentMm /
+                gammaConcrete * hookFactor);
+            double sideFaceBlowoutTf = ToTf(
+                13.0 * fckSqrt * Math.Max(0, edgeMm) *
+                Math.Sqrt(Math.Max(0, corrodedDiameter)) *
+                edgeFactor / gammaConcrete);
+            double shearBreakoutTf = ToTf(
                 1.5 * fckSqrt * Math.Sqrt(corrodedDiameter) *
-                Math.Pow(embedmentMm, 1.5) * Math.Pow(edgeFactor, 1.5) / gammaConcrete);
+                Math.Pow(embedmentMm, 1.5) * Math.Pow(edgeFactor, 1.5) /
+                gammaConcrete);
+            double pryoutTf = 1.0 * tensionBreakoutTf;
 
+            double concreteTensionResistanceTf = MinimumPositive(
+                out string governingConcreteTension,
+                ("Cone de concreto a tracao", tensionBreakoutTf),
+                ("Arrancamento local", pulloutTf),
+                ("Fendilhamento lateral", sideFaceBlowoutTf));
+            double concreteShearResistanceTf = MinimumPositive(
+                out string governingConcreteShear,
+                ("Ruptura de borda ao cisalhamento", shearBreakoutTf),
+                ("Puncao/arrancamento por alavanca", pryoutTf));
+
+            result.AnchorConcreteTensionBreakoutResistanceTf = tensionBreakoutTf;
+            result.AnchorConcretePulloutResistanceTf = pulloutTf;
+            result.AnchorConcreteSideFaceBlowoutResistanceTf = sideFaceBlowoutTf;
+            result.AnchorConcreteShearBreakoutResistanceTf = shearBreakoutTf;
+            result.AnchorConcretePryoutResistanceTf = pryoutTf;
             result.AnchorConcreteShearResistanceTf = concreteShearResistanceTf;
             result.AnchorConcreteTensionResistanceTf = concreteTensionResistanceTf;
             result.AnchorSteelShearResistanceTf = steelShearResistanceTf;
             result.AnchorSteelTensionResistanceTf = steelTensionResistanceTf;
+            result.GoverningConcreteTensionMechanism = governingConcreteTension;
+            result.GoverningConcreteShearMechanism = governingConcreteShear;
 
             double concreteUtilization = InteractionPower(
                 result.AnchorTensionTf,
@@ -262,6 +297,9 @@ namespace SAGAStructuralTools.BasePlate.Domain
                 ToTf(input.AnchorFuMpa * grossAreaMm2 / gammaSteel) -
                 1.90 * result.AnchorShearTf);
             double steelUtilization2 = Ratio(result.AnchorTensionTf, combinedTensionLimitTf);
+            result.GoverningSteelMechanism = steelUtilization1 >= steelUtilization2
+                ? "Interacao tracao + cisalhamento"
+                : "Barra redonda rosqueada";
 
             result.AnchorConcreteUtilization = concreteUtilization;
             result.AnchorSteelUtilization1 = steelUtilization1;
@@ -308,6 +346,24 @@ namespace SAGAStructuralTools.BasePlate.Domain
             if (demand <= 0) return 0;
             if (resistance <= 0) return double.PositiveInfinity;
             return demand / resistance;
+        }
+
+        private static double MinimumPositive(
+            out string governingMechanism,
+            params (string Name, double Value)[] values)
+        {
+            governingMechanism = "";
+            double minimum = double.PositiveInfinity;
+            foreach ((string name, double value) in values)
+            {
+                if (value <= 0 || double.IsNaN(value)) continue;
+                if (value >= minimum) continue;
+
+                minimum = value;
+                governingMechanism = name;
+            }
+
+            return double.IsInfinity(minimum) ? 0 : minimum;
         }
 
         private static double ToTf(double forceN)
