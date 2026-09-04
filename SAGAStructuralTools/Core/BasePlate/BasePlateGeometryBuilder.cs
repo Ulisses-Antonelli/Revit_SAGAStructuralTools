@@ -1,6 +1,7 @@
 using Autodesk.Revit.DB;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace SAGAStructuralTools.Core.BasePlate
@@ -26,6 +27,8 @@ namespace SAGAStructuralTools.Core.BasePlate
             if (lxMm <= 0) throw new ArgumentOutOfRangeException(nameof(lxMm), "lx deve ser maior que zero.");
             if (lyMm <= 0) throw new ArgumentOutOfRangeException(nameof(lyMm), "ly deve ser maior que zero.");
             if (plateThicknessMm <= 0) throw new ArgumentOutOfRangeException(nameof(plateThicknessMm), "tpl deve ser maior que zero.");
+
+            EnsureBasePlateProjectParameters();
 
             Transform transform = column.GetTransform();
             XYZ basisX = NormalizeOrDefault(transform.BasisX, XYZ.BasisX);
@@ -67,8 +70,176 @@ namespace SAGAStructuralTools.Core.BasePlate
             shape.SetName("SAGA - Placa de Base");
             shape.ApplicationId = "SAGAStructuralTools";
             shape.ApplicationDataId = $"BasePlate:{column.Id.Value}";
+            SetBasePlateParameters(
+                shape,
+                column,
+                lxMm,
+                lyMm,
+                plateThicknessMm,
+                plateFyMpa,
+                plateFuMpa);
 
             return shape;
+        }
+
+        private static void SetBasePlateParameters(
+            DirectShape shape,
+            FamilyInstance column,
+            double lxMm,
+            double lyMm,
+            double plateThicknessMm,
+            double plateFyMpa,
+            double plateFuMpa)
+        {
+            string mark = $"PB-{column.Id.Value}";
+            string comments = $"CHAPA DE {GetNominalPlateThickness(plateThicknessMm)}";
+
+            SetTextParameter(shape, BuiltInParameter.ALL_MODEL_MARK, mark);
+            SetTextParameter(shape, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, comments);
+            SetTextParameter(shape, "Comentários", comments);
+            SetTextParameter(shape, "Comments", comments);
+            SetNumberParameter(shape, "SGA_LX", lxMm);
+            SetNumberParameter(shape, "SGA_LY", lyMm);
+            SetNumberParameter(shape, "SGA_TPL", plateThicknessMm);
+            SetNumberParameter(shape, "SGA_FY_PL", plateFyMpa);
+            SetNumberParameter(shape, "SGA_FU_PL", plateFuMpa);
+            SetNumberParameter(shape, "SGA_COLUMN_ID", column.Id.Value);
+            SetTextParameter(shape, "SGA_COLUMN_UID", column.UniqueId);
+        }
+
+        private void EnsureBasePlateProjectParameters()
+        {
+            Category category = _document.Settings.Categories.get_Item(BuiltInCategory.OST_GenericModel);
+            CategorySet categories = _document.Application.Create.NewCategorySet();
+            categories.Insert(category);
+
+            EnsureProjectParameter("SGA_LX", SpecTypeId.Number, categories);
+            EnsureProjectParameter("SGA_LY", SpecTypeId.Number, categories);
+            EnsureProjectParameter("SGA_TPL", SpecTypeId.Number, categories);
+            EnsureProjectParameter("SGA_FY_PL", SpecTypeId.Number, categories);
+            EnsureProjectParameter("SGA_FU_PL", SpecTypeId.Number, categories);
+            EnsureProjectParameter("SGA_COLUMN_ID", SpecTypeId.Number, categories);
+            EnsureProjectParameter("SGA_COLUMN_UID", SpecTypeId.String.Text, categories);
+        }
+
+        private void EnsureProjectParameter(
+            string name,
+            ForgeTypeId specTypeId,
+            CategorySet categories)
+        {
+            Definition definition = FindBoundDefinition(name) ??
+                CreateSharedDefinition(name, specTypeId);
+            InstanceBinding binding = _document.Application.Create.NewInstanceBinding(categories);
+            BindingMap bindings = _document.ParameterBindings;
+
+            if (!bindings.Insert(definition, binding, GroupTypeId.Structural))
+            {
+                bindings.ReInsert(definition, binding, GroupTypeId.Structural);
+            }
+        }
+
+        private Definition FindBoundDefinition(string name)
+        {
+            DefinitionBindingMapIterator iterator = _document.ParameterBindings.ForwardIterator();
+            iterator.Reset();
+            while (iterator.MoveNext())
+            {
+                Definition definition = iterator.Key;
+                if (definition != null && definition.Name == name)
+                {
+                    return definition;
+                }
+            }
+
+            return null;
+        }
+
+        private Definition CreateSharedDefinition(string name, ForgeTypeId specTypeId)
+        {
+            Autodesk.Revit.ApplicationServices.Application application = _document.Application;
+            string previousSharedParameterFile = application.SharedParametersFilename;
+
+            try
+            {
+                application.SharedParametersFilename = EnsureSharedParameterFile();
+                DefinitionFile definitionFile = application.OpenSharedParameterFile();
+                DefinitionGroup group = definitionFile.Groups.get_Item("SAGA") ??
+                    definitionFile.Groups.Create("SAGA");
+                Definition existing = group.Definitions.get_Item(name);
+                if (existing != null)
+                {
+                    return existing;
+                }
+
+                var options = new ExternalDefinitionCreationOptions(name, specTypeId)
+                {
+                    Visible = true
+                };
+                return group.Definitions.Create(options);
+            }
+            finally
+            {
+                application.SharedParametersFilename = previousSharedParameterFile;
+            }
+        }
+
+        private static string EnsureSharedParameterFile()
+        {
+            string directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SAGAStructuralTools");
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "SAGA_BasePlate_SharedParameters.txt");
+            if (!File.Exists(path))
+            {
+                File.WriteAllText(path, "# SAGA Structural Tools shared parameters");
+            }
+
+            return path;
+        }
+
+        private static void SetTextParameter(Element element, BuiltInParameter builtInParameter, string value)
+        {
+            Parameter parameter = element.get_Parameter(builtInParameter);
+            SetTextParameter(parameter, value);
+        }
+
+        private static void SetTextParameter(Element element, string parameterName, string value)
+        {
+            Parameter parameter = element.LookupParameter(parameterName);
+            SetTextParameter(parameter, value);
+        }
+
+        private static void SetTextParameter(Parameter parameter, string value)
+        {
+            if (parameter == null || parameter.IsReadOnly || parameter.StorageType != StorageType.String)
+            {
+                return;
+            }
+
+            parameter.Set(value);
+        }
+
+        private static void SetNumberParameter(Element element, string parameterName, double value)
+        {
+            Parameter parameter = element.LookupParameter(parameterName);
+            if (parameter == null || parameter.IsReadOnly)
+            {
+                return;
+            }
+
+            if (parameter.StorageType == StorageType.Double)
+            {
+                parameter.Set(value);
+            }
+            else if (parameter.StorageType == StorageType.Integer)
+            {
+                parameter.Set(Convert.ToInt32(value));
+            }
+            else if (parameter.StorageType == StorageType.String)
+            {
+                parameter.Set(FormatMm(value));
+            }
         }
 
         private static XYZ GetColumnBaseOrigin(FamilyInstance column, Transform transform)
@@ -119,6 +290,31 @@ namespace SAGAStructuralTools.Core.BasePlate
             }
 
             return materialId;
+        }
+
+        private static string FormatMm(double value)
+        {
+            return value.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+        }
+
+        private static string GetNominalPlateThickness(double thicknessMm)
+        {
+            var nominalThicknesses = new[]
+            {
+                (Millimeters: 6.35, Label: "1/4\""),
+                (Millimeters: 8.00, Label: "5/16\""),
+                (Millimeters: 9.50, Label: "3/8\""),
+                (Millimeters: 12.70, Label: "1/2\""),
+                (Millimeters: 16.00, Label: "5/8\""),
+                (Millimeters: 19.00, Label: "3/4\""),
+                (Millimeters: 22.00, Label: "7/8\""),
+                (Millimeters: 25.40, Label: "1\""),
+            };
+
+            return nominalThicknesses
+                .OrderBy(option => Math.Abs(option.Millimeters - thicknessMm))
+                .First()
+                .Label;
         }
 
         private static XYZ NormalizeOrDefault(XYZ vector, XYZ fallback)

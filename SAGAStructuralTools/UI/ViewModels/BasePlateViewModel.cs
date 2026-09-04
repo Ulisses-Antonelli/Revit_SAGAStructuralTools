@@ -1,6 +1,7 @@
 ﻿using SAGAStructuralTools.BasePlate.Domain;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
 using SAGAStructuralTools.Core.BasePlate;
 using SAGAStructuralTools.UI.Converters;
 using System;
@@ -344,8 +345,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             if (input.HasMiddleStiffener)
                 AddComputed("Nervura média", true, "Aumentar a distância entre os chumbadores e a nervura média.");
             AddFromResult(result, "Chumbador-chumbador", "Aumentar distância entre chumbadores.");
-            AddComputed("tpl", input.PlateThicknessMm >= result.MinimumPlateThicknessMm, "Aumentar espessura da placa de base.", result.MinimumPlateThicknessMm > 0 ? input.PlateThicknessMm / result.MinimumPlateThicknessMm : 0);
-            AddComputed("tn", input.StiffenerHeightMm <= 0 || input.StiffenerThicknessMm >= result.MinimumStiffenerThicknessMm, "Aumentar espessura das nervuras.", result.MinimumStiffenerThicknessMm > 0 ? input.StiffenerThicknessMm / result.MinimumStiffenerThicknessMm : 0);
+            AddComputed("tpl", input.PlateThicknessMm >= result.MinimumPlateThicknessMm, "Aumentar espessura da placa de base.", input.PlateThicknessMm > 0 ? result.MinimumPlateThicknessMm / input.PlateThicknessMm : 0);
+            AddComputed("tn", input.StiffenerHeightMm <= 0 || input.StiffenerThicknessMm >= result.MinimumStiffenerThicknessMm, "Aumentar espessura das nervuras.", input.StiffenerThicknessMm > 0 ? result.MinimumStiffenerThicknessMm / input.StiffenerThicknessMm : 0);
             AddComputed("Pressão concreto", result.ConcretePressureTfM2 <= result.ConcreteResistanceTfM2, "Pressão elevada no concreto. Aumentar as dimensões da placa de base ou revisar o concreto.", result.ConcreteResistanceTfM2 > 0 ? result.ConcretePressureTfM2 / result.ConcreteResistanceTfM2 : 0, "Compressão");
             AddFromResult(result, "Concreto-chumbador", "Falha na ancoragem no concreto. Reavaliar os chumbadores, o embutimento ou o concreto.", "Concreto-chumbador", result.AnchorConcreteUtilization, GetConcreteGoverningCase(result));
             AddFromResult(result, "Aco", "Falha no chumbador. Aumentar o diâmetro, a resistência ou a quantidade de chumbadores.", "Aço", Math.Max(result.AnchorSteelUtilization1, result.AnchorSteelUtilization2), result.GoverningSteelMechanism);
@@ -525,12 +526,12 @@ namespace SAGAStructuralTools.UI.ViewModels
                 }
 
                 Document document = _uiDocument.Document;
-                FamilyInstance column = GetSelectedStructuralColumn(document);
-                if (column == null)
+                IList<FamilyInstance> columns = GetStructuralColumns(document);
+                if (columns.Count == 0)
                 {
                     TaskDialog.Show(
                         "Dimensionamento de Placa de Base",
-                        "Selecione um pilar estrutural antes de criar a placa de base.");
+                        "Nenhum pilar estrutural foi selecionado.");
                     return;
                 }
 
@@ -539,13 +540,16 @@ namespace SAGAStructuralTools.UI.ViewModels
                 {
                     transaction.Start();
                     var builder = new BasePlateGeometryBuilder(document);
-                    builder.CreateBasePlate(
-                        column,
-                        input.PlateLengthXmm,
-                        input.PlateLengthYmm,
-                        input.PlateThicknessMm,
-                        input.PlateFyMpa,
-                        input.PlateFuMpa);
+                    foreach (FamilyInstance column in columns)
+                    {
+                        builder.CreateBasePlate(
+                            column,
+                            input.PlateLengthXmm,
+                            input.PlateLengthYmm,
+                            input.PlateThicknessMm,
+                            input.PlateFyMpa,
+                            input.PlateFuMpa);
+                    }
 
                     TransactionStatus status = transaction.Commit();
                     if (status != TransactionStatus.Committed)
@@ -555,6 +559,13 @@ namespace SAGAStructuralTools.UI.ViewModels
                             "Não foi possível concluir a criação da placa de base.");
                     }
                 }
+
+                TaskDialog.Show(
+                    "Dimensionamento de Placa de Base",
+                    $"{columns.Count} placa(s) de base criada(s).");
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
@@ -565,19 +576,66 @@ namespace SAGAStructuralTools.UI.ViewModels
             }
         }
 
-        private FamilyInstance GetSelectedStructuralColumn(Document document)
+        private IList<FamilyInstance> GetStructuralColumns(Document document)
+        {
+            List<FamilyInstance> selectedColumns = GetSelectedStructuralColumns(document).ToList();
+            if (selectedColumns.Count > 0)
+            {
+                return selectedColumns;
+            }
+
+            Window owner = Application.Current.Windows
+                .OfType<Window>()
+                .FirstOrDefault(window => ReferenceEquals(window.DataContext, this));
+            try
+            {
+                owner?.Hide();
+                IList<Reference> references = _uiDocument.Selection.PickObjects(
+                    ObjectType.Element,
+                    new StructuralColumnSelectionFilter(),
+                    "Selecione um ou mais pilares estruturais para criar a placa de base.");
+                return references
+                    .Select(reference => document.GetElement(reference.ElementId))
+                    .OfType<FamilyInstance>()
+                    .Where(IsStructuralColumn)
+                    .ToList();
+            }
+            finally
+            {
+                if (owner != null)
+                {
+                    owner.Show();
+                    owner.Activate();
+                }
+            }
+        }
+
+        private IEnumerable<FamilyInstance> GetSelectedStructuralColumns(Document document)
         {
             return _uiDocument.Selection
                 .GetElementIds()
                 .Select(id => document.GetElement(id))
                 .OfType<FamilyInstance>()
-                .FirstOrDefault(IsStructuralColumn);
+                .Where(IsStructuralColumn);
         }
 
         private static bool IsStructuralColumn(FamilyInstance instance)
         {
             return instance?.Category != null &&
                 instance.Category.Id.Value == (long)BuiltInCategory.OST_StructuralColumns;
+        }
+
+        private sealed class StructuralColumnSelectionFilter : ISelectionFilter
+        {
+            public bool AllowElement(Element element)
+            {
+                return IsStructuralColumn(element as FamilyInstance);
+            }
+
+            public bool AllowReference(Reference reference, XYZ position)
+            {
+                return false;
+            }
         }
 
         private void SetOverallStatus(bool isOk)
