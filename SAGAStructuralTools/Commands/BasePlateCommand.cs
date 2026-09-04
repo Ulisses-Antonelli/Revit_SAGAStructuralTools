@@ -19,7 +19,7 @@ namespace SAGAStructuralTools.Commands
         {
             try
             {
-                var window = new BasePlateWindow();
+                var window = new BasePlateWindow(commandData.Application.ActiveUIDocument);
                 new WindowInteropHelper(window).Owner =
                     Process.GetCurrentProcess().MainWindowHandle;
                 window.ShowDialog();

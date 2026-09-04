@@ -1,4 +1,5 @@
 using SAGAStructuralTools.UI.ViewModels;
+using Autodesk.Revit.UI;
 using System;
 using System.Windows;
 using System.Windows.Threading;
@@ -8,12 +9,17 @@ namespace SAGAStructuralTools.UI
     public partial class BasePlateWindow : Window
     {
         public BasePlateWindow()
+            : this(null)
+        {
+        }
+
+        public BasePlateWindow(UIDocument uiDocument)
         {
             try
             {
                 InitializeComponent();
                 Dispatcher.UnhandledException += OnDispatcherUnhandledException;
-                DataContext = new BasePlateViewModel();
+                DataContext = new BasePlateViewModel(uiDocument);
             }
             catch (Exception ex)
             {

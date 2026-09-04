@@ -1,10 +1,14 @@
 ﻿using SAGAStructuralTools.BasePlate.Domain;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using SAGAStructuralTools.Core.BasePlate;
 using SAGAStructuralTools.UI.Converters;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -14,6 +18,7 @@ namespace SAGAStructuralTools.UI.ViewModels
     {
         private readonly BasePlateCalculator _calculator = new BasePlateCalculator();
         private readonly BoltLayoutService _boltLayoutService = new BoltLayoutService();
+        private readonly UIDocument _uiDocument;
         private bool _isUpdating;
         private bool _canCreateConnection;
         private string _overallStatusText;
@@ -84,8 +89,14 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _concreteEdgeDistanceYmm;
 
         public BasePlateViewModel()
+            : this(null)
         {
-            CreateConnectionCommand = new RelayCommand(_ => { }, _ => CanCreateConnection);
+        }
+
+        public BasePlateViewModel(UIDocument uiDocument)
+        {
+            _uiDocument = uiDocument;
+            CreateConnectionCommand = new RelayCommand(_ => CreateConnection(), _ => CanCreateConnection);
             ResetDefaults();
             Recalculate();
         }
@@ -499,14 +510,84 @@ namespace SAGAStructuralTools.UI.ViewModels
             throw new InvalidOperationException($"{fieldName}: número inteiro inválido.");
         }
 
+        private void CreateConnection()
+        {
+            try
+            {
+                if (_uiDocument == null)
+                {
+                    MessageBox.Show(
+                        "Documento do Revit não disponível para criação da placa.",
+                        "Dimensionamento de Placa de Base",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                Document document = _uiDocument.Document;
+                FamilyInstance column = GetSelectedStructuralColumn(document);
+                if (column == null)
+                {
+                    TaskDialog.Show(
+                        "Dimensionamento de Placa de Base",
+                        "Selecione um pilar estrutural antes de criar a placa de base.");
+                    return;
+                }
+
+                BasePlateInput input = ReadInput();
+                using (var transaction = new Transaction(document, "SAGA - Criar placa de base"))
+                {
+                    transaction.Start();
+                    var builder = new BasePlateGeometryBuilder(document);
+                    builder.CreateBasePlate(
+                        column,
+                        input.PlateLengthXmm,
+                        input.PlateLengthYmm,
+                        input.PlateThicknessMm,
+                        input.PlateFyMpa,
+                        input.PlateFuMpa);
+
+                    TransactionStatus status = transaction.Commit();
+                    if (status != TransactionStatus.Committed)
+                    {
+                        TaskDialog.Show(
+                            "Dimensionamento de Placa de Base",
+                            "Não foi possível concluir a criação da placa de base.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                SagaLog.Exception("BasePlateViewModel.CreateConnection", ex);
+                TaskDialog.Show(
+                    "Dimensionamento de Placa de Base",
+                    "Erro ao criar a placa de base:\n\n" + ex.Message);
+            }
+        }
+
+        private FamilyInstance GetSelectedStructuralColumn(Document document)
+        {
+            return _uiDocument.Selection
+                .GetElementIds()
+                .Select(id => document.GetElement(id))
+                .OfType<FamilyInstance>()
+                .FirstOrDefault(IsStructuralColumn);
+        }
+
+        private static bool IsStructuralColumn(FamilyInstance instance)
+        {
+            return instance?.Category != null &&
+                instance.Category.Id.Value == (long)BuiltInCategory.OST_StructuralColumns;
+        }
+
         private void SetOverallStatus(bool isOk)
         {
             OverallStatusText = isOk
                 ? "✓ Todas as verificações foram atendidas. A ligação está apta para criação."
                 : "✕ Existem verificações pendentes. Corrija os itens destacados em vermelho antes de criar a ligação.";
             OverallStatusBackground = isOk
-                ? new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32))
-                : new SolidColorBrush(Color.FromRgb(0xB4, 0x23, 0x18));
+                ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2E, 0x7D, 0x32))
+                : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xB4, 0x23, 0x18));
             OverallStatusForeground = new SolidColorBrush(Colors.White);
         }
 
@@ -527,8 +608,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         private static Brush GetUtilizationBackground(double value)
         {
             return value <= 1.0
-                ? new SolidColorBrush(Color.FromRgb(0x92, 0xD0, 0x50))
-                : new SolidColorBrush(Color.FromRgb(0xF4, 0xCC, 0xCC));
+                ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x92, 0xD0, 0x50))
+                : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0xCC, 0xCC));
         }
 
         private static string GetConcreteGoverningCase(BasePlateCalculationResult result)
