@@ -1,6 +1,7 @@
 ﻿using SAGAStructuralTools.BasePlate.Domain;
 using SAGAStructuralTools.UI.Converters;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
@@ -47,6 +48,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _shearX_Tf;
         private string _shearY_Tf;
         private string _anchorDiameterMm;
+        private HeavyHexNutOption _selectedAnchorOption;
         private string _anchorLengthMm;
         private bool _hasHook;
         private string _corrosionAllowanceMm;
@@ -54,6 +56,8 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _anchorFuMpa;
         private string _anchorsX;
         private string _anchorsY;
+        private int _selectedAnchorsX;
+        private int _selectedAnchorsY;
         private string _totalAnchors;
         private string _anchorEdgeDistanceXmm;
         private string _anchorEdgeDistanceYmm;
@@ -81,6 +85,9 @@ namespace SAGAStructuralTools.UI.ViewModels
             new ObservableCollection<BasePlateVerificationItem>();
         public ObservableCollection<BoltPoint> BoltPoints { get; } =
             new ObservableCollection<BoltPoint>();
+        public IReadOnlyList<HeavyHexNutOption> AnchorDiameterOptions =>
+            HeavyHexNutCatalog.Options;
+        public IReadOnlyList<int> AnchorCountOptions { get; } = new[] { 2, 3, 4 };
 
         public ICommand CreateConnectionCommand { get; }
 
@@ -95,6 +102,15 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string ShearX_Tf { get => _shearX_Tf; set => Set(ref _shearX_Tf, value); }
         public string ShearY_Tf { get => _shearY_Tf; set => Set(ref _shearY_Tf, value); }
         public string AnchorDiameterMm { get => _anchorDiameterMm; set => Set(ref _anchorDiameterMm, value); }
+        public HeavyHexNutOption SelectedAnchorOption
+        {
+            get => _selectedAnchorOption;
+            set
+            {
+                if (!Set(ref _selectedAnchorOption, value) || value == null) return;
+                AnchorDiameterMm = value.DiameterMm.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"));
+            }
+        }
         public string AnchorLengthMm { get => _anchorLengthMm; set => Set(ref _anchorLengthMm, value); }
         public bool HasHook { get => _hasHook; set => Set(ref _hasHook, value); }
         public string CorrosionAllowanceMm { get => _corrosionAllowanceMm; set => Set(ref _corrosionAllowanceMm, value); }
@@ -102,6 +118,24 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string AnchorFuMpa { get => _anchorFuMpa; set => Set(ref _anchorFuMpa, value); }
         public string AnchorsX { get => _anchorsX; set => Set(ref _anchorsX, value); }
         public string AnchorsY { get => _anchorsY; set => Set(ref _anchorsY, value); }
+        public int SelectedAnchorsX
+        {
+            get => _selectedAnchorsX;
+            set
+            {
+                if (!Set(ref _selectedAnchorsX, value)) return;
+                AnchorsX = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+        public int SelectedAnchorsY
+        {
+            get => _selectedAnchorsY;
+            set
+            {
+                if (!Set(ref _selectedAnchorsY, value)) return;
+                AnchorsY = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
         public string TotalAnchors { get => _totalAnchors; private set => Set(ref _totalAnchors, value); }
         public string AnchorEdgeDistanceXmm { get => _anchorEdgeDistanceXmm; set => Set(ref _anchorEdgeDistanceXmm, value); }
         public string AnchorEdgeDistanceYmm { get => _anchorEdgeDistanceYmm; set => Set(ref _anchorEdgeDistanceYmm, value); }
@@ -161,14 +195,14 @@ namespace SAGAStructuralTools.UI.ViewModels
             MomentY_TfM = "0,8";
             ShearX_Tf = "2";
             ShearY_Tf = "1";
-            AnchorDiameterMm = "19";
+            SelectedAnchorOption = HeavyHexNutCatalog.FindByDiameter(19.05);
             AnchorLengthMm = "250";
             HasHook = true;
             CorrosionAllowanceMm = "0";
             AnchorFyMpa = "250";
             AnchorFuMpa = "400";
-            AnchorsX = "2";
-            AnchorsY = "2";
+            SelectedAnchorsX = 2;
+            SelectedAnchorsY = 2;
             TotalAnchors = "4";
             AnchorEdgeDistanceXmm = "60";
             AnchorEdgeDistanceYmm = "70";

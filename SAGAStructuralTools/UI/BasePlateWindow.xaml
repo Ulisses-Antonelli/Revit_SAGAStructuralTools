@@ -15,6 +15,8 @@
         FontSize="13">
     <Window.Resources>
         <Style TargetType="TextBox">
+            <Setter Property="Width" Value="170"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="Margin" Value="0,2,0,2"/>
             <Setter Property="Padding" Value="6,3"/>
             <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
@@ -22,6 +24,14 @@
         </Style>
         <Style TargetType="CheckBox">
             <Setter Property="Margin" Value="0,4,0,4"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="15000"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Width" Value="170"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+            <Setter Property="Padding" Value="6,3"/>
             <Setter Property="ToolTipService.InitialShowDelay" Value="2000"/>
             <Setter Property="ToolTipService.ShowDuration" Value="15000"/>
         </Style>
@@ -72,7 +82,7 @@
 
                 <StackPanel Grid.Column="0">
                     <Expander Header="1. Esforços de cálculo" IsExpanded="True" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
+                        <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Nc (tf)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.CompressionForce}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding CompressionForceTf, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Nt (tf)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TensionForce}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -89,7 +99,7 @@
                     </Expander>
 
                     <Expander Header="2. Perfil metálico" IsExpanded="True" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
+                        <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <TextBlock Text="d (mm)" VerticalAlignment="Center"/>
                             <TextBox Text="{Binding DepthMm, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="bf (mm)" VerticalAlignment="Center"/>
@@ -102,7 +112,7 @@
                     </Expander>
 
                     <Expander Header="3. Placa de base e materiais" IsExpanded="True" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
+                        <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="lx (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateLengthXmm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="ly (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -117,7 +127,7 @@
                     </Expander>
 
                     <Expander Header="4. Nervuras" IsExpanded="False" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
+                        <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="tn (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerThickness}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding StiffenerThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="hn (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerHeight}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -127,9 +137,11 @@
                         </UniformGrid>
                     </Expander>
                     <Expander Header="5. Chumbadores" IsExpanded="True" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
+                        <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="db (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorDiameter}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding AnchorDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox ItemsSource="{Binding AnchorDiameterOptions, Mode=OneWay}"
+                                      SelectedItem="{Binding SelectedAnchorOption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="DisplayName"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="lb (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorLength}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorLengthMm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Com gancho?"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorHook}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -141,9 +153,11 @@
                             <StackPanel Orientation="Horizontal"><TextBlock Text="fu,b (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorFu}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding AnchorFuMpa, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="nbx"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding AnchorsX, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox ItemsSource="{Binding AnchorCountOptions, Mode=OneWay}"
+                                      SelectedItem="{Binding SelectedAnchorsX, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="nby"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.AnchorsY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding AnchorsY, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox ItemsSource="{Binding AnchorCountOptions, Mode=OneWay}"
+                                      SelectedItem="{Binding SelectedAnchorsY, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="ntot"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.TotalAnchors}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding TotalAnchors, Mode=OneWay}"
                                      IsReadOnly="True"
@@ -163,7 +177,7 @@
 
                 <StackPanel Grid.Column="2">
                     <Expander Header="6. Concreto" IsExpanded="True" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
+                        <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="fck (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteFck}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ConcreteFckMpa, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -176,7 +190,7 @@
                     </Expander>
 
                     <Expander Header="7. Resultados" IsExpanded="True" Margin="0,0,0,10">
-                        <UniformGrid Columns="2" Margin="10">
+                        <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <TextBlock Text="Fty,d (ton)"/>
                             <TextBox Text="{Binding AnchorTensionResult, Mode=OneWay}" IsReadOnly="True" IsTabStop="False"/>
                             <TextBlock Text="Fv,d (ton)"/>
