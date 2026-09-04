@@ -249,12 +249,12 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(railPanel, new PushButtonData(
-                    name:         "SplitBeam",
-                    text:         "Interromper\nViga",
+                    name:         "SplitMember",
+                    text:         "Interromper\nViga/Pilar",
                     assemblyName: assemblyPath,
-                    className:    "SAGAStructuralTools.Commands.SplitBeamCommand")
+                    className:    "SAGAStructuralTools.Commands.SplitMemberCommand")
                 {
-                    ToolTip    = "Divide uma viga em duas no ponto de interseção com o eixo de uma viga de referência.",
+                    ToolTip    = "Divide uma viga ou pilar reto em dois no ponto de interseção com o eixo de um elemento de referência (viga ou pilar).",
                     LargeImage = LoadIcon("rail_round_32.png", 32),
                     Image      = LoadIcon("rail_round_16.png", 16)
                 });

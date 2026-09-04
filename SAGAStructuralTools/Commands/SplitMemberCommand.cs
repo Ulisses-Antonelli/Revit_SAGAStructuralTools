@@ -10,13 +10,14 @@ using System;
 namespace SAGAStructuralTools.Commands
 {
     /// <summary>
-    /// Interrompe uma viga em duas no ponto de interseção com o eixo de uma viga
-    /// de referência. Fluxo: viga de referência, depois viga a dividir — dois
-    /// cliques sequenciais, igual ao Arredondar Canto e ao Alinhar ao Ponto de Trabalho.
+    /// Interrompe uma viga ou pilar reto em dois no ponto de interseção com o eixo
+    /// de um elemento de referência (viga ou pilar). Fluxo: elemento de referência,
+    /// depois elemento a dividir — dois cliques sequenciais, igual ao Arredondar
+    /// Canto e ao Alinhar ao Ponto de Trabalho.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
-    public class SplitBeamCommand : IExternalCommand
+    public class SplitMemberCommand : IExternalCommand
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -34,9 +35,9 @@ namespace SAGAStructuralTools.Commands
             }
             catch (Exception ex)
             {
-                SagaLog.Exception("SplitBeamCommand.Execute", ex);
+                SagaLog.Exception("SplitMemberCommand.Execute", ex);
                 TaskDialog.Show(
-                    "SAGA - Interromper viga",
+                    "SAGA - Interromper viga/pilar",
                     $"A ferramenta foi encerrada por um erro inesperado:\n\n{ex.Message}");
                 return Result.Cancelled;
             }
@@ -53,13 +54,13 @@ namespace SAGAStructuralTools.Commands
                 Reference targetReference;
                 try
                 {
-                    string hint = splitCount > 0 ? $" ({splitCount} dividida(s); Esc encerra)" : " (Esc encerra)";
+                    string hint = splitCount > 0 ? $" ({splitCount} dividido(s); Esc encerra)" : " (Esc encerra)";
                     referenceReference = uiDocument.Selection.PickObject(
                         ObjectType.Element, filter,
-                        "Selecione a viga de referência (ponto de corte)" + hint);
+                        "Selecione a viga ou pilar de referência (ponto de corte)" + hint);
                     targetReference = uiDocument.Selection.PickObject(
                         ObjectType.Element, filter,
-                        "Selecione a viga a dividir" + hint);
+                        "Selecione a viga ou pilar a dividir" + hint);
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                 {
@@ -68,12 +69,12 @@ namespace SAGAStructuralTools.Commands
 
                 try
                 {
-                    using (var tx = new Transaction(document, "SAGA - Interromper viga"))
+                    using (var tx = new Transaction(document, "SAGA - Interromper viga/pilar"))
                     {
                         tx.Start();
                         try
                         {
-                            SplitBeamService.Split(document, referenceReference.ElementId, targetReference.ElementId);
+                            SplitMemberService.Split(document, referenceReference.ElementId, targetReference.ElementId);
                             tx.Commit();
                         }
                         catch
@@ -85,15 +86,15 @@ namespace SAGAStructuralTools.Commands
 
                     splitCount++;
                     SagaLog.Write(
-                        $"SplitBeamCommand: viga {targetReference.ElementId.GetId()} " +
-                        $"dividida no cruzamento com {referenceReference.ElementId.GetId()}.");
+                        $"SplitMemberCommand: elemento {targetReference.ElementId.GetId()} " +
+                        $"dividido no cruzamento com {referenceReference.ElementId.GetId()}.");
                 }
                 catch (Exception ex)
                 {
-                    SagaLog.Exception("SplitBeamCommand.Split", ex);
+                    SagaLog.Exception("SplitMemberCommand.Split", ex);
                     TaskDialog.Show(
-                        "SAGA - Interromper viga",
-                        $"Não foi possível dividir esta viga:\n\n{ex.Message}\n\n" +
+                        "SAGA - Interromper viga/pilar",
+                        $"Não foi possível dividir este elemento:\n\n{ex.Message}\n\n" +
                         "Selecione outro par ou pressione Esc para encerrar.");
                 }
             }
