@@ -1,4 +1,5 @@
 using Autodesk.Revit.DB;
+using SAGAStructuralTools.BasePlate.Domain;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -299,22 +300,13 @@ namespace SAGAStructuralTools.Core.BasePlate
 
         private static string GetNominalPlateThickness(double thicknessMm)
         {
-            var nominalThicknesses = new[]
-            {
-                (Millimeters: 6.35, Label: "1/4\""),
-                (Millimeters: 8.00, Label: "5/16\""),
-                (Millimeters: 9.50, Label: "3/8\""),
-                (Millimeters: 12.70, Label: "1/2\""),
-                (Millimeters: 16.00, Label: "5/8\""),
-                (Millimeters: 19.00, Label: "3/4\""),
-                (Millimeters: 22.00, Label: "7/8\""),
-                (Millimeters: 25.40, Label: "1\""),
-            };
+            PlateThicknessOption option = PlateThicknessCatalog.FindByThickness(thicknessMm);
+            if (option == null) return $"{FormatMm(thicknessMm)} mm";
 
-            return nominalThicknesses
-                .OrderBy(option => Math.Abs(option.Millimeters - thicknessMm))
-                .First()
-                .Label;
+            int parenthesisIndex = option.DisplayName.IndexOf(" (", StringComparison.Ordinal);
+            return parenthesisIndex > 0
+                ? option.DisplayName.Substring(0, parenthesisIndex)
+                : option.DisplayName;
         }
 
         private static XYZ NormalizeOrDefault(XYZ vector, XYZ fallback)

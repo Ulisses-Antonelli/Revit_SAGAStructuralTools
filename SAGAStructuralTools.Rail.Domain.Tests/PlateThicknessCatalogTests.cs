@@ -8,16 +8,10 @@ namespace SAGAStructuralTools.Rail.Domain.Tests
         [Fact]
         public void Options_ShouldContainBasePlateThicknesses()
         {
-            Assert.Collection(
-                PlateThicknessCatalog.Options,
-                option => Assert.Equal(6.35, option.ThicknessMm),
-                option => Assert.Equal(8.00, option.ThicknessMm),
-                option => Assert.Equal(9.50, option.ThicknessMm),
-                option => Assert.Equal(12.70, option.ThicknessMm),
-                option => Assert.Equal(16.00, option.ThicknessMm),
-                option => Assert.Equal(19.00, option.ThicknessMm),
-                option => Assert.Equal(22.00, option.ThicknessMm),
-                option => Assert.Equal(25.40, option.ThicknessMm));
+            Assert.Equal(20, PlateThicknessCatalog.Options.Count);
+            Assert.Contains(PlateThicknessCatalog.Options, option => option.ThicknessMm == 6.35);
+            Assert.Contains(PlateThicknessCatalog.Options, option => option.ThicknessMm == 25.40);
+            Assert.Contains(PlateThicknessCatalog.Options, option => option.ThicknessMm == 76.20);
         }
 
         [Fact]
