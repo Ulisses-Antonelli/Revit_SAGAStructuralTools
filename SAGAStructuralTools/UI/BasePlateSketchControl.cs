@@ -95,7 +95,7 @@ namespace SAGAStructuralTools.UI
             double topRoom = 30;
             double leftRoom = 38;
             double rightRoom = 32;
-            double bottomRoom = 24;
+            double bottomRoom = 58;
             double scale = Math.Min(
                 (area.Width - leftRoom - rightRoom) / PlateLengthX,
                 (area.Height - topRoom - bottomRoom) / PlateLengthY);
@@ -122,11 +122,24 @@ namespace SAGAStructuralTools.UI
             DrawVerticalDimension(dc, plate.Left - 10, plate.Top, plate.Top + b1, "b1", dimPen, text);
             DrawVerticalDimension(dc, plate.Left - 10, plate.Top + b1, plate.Bottom - b1, "b2", dimPen, text);
             DrawVerticalDimension(dc, plate.Left - 10, plate.Bottom - b1, plate.Bottom, "b1", dimPen, text);
+            DrawPlanSummary(dc, new Point(plate.Left, plate.Bottom + 10), text);
 
             Point calloutStart = new Point(plate.Right - 18, plate.Top + 18);
             Point calloutEnd = new Point(plate.Right + 36, plate.Top + 2);
             dc.DrawLine(dimPen, calloutStart, calloutEnd);
             DrawText(dc, "tpl", text, new Point(calloutEnd.X + 2, calloutEnd.Y - 7), 10);
+        }
+
+        private void DrawPlanSummary(DrawingContext dc, Point origin, Brush text)
+        {
+            double a2 = Math.Max(0, PlateLengthX - 2.0 * AnchorEdgeDistanceX);
+            double b2 = Math.Max(0, PlateLengthY - 2.0 * AnchorEdgeDistanceY);
+            DrawText(dc, $"lx = {FormatMm(PlateLengthX)} mm", text, origin, 10);
+            DrawText(dc, $"ly = {FormatMm(PlateLengthY)} mm", text, new Point(origin.X + 96, origin.Y), 10);
+            DrawText(dc, $"a1 = {FormatMm(AnchorEdgeDistanceX)} mm", text, new Point(origin.X, origin.Y + 16), 10);
+            DrawText(dc, $"a2 = {FormatMm(a2)} mm", text, new Point(origin.X + 96, origin.Y + 16), 10);
+            DrawText(dc, $"b1 = {FormatMm(AnchorEdgeDistanceY)} mm", text, new Point(origin.X, origin.Y + 32), 10);
+            DrawText(dc, $"b2 = {FormatMm(b2)} mm", text, new Point(origin.X + 96, origin.Y + 32), 10);
         }
 
         private void DrawProfilePlan(DrawingContext dc, Point center, double scale, Pen pen)
@@ -232,6 +245,11 @@ namespace SAGAStructuralTools.UI
                 brush,
                 1.0);
             dc.DrawText(formatted, point);
+        }
+
+        private static string FormatMm(double value)
+        {
+            return value.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
         }
 
         private static void DrawRotatedText(DrawingContext dc, string text, Brush brush, Point point, double size)
