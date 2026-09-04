@@ -27,6 +27,12 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _anchorSteelTensionResistance;
         private string _minimumPlateThickness;
         private string _minimumStiffenerThickness;
+        private string _concreteUtilizationResult;
+        private string _steelUtilization1Result;
+        private string _steelUtilization2Result;
+        private Brush _concreteUtilizationBackground;
+        private Brush _steelUtilization1Background;
+        private Brush _steelUtilization2Background;
         private double _sketchPlateLengthX;
         private double _sketchPlateLengthY;
         private double _sketchProfileDepth;
@@ -64,12 +70,15 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _plateLengthXmm;
         private string _plateLengthYmm;
         private string _plateThicknessMm;
+        private PlateThicknessOption _selectedPlateThicknessOption;
         private string _plateFyMpa;
         private string _plateFuMpa;
         private string _stiffenerThicknessMm;
+        private PlateThicknessOption _selectedStiffenerThicknessOption;
         private string _stiffenerHeightMm;
         private bool _hasMiddleStiffener;
         private string _concreteFckMpa;
+        private ConcreteStrengthOption _selectedConcreteStrengthOption;
         private string _concreteAreaRatioA2A1;
         private string _concreteEdgeDistanceXmm;
         private string _concreteEdgeDistanceYmm;
@@ -88,6 +97,10 @@ namespace SAGAStructuralTools.UI.ViewModels
         public IReadOnlyList<HeavyHexNutOption> AnchorDiameterOptions =>
             HeavyHexNutCatalog.Options;
         public IReadOnlyList<int> AnchorCountOptions { get; } = new[] { 2, 3, 4 };
+        public IReadOnlyList<PlateThicknessOption> PlateThicknessOptions =>
+            PlateThicknessCatalog.Options;
+        public IReadOnlyList<ConcreteStrengthOption> ConcreteStrengthOptions =>
+            ConcreteStrengthCatalog.Options;
 
         public ICommand CreateConnectionCommand { get; }
 
@@ -142,12 +155,39 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string PlateLengthXmm { get => _plateLengthXmm; set => Set(ref _plateLengthXmm, value); }
         public string PlateLengthYmm { get => _plateLengthYmm; set => Set(ref _plateLengthYmm, value); }
         public string PlateThicknessMm { get => _plateThicknessMm; set => Set(ref _plateThicknessMm, value); }
+        public PlateThicknessOption SelectedPlateThicknessOption
+        {
+            get => _selectedPlateThicknessOption;
+            set
+            {
+                if (!Set(ref _selectedPlateThicknessOption, value) || value == null) return;
+                PlateThicknessMm = value.ThicknessMm.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"));
+            }
+        }
         public string PlateFyMpa { get => _plateFyMpa; set => Set(ref _plateFyMpa, value); }
         public string PlateFuMpa { get => _plateFuMpa; set => Set(ref _plateFuMpa, value); }
         public string StiffenerThicknessMm { get => _stiffenerThicknessMm; set => Set(ref _stiffenerThicknessMm, value); }
+        public PlateThicknessOption SelectedStiffenerThicknessOption
+        {
+            get => _selectedStiffenerThicknessOption;
+            set
+            {
+                if (!Set(ref _selectedStiffenerThicknessOption, value) || value == null) return;
+                StiffenerThicknessMm = value.ThicknessMm.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"));
+            }
+        }
         public string StiffenerHeightMm { get => _stiffenerHeightMm; set => Set(ref _stiffenerHeightMm, value); }
         public bool HasMiddleStiffener { get => _hasMiddleStiffener; set => Set(ref _hasMiddleStiffener, value); }
         public string ConcreteFckMpa { get => _concreteFckMpa; set => Set(ref _concreteFckMpa, value); }
+        public ConcreteStrengthOption SelectedConcreteStrengthOption
+        {
+            get => _selectedConcreteStrengthOption;
+            set
+            {
+                if (!Set(ref _selectedConcreteStrengthOption, value) || value == null) return;
+                ConcreteFckMpa = value.FckMpa.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"));
+            }
+        }
         public string ConcreteAreaRatioA2A1 { get => _concreteAreaRatioA2A1; set => Set(ref _concreteAreaRatioA2A1, value); }
         public string ConcreteEdgeDistanceXmm { get => _concreteEdgeDistanceXmm; set => Set(ref _concreteEdgeDistanceXmm, value); }
         public string ConcreteEdgeDistanceYmm { get => _concreteEdgeDistanceYmm; set => Set(ref _concreteEdgeDistanceYmm, value); }
@@ -163,6 +203,12 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string AnchorSteelTensionResistance { get => _anchorSteelTensionResistance; private set => Set(ref _anchorSteelTensionResistance, value); }
         public string MinimumPlateThickness { get => _minimumPlateThickness; private set => Set(ref _minimumPlateThickness, value); }
         public string MinimumStiffenerThickness { get => _minimumStiffenerThickness; private set => Set(ref _minimumStiffenerThickness, value); }
+        public string ConcreteUtilizationResult { get => _concreteUtilizationResult; private set => Set(ref _concreteUtilizationResult, value); }
+        public string SteelUtilization1Result { get => _steelUtilization1Result; private set => Set(ref _steelUtilization1Result, value); }
+        public string SteelUtilization2Result { get => _steelUtilization2Result; private set => Set(ref _steelUtilization2Result, value); }
+        public Brush ConcreteUtilizationBackground { get => _concreteUtilizationBackground; private set => Set(ref _concreteUtilizationBackground, value); }
+        public Brush SteelUtilization1Background { get => _steelUtilization1Background; private set => Set(ref _steelUtilization1Background, value); }
+        public Brush SteelUtilization2Background { get => _steelUtilization2Background; private set => Set(ref _steelUtilization2Background, value); }
         public double SketchPlateLengthX { get => _sketchPlateLengthX; private set => Set(ref _sketchPlateLengthX, value); }
         public double SketchPlateLengthY { get => _sketchPlateLengthY; private set => Set(ref _sketchPlateLengthY, value); }
         public double SketchProfileDepth { get => _sketchProfileDepth; private set => Set(ref _sketchProfileDepth, value); }
@@ -208,12 +254,12 @@ namespace SAGAStructuralTools.UI.ViewModels
             AnchorEdgeDistanceYmm = "70";
             PlateLengthXmm = "300";
             PlateLengthYmm = "450";
-            PlateThicknessMm = "19";
+            SelectedPlateThicknessOption = PlateThicknessCatalog.FindByThickness(19.00);
             PlateFyMpa = "250";
             PlateFuMpa = "400";
-            StiffenerThicknessMm = "0";
+            SelectedStiffenerThicknessOption = PlateThicknessCatalog.FindByThickness(6.35);
             StiffenerHeightMm = "0";
-            ConcreteFckMpa = "30";
+            SelectedConcreteStrengthOption = ConcreteStrengthCatalog.FindByFck(30.0);
             ConcreteAreaRatioA2A1 = "1";
             ConcreteEdgeDistanceXmm = "300";
             ConcreteEdgeDistanceYmm = "300";
@@ -237,6 +283,12 @@ namespace SAGAStructuralTools.UI.ViewModels
                 AnchorSteelTensionResistance = Format(result.AnchorSteelTensionResistanceTf);
                 MinimumPlateThickness = Format(result.MinimumPlateThicknessMm);
                 MinimumStiffenerThickness = Format(result.MinimumStiffenerThicknessMm);
+                ConcreteUtilizationResult = FormatUtilization(result.AnchorConcreteUtilization);
+                SteelUtilization1Result = FormatUtilization(result.AnchorSteelUtilization1);
+                SteelUtilization2Result = FormatUtilization(result.AnchorSteelUtilization2);
+                ConcreteUtilizationBackground = GetUtilizationBackground(result.AnchorConcreteUtilization);
+                SteelUtilization1Background = GetUtilizationBackground(result.AnchorSteelUtilization1);
+                SteelUtilization2Background = GetUtilizationBackground(result.AnchorSteelUtilization2);
                 UpdateSketch(input);
                 AddRows(input, result);
                 CanCreateConnection = Verifications.All(v => v.IsOk);
@@ -253,6 +305,12 @@ namespace SAGAStructuralTools.UI.ViewModels
                 AnchorSteelTensionResistance = "";
                 MinimumPlateThickness = "";
                 MinimumStiffenerThickness = "";
+                ConcreteUtilizationResult = "";
+                SteelUtilization1Result = "";
+                SteelUtilization2Result = "";
+                ConcreteUtilizationBackground = GetUtilizationBackground(double.PositiveInfinity);
+                SteelUtilization1Background = GetUtilizationBackground(double.PositiveInfinity);
+                SteelUtilization2Background = GetUtilizationBackground(double.PositiveInfinity);
                 BoltPoints.Clear();
                 Verifications.Add(BasePlateVerificationItem.Create("Entrada", false, ex.Message));
                 CanCreateConnection = false;
@@ -457,6 +515,22 @@ namespace SAGAStructuralTools.UI.ViewModels
             return value.ToString("0.###", CultureInfo.GetCultureInfo("pt-BR"));
         }
 
+        private static string FormatUtilization(double value)
+        {
+            return string.Format(
+                CultureInfo.GetCultureInfo("pt-BR"),
+                "{0:0.00} | {1:0.0} %",
+                value,
+                value * 100.0);
+        }
+
+        private static Brush GetUtilizationBackground(double value)
+        {
+            return value <= 1.0
+                ? new SolidColorBrush(Color.FromRgb(0x92, 0xD0, 0x50))
+                : new SolidColorBrush(Color.FromRgb(0xF4, 0xCC, 0xCC));
+        }
+
         private static string GetConcreteGoverningCase(BasePlateCalculationResult result)
         {
             if (result.AnchorConcreteUtilization <= 0) return null;
@@ -487,6 +561,12 @@ namespace SAGAStructuralTools.UI.ViewModels
                 name == nameof(AnchorSteelTensionResistance) ||
                 name == nameof(MinimumPlateThickness) ||
                 name == nameof(MinimumStiffenerThickness) ||
+                name == nameof(ConcreteUtilizationResult) ||
+                name == nameof(SteelUtilization1Result) ||
+                name == nameof(SteelUtilization2Result) ||
+                name == nameof(ConcreteUtilizationBackground) ||
+                name == nameof(SteelUtilization1Background) ||
+                name == nameof(SteelUtilization2Background) ||
                 name == nameof(SketchPlateLengthX) ||
                 name == nameof(SketchPlateLengthY) ||
                 name == nameof(SketchProfileDepth) ||

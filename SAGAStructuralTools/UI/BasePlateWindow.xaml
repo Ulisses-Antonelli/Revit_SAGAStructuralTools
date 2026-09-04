@@ -118,7 +118,9 @@
                             <StackPanel Orientation="Horizontal"><TextBlock Text="ly (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateLengthYmm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="tpl (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateThickness}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding PlateThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox ItemsSource="{Binding PlateThicknessOptions, Mode=OneWay}"
+                                      SelectedItem="{Binding SelectedPlateThicknessOption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="DisplayName"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="fy,pl (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFy}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateFyMpa, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="fu,pl (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateFu}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -129,7 +131,9 @@
                     <Expander Header="4. Nervuras" IsExpanded="False" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="tn (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerThickness}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding StiffenerThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox ItemsSource="{Binding PlateThicknessOptions, Mode=OneWay}"
+                                      SelectedItem="{Binding SelectedStiffenerThicknessOption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="DisplayName"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="hn (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.StiffenerHeight}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding StiffenerHeightMm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Nervura média?"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.MiddleStiffeners}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -179,7 +183,9 @@
                     <Expander Header="6. Concreto" IsExpanded="True" Margin="0,0,0,10">
                         <UniformGrid Columns="2" Margin="10" HorizontalAlignment="Left" Width="430">
                             <StackPanel Orientation="Horizontal"><TextBlock Text="fck (MPa)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteFck}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding ConcreteFckMpa, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox ItemsSource="{Binding ConcreteStrengthOptions, Mode=OneWay}"
+                                      SelectedItem="{Binding SelectedConcreteStrengthOption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="DisplayName"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ConcreteAreaRatioA2A1, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="cx (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteEdgeDistanceX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
@@ -228,6 +234,53 @@
                                                        StiffenerThickness="{Binding SketchStiffenerThickness, Mode=OneWay}"
                                                        BoltPoints="{Binding BoltPoints, Mode=OneWay}"/>
                         </Border>
+                    </Expander>
+
+                    <Expander Header="9. Solicitações" IsExpanded="True" Margin="0,0,0,10">
+                        <StackPanel Margin="10" HorizontalAlignment="Left">
+                            <TextBlock Text="Taxa de uso"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,6"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="115"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Concreto" VerticalAlignment="Center"/>
+                                <TextBox Text="{Binding ConcreteUtilizationResult, Mode=OneWay}"
+                                         Grid.Row="0"
+                                         Grid.Column="2"
+                                         Width="115"
+                                         Padding="5,2"
+                                         Background="{Binding ConcreteUtilizationBackground, Mode=OneWay}"
+                                         IsReadOnly="True"
+                                         IsTabStop="False"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Aço 1" VerticalAlignment="Center"/>
+                                <TextBox Text="{Binding SteelUtilization1Result, Mode=OneWay}"
+                                         Grid.Row="1"
+                                         Grid.Column="2"
+                                         Width="115"
+                                         Padding="5,2"
+                                         Background="{Binding SteelUtilization1Background, Mode=OneWay}"
+                                         IsReadOnly="True"
+                                         IsTabStop="False"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Aço 2" VerticalAlignment="Center"/>
+                                <TextBox Text="{Binding SteelUtilization2Result, Mode=OneWay}"
+                                         Grid.Row="2"
+                                         Grid.Column="2"
+                                         Width="115"
+                                         Padding="5,2"
+                                         Background="{Binding SteelUtilization2Background, Mode=OneWay}"
+                                         IsReadOnly="True"
+                                         IsTabStop="False"/>
+                            </Grid>
+                        </StackPanel>
                     </Expander>
                 </StackPanel>
             </Grid>
