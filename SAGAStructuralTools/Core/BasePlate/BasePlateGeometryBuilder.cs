@@ -29,7 +29,8 @@ namespace SAGAStructuralTools.Core.BasePlate
             int anchorsX,
             int anchorsY,
             double anchorEdgeDistanceXmm,
-            double anchorEdgeDistanceYmm)
+            double anchorEdgeDistanceYmm,
+            double orientationDegrees = 0.0)
         {
             if (column == null) throw new ArgumentNullException(nameof(column));
             if (lxMm <= 0) throw new ArgumentOutOfRangeException(nameof(lxMm), "lx deve ser maior que zero.");
@@ -47,6 +48,8 @@ namespace SAGAStructuralTools.Core.BasePlate
             {
                 basisZ = basisZ.Negate();
             }
+
+            ApplyPlanRotation(ref basisX, ref basisY, orientationDegrees);
 
             XYZ origin = GetColumnBaseOrigin(column, transform);
             double halfLx = UnitUtils.ConvertToInternalUnits(lxMm / 2.0, UnitTypeId.Millimeters);
@@ -245,11 +248,12 @@ namespace SAGAStructuralTools.Core.BasePlate
 
             double radiusFt = UnitUtils.ConvertToInternalUnits(anchorDiameterMm / 2.0, UnitTypeId.Millimeters);
             double embedmentFt = UnitUtils.ConvertToInternalUnits(anchorLengthMm, UnitTypeId.Millimeters);
-            double projectionFt = UnitUtils.ConvertToInternalUnits(Math.Max(75.0, anchorDiameterMm * 4.0), UnitTypeId.Millimeters);
             double washerThicknessFt = UnitUtils.ConvertToInternalUnits(Math.Max(6.0, anchorDiameterMm * 0.25), UnitTypeId.Millimeters);
             double washerHalfSideFt = UnitUtils.ConvertToInternalUnits(anchorDiameterMm * 1.25, UnitTypeId.Millimeters);
             double nutHeightFt = UnitUtils.ConvertToInternalUnits(anchorDiameterMm * 0.85, UnitTypeId.Millimeters);
             double nutRadiusFt = UnitUtils.ConvertToInternalUnits(anchorDiameterMm * 0.85, UnitTypeId.Millimeters);
+            double doubleNutProjectionMm = Math.Max(90.0, anchorDiameterMm * 5.5);
+            double projectionFt = UnitUtils.ConvertToInternalUnits(doubleNutProjectionMm, UnitTypeId.Millimeters);
             double hookLengthFt = UnitUtils.ConvertToInternalUnits(anchorDiameterMm * 6.0, UnitTypeId.Millimeters);
             var solidOptions = new SolidOptions(materialId, ElementId.InvalidElementId);
 
@@ -273,6 +277,8 @@ namespace SAGAStructuralTools.Core.BasePlate
 
                 XYZ nutTopCenter = anchorOrigin + basisZ * (projectionFt * 0.15 + washerThicknessFt + nutHeightFt);
                 solids.Add(CreateHexPrism(nutTopCenter, basisX, basisY, basisZ.Negate(), nutRadiusFt, nutHeightFt, solidOptions));
+                XYZ lockNutTopCenter = nutTopCenter + basisZ * nutHeightFt;
+                solids.Add(CreateHexPrism(lockNutTopCenter, basisX, basisY, basisZ.Negate(), nutRadiusFt, nutHeightFt, solidOptions));
 
                 if (hasHook)
                 {
@@ -809,6 +815,22 @@ namespace SAGAStructuralTools.Core.BasePlate
             }
 
             return vector.Normalize();
+        }
+
+        private static void ApplyPlanRotation(ref XYZ basisX, ref XYZ basisY, double degrees)
+        {
+            if (Math.Abs(degrees) < 1e-9)
+            {
+                return;
+            }
+
+            double angle = degrees * Math.PI / 180.0;
+            double cos = Math.Cos(angle);
+            double sin = Math.Sin(angle);
+            XYZ originalX = basisX;
+            XYZ originalY = basisY;
+            basisX = NormalizeOrDefault(originalX * cos + originalY * sin, originalX);
+            basisY = NormalizeOrDefault(originalY * cos - originalX * sin, originalY);
         }
     }
 }

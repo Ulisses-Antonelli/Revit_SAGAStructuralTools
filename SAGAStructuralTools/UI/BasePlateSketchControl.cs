@@ -54,6 +54,10 @@ namespace SAGAStructuralTools.UI
             DependencyProperty.Register(nameof(BoltPoints), typeof(IEnumerable), typeof(BasePlateSketchControl),
                 new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+        public static readonly DependencyProperty OrientationDegreesProperty =
+            DependencyProperty.Register(nameof(OrientationDegrees), typeof(double), typeof(BasePlateSketchControl),
+                new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
         public double PlateLengthX { get => (double)GetValue(PlateLengthXProperty); set => SetValue(PlateLengthXProperty, value); }
         public double PlateLengthY { get => (double)GetValue(PlateLengthYProperty); set => SetValue(PlateLengthYProperty, value); }
         public double ProfileDepth { get => (double)GetValue(ProfileDepthProperty); set => SetValue(ProfileDepthProperty, value); }
@@ -65,6 +69,7 @@ namespace SAGAStructuralTools.UI
         public double StiffenerHeight { get => (double)GetValue(StiffenerHeightProperty); set => SetValue(StiffenerHeightProperty, value); }
         public double StiffenerThickness { get => (double)GetValue(StiffenerThicknessProperty); set => SetValue(StiffenerThicknessProperty, value); }
         public IEnumerable BoltPoints { get => (IEnumerable)GetValue(BoltPointsProperty); set => SetValue(BoltPointsProperty, value); }
+        public double OrientationDegrees { get => (double)GetValue(OrientationDegreesProperty); set => SetValue(OrientationDegreesProperty, value); }
 
         protected override Size MeasureOverride(Size availableSize)
         {
@@ -98,26 +103,29 @@ namespace SAGAStructuralTools.UI
             double leftRoom = 38;
             double rightRoom = 32;
             double bottomRoom = 58;
+            bool isRotated = IsRotated90();
+            double displayLengthX = isRotated ? PlateLengthY : PlateLengthX;
+            double displayLengthY = isRotated ? PlateLengthX : PlateLengthY;
             double scale = Math.Min(
-                (area.Width - leftRoom - rightRoom) / PlateLengthX,
-                (area.Height - topRoom - bottomRoom) / PlateLengthY);
+                (area.Width - leftRoom - rightRoom) / displayLengthX,
+                (area.Height - topRoom - bottomRoom) / displayLengthY);
             Rect plate = new Rect(
                 area.Left + leftRoom,
                 area.Top + topRoom,
-                PlateLengthX * scale,
-                PlateLengthY * scale);
+                displayLengthX * scale,
+                displayLengthY * scale);
             Point center = new Point(plate.Left + plate.Width / 2, plate.Top + plate.Height / 2);
 
             dc.DrawRectangle(null, thin, plate);
-            DrawProfilePlan(dc, center, scale, profilePen);
-            DrawBolts(dc, center, scale, thin);
+            DrawProfilePlan(dc, center, scale, profilePen, false);
+            DrawBolts(dc, center, scale, thin, false);
             DrawAxes(dc, center, plate, axisPen, red);
 
-            DrawHorizontalDimension(dc, plate.Left, plate.Right, plate.Top - 22, "ly", dimPen, text);
-            DrawVerticalDimension(dc, plate.Left - 24, plate.Top, plate.Bottom, "lx", dimPen, text);
+            DrawHorizontalDimension(dc, plate.Left, plate.Right, plate.Top - 22, isRotated ? "lx" : "ly", dimPen, text);
+            DrawVerticalDimension(dc, plate.Left - 24, plate.Top, plate.Bottom, isRotated ? "ly" : "lx", dimPen, text);
 
-            DrawHorizontalBoltChainDimensions(dc, plate, center, scale, plate.Top - 9, dimPen, text);
-            DrawVerticalBoltChainDimensions(dc, plate, center, scale, plate.Left - 10, dimPen, text);
+            DrawHorizontalBoltChainDimensions(dc, plate, center, scale, plate.Top - 9, dimPen, text, false);
+            DrawVerticalBoltChainDimensions(dc, plate, center, scale, plate.Left - 10, dimPen, text, false);
             DrawPlanSummary(dc, new Point(plate.Left, plate.Bottom + 10), text);
 
             Point calloutStart = new Point(plate.Right - 18, plate.Top + 18);
@@ -133,9 +141,10 @@ namespace SAGAStructuralTools.UI
             double scale,
             double y,
             Pen dimPen,
-            Brush text)
+            Brush text,
+            bool isRotated)
         {
-            List<double> boltXCoordinates = GetUniqueBoltCoordinates(point => point.X)
+            List<double> boltXCoordinates = GetUniqueBoltCoordinates(point => isRotated ? point.Y : point.X)
                 .Select(x => center.X + x * scale)
                 .Where(x => x > plate.Left && x < plate.Right)
                 .OrderBy(x => x)
@@ -148,7 +157,9 @@ namespace SAGAStructuralTools.UI
 
             for (int i = 0; i < chain.Count - 1; i++)
             {
-                string label = i == 0 || i == chain.Count - 2 ? "a1" : "a2";
+                string label = i == 0 || i == chain.Count - 2
+                    ? (isRotated ? "b1" : "a1")
+                    : (isRotated ? "b2" : "a2");
                 DrawHorizontalDimension(dc, chain[i], chain[i + 1], y, label, dimPen, text);
             }
         }
@@ -160,9 +171,10 @@ namespace SAGAStructuralTools.UI
             double scale,
             double x,
             Pen dimPen,
-            Brush text)
+            Brush text,
+            bool isRotated)
         {
-            List<double> boltYCoordinates = GetUniqueBoltCoordinates(point => point.Y)
+            List<double> boltYCoordinates = GetUniqueBoltCoordinates(point => isRotated ? point.X : point.Y)
                 .Select(y => center.Y - y * scale)
                 .Where(y => y > plate.Top && y < plate.Bottom)
                 .OrderBy(y => y)
@@ -175,7 +187,9 @@ namespace SAGAStructuralTools.UI
 
             for (int i = 0; i < chain.Count - 1; i++)
             {
-                string label = i == 0 || i == chain.Count - 2 ? "b1" : "b2";
+                string label = i == 0 || i == chain.Count - 2
+                    ? (isRotated ? "a1" : "b1")
+                    : (isRotated ? "a2" : "b2");
                 DrawVerticalDimension(dc, x, chain[i], chain[i + 1], label, dimPen, text);
             }
         }
@@ -224,19 +238,29 @@ namespace SAGAStructuralTools.UI
                 .Min();
         }
 
-        private void DrawProfilePlan(DrawingContext dc, Point center, double scale, Pen pen)
+        private void DrawProfilePlan(DrawingContext dc, Point center, double scale, Pen pen, bool isRotated)
         {
             double depth = Math.Max(12, ProfileDepth * scale);
             double flange = Math.Max(12, ProfileFlangeWidth * scale);
             double web = Math.Max(4, flange * 0.14);
             double flangeThk = Math.Max(4, depth * 0.05);
 
+            if (isRotated)
+            {
+                dc.PushTransform(new RotateTransform(90, center.X, center.Y));
+            }
+
             dc.DrawRectangle(null, pen, new Rect(center.X - flange / 2, center.Y - depth / 2, flange, flangeThk));
             dc.DrawRectangle(null, pen, new Rect(center.X - flange / 2, center.Y + depth / 2 - flangeThk, flange, flangeThk));
             dc.DrawRectangle(null, pen, new Rect(center.X - web / 2, center.Y - depth / 2, web, depth));
+
+            if (isRotated)
+            {
+                dc.Pop();
+            }
         }
 
-        private void DrawBolts(DrawingContext dc, Point center, double scale, Pen pen)
+        private void DrawBolts(DrawingContext dc, Point center, double scale, Pen pen, bool isRotated)
         {
             if (BoltPoints == null) return;
             double boltRadius = Math.Max(2.5, AnchorDiameter * scale / 2.0);
@@ -244,7 +268,9 @@ namespace SAGAStructuralTools.UI
             {
                 var point = item as BoltPoint;
                 if (point == null) continue;
-                Point p = new Point(center.X + point.X * scale, center.Y - point.Y * scale);
+                Point p = isRotated
+                    ? new Point(center.X + point.Y * scale, center.Y - point.X * scale)
+                    : new Point(center.X + point.X * scale, center.Y - point.Y * scale);
                 dc.DrawEllipse(null, pen, p, boltRadius, boltRadius);
                 dc.DrawLine(pen, new Point(p.X - boltRadius * 0.55, p.Y), new Point(p.X + boltRadius * 0.55, p.Y));
                 dc.DrawLine(pen, new Point(p.X, p.Y - boltRadius * 0.55), new Point(p.X, p.Y + boltRadius * 0.55));
@@ -332,6 +358,11 @@ namespace SAGAStructuralTools.UI
         private static string FormatMm(double value)
         {
             return value.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+        }
+
+        private bool IsRotated90()
+        {
+            return Math.Abs(OrientationDegrees - 90.0) < 0.001;
         }
 
         private static void DrawRotatedText(DrawingContext dc, string text, Brush brush, Point point, double size)

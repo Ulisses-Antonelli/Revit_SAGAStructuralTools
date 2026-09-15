@@ -146,6 +146,9 @@
                             <TextBox Text="{Binding PlateLengthXmm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="ly (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateLengthYmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Rotação"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateOrientation}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
+                            <ComboBox ItemsSource="{Binding PlateOrientationOptions, Mode=OneWay}"
+                                      SelectedItem="{Binding PlateOrientationDegrees, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="tpl (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateThickness}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <ComboBox ItemsSource="{Binding PlateThicknessOptions, Mode=OneWay}"
                                       SelectedItem="{Binding SelectedPlateThicknessOption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -261,6 +264,7 @@
                                                        PlateThickness="{Binding SketchPlateThickness, Mode=OneWay}"
                                                        StiffenerHeight="{Binding SketchStiffenerHeight, Mode=OneWay}"
                                                        StiffenerThickness="{Binding SketchStiffenerThickness, Mode=OneWay}"
+                                                       OrientationDegrees="{Binding PlateOrientationDegreesValue, Mode=OneWay}"
                                                        BoltPoints="{Binding BoltPoints, Mode=OneWay}"/>
                         </Border>
                     </Expander>

@@ -21,6 +21,7 @@ namespace SAGAStructuralTools.UI
         public const string AnchorEdgeDistanceY = "Distância furo-borda b1";
         public const string PlateLengthX = "Dimensão lx da placa de base";
         public const string PlateLengthY = "Dimensão ly da placa de base";
+        public const string PlateOrientation = "Rotaciona a placa, furos e chumbadores em relacao aos eixos locais do pilar. Escolha 0º ou 90º.";
         public const string PlateThickness = "Espessura da placa de base";
         public const string PlateFy = "Tensão de escoamento da placa de base e nervuras";
         public const string PlateFu = "Tensão última da placa de base e nervuras";

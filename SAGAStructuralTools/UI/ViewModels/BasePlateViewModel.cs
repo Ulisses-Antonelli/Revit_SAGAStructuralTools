@@ -77,6 +77,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _anchorEdgeDistanceYmm;
         private string _plateLengthXmm;
         private string _plateLengthYmm;
+        private string _plateOrientationDegrees;
         private string _plateThicknessMm;
         private PlateThicknessOption _selectedPlateThicknessOption;
         private string _plateFyMpa;
@@ -116,6 +117,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         public IReadOnlyList<HeavyHexNutOption> AnchorDiameterOptions =>
             HeavyHexNutCatalog.Options;
         public IReadOnlyList<int> AnchorCountOptions { get; } = new[] { 2, 3, 4 };
+        public IReadOnlyList<string> PlateOrientationOptions { get; } = new[] { "0º", "90º" };
         public IReadOnlyList<PlateThicknessOption> PlateThicknessOptions =>
             PlateThicknessCatalog.Options;
         public IReadOnlyList<ConcreteStrengthOption> ConcreteStrengthOptions =>
@@ -177,6 +179,16 @@ namespace SAGAStructuralTools.UI.ViewModels
         public string AnchorEdgeDistanceYmm { get => _anchorEdgeDistanceYmm; set => Set(ref _anchorEdgeDistanceYmm, value); }
         public string PlateLengthXmm { get => _plateLengthXmm; set => Set(ref _plateLengthXmm, value); }
         public string PlateLengthYmm { get => _plateLengthYmm; set => Set(ref _plateLengthYmm, value); }
+        public string PlateOrientationDegrees
+        {
+            get => _plateOrientationDegrees;
+            set
+            {
+                if (!Set(ref _plateOrientationDegrees, NormalizePlateOrientation(value))) return;
+                OnPropertyChanged(nameof(PlateOrientationDegreesValue));
+            }
+        }
+        public double PlateOrientationDegreesValue => ReadPlateOrientationDegrees(PlateOrientationDegrees);
         public string PlateThicknessMm { get => _plateThicknessMm; set => Set(ref _plateThicknessMm, value); }
         public PlateThicknessOption SelectedPlateThicknessOption
         {
@@ -289,6 +301,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             AnchorEdgeDistanceYmm = "70";
             PlateLengthXmm = "300";
             PlateLengthYmm = "450";
+            PlateOrientationDegrees = "0º";
             SelectedPlateThicknessOption = PlateThicknessCatalog.FindByThickness(19.00);
             PlateFyMpa = "250";
             PlateFuMpa = "400";
@@ -354,6 +367,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 CreateField("AnchorEdgeDistanceYmm", AnchorEdgeDistanceYmm),
                 CreateField("PlateLengthXmm", PlateLengthXmm),
                 CreateField("PlateLengthYmm", PlateLengthYmm),
+                CreateField("PlateOrientationDegrees", PlateOrientationDegrees),
                 CreateField("PlateThicknessMm", PlateThicknessMm),
                 CreateField("PlateFyMpa", PlateFyMpa),
                 CreateField("PlateFuMpa", PlateFuMpa),
@@ -418,6 +432,7 @@ namespace SAGAStructuralTools.UI.ViewModels
             AnchorEdgeDistanceYmm = ReadField(configuration, "AnchorEdgeDistanceYmm", AnchorEdgeDistanceYmm);
             PlateLengthXmm = ReadField(configuration, "PlateLengthXmm", PlateLengthXmm);
             PlateLengthYmm = ReadField(configuration, "PlateLengthYmm", PlateLengthYmm);
+            PlateOrientationDegrees = ReadField(configuration, "PlateOrientationDegrees", PlateOrientationDegrees);
             PlateThicknessMm = ReadField(configuration, "PlateThicknessMm", PlateThicknessMm);
             SelectedPlateThicknessOption = PlateThicknessCatalog.FindByThickness(ParseDoubleOrDefault(PlateThicknessMm, 19.0));
             PlateFyMpa = ReadField(configuration, "PlateFyMpa", PlateFyMpa);
@@ -557,6 +572,26 @@ namespace SAGAStructuralTools.UI.ViewModels
             return 3;
         }
 
+        private static string NormalizePlateOrientation(string value)
+        {
+            double degrees = ParsePlateOrientationOrDefault(value, 0);
+            return Math.Abs(degrees - 90.0) < 0.001 ? "90º" : "0º";
+        }
+
+        private static double ReadPlateOrientationDegrees(string value)
+        {
+            return ParsePlateOrientationOrDefault(value, 0);
+        }
+
+        private static double ParsePlateOrientationOrDefault(string value, double fallback)
+        {
+            string text = (value ?? string.Empty)
+                .Replace("º", string.Empty)
+                .Replace("°", string.Empty)
+                .Trim();
+            return ParseDoubleOrDefault(text, fallback);
+        }
+
         private void AddRows(BasePlateInput input, BasePlateCalculationResult result)
         {
             AddFromResult(result, "lx > bf", "Aumentar dimensão lx da placa de base.");
@@ -632,6 +667,7 @@ namespace SAGAStructuralTools.UI.ViewModels
 
         private BasePlateInput ReadInput()
         {
+            ReadPlateOrientationDegrees(PlateOrientationDegrees);
             int anchorsX = ReadInt(AnchorsX, "nbx");
             int anchorsY = ReadInt(AnchorsY, "nby");
             int totalAnchors = BoltLayoutService.CalculateTotalAnchors(anchorsX, anchorsY);
@@ -777,7 +813,8 @@ namespace SAGAStructuralTools.UI.ViewModels
                             input.AnchorsX,
                             input.AnchorsY,
                             input.AnchorEdgeDistanceXmm,
-                            input.AnchorEdgeDistanceYmm);
+                            input.AnchorEdgeDistanceYmm,
+                            ReadPlateOrientationDegrees(PlateOrientationDegrees));
                     }
 
                     TransactionStatus status = transaction.Commit();
@@ -937,6 +974,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 name == nameof(SteelUtilization2Background) ||
                 name == nameof(ConfigurationName) ||
                 name == nameof(SelectedConfigurationName) ||
+                name == nameof(PlateOrientationDegreesValue) ||
                 name == nameof(SketchPlateLengthX) ||
                 name == nameof(SketchPlateLengthY) ||
                 name == nameof(SketchProfileDepth) ||
