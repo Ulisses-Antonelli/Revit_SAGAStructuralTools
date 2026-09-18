@@ -83,8 +83,8 @@ namespace SAGAStructuralTools
                     className:    "SAGAStructuralTools.Commands.GenerateLadderCommand")
                 {
                     ToolTip    = "Gera escadas marinheiro a partir da viga superior: montantes, degraus, suportes, gaiola e prolongamento. Edite com Alt+clique.",
-                    LargeImage = LoadIcon("stairs_32.png", 32),
-                    Image      = LoadIcon("stairs_16.png", 16)
+                    LargeImage = LoadIcon("ladder_32.png", 32),
+                    Image      = LoadIcon("ladder_16.png", 16)
                 });
 
                 TryAddButton(generalPanel, new PushButtonData(

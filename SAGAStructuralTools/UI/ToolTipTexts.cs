@@ -33,6 +33,8 @@ namespace SAGAStructuralTools.UI
         public const string ConcreteEdgeDistanceX = "Distância do eixo do chumbador até a borda livre do bloco ou pedestal de concreto, no sentido X.";
         public const string ConcreteEdgeDistanceY = "Distância do eixo do chumbador até a borda livre do bloco ou pedestal de concreto, no sentido Y.";
         public const string CreateButton = "Criação ainda desabilitada nesta etapa";
+        public const string ConcreteLengthX = "Dimensao total do bloco ou pedestal de concreto no sentido X. A placa e considerada centralizada para calcular cx.";
+        public const string ConcreteLengthY = "Dimensao total do bloco ou pedestal de concreto no sentido Y. A placa e considerada centralizada para calcular cy.";
         public const string CloseButton = "Fecha a janela da ferramenta";
     }
 }

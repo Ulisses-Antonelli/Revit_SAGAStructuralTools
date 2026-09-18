@@ -1105,6 +1105,8 @@ namespace SAGAStructuralTools.Core.Rail
 
             var firstLine = first.GetAxis();
             var secondLine = second.GetAxis();
+            var originalFirstLine = CloneBoundLine(firstLine);
+            var originalSecondLine = CloneBoundLine(secondLine);
 
             var solution = Calculate(
                 firstLine,
@@ -1175,11 +1177,11 @@ namespace SAGAStructuralTools.Core.Rail
             RoundedCornerStore.RegisterIfNeeded(
                 document,
                 first,
-                firstLine,
+                originalFirstLine,
                 solution.FirstCornerEnd,
                 firstJoinWasAllowed,
                 second,
-                secondLine,
+                originalSecondLine,
                 solution.SecondCornerEnd,
                 secondJoinWasAllowed,
                 curved,
@@ -1221,6 +1223,9 @@ namespace SAGAStructuralTools.Core.Rail
                 plan.FirstCornerEnd,
                 second.Instance,
                 plan.SecondCornerEnd);
+
+            var originalFirstLine = CloneBoundLine(plan.OriginalFirstLine);
+            var originalSecondLine = CloneBoundLine(plan.OriginalSecondLine);
 
             bool firstJoinWasAllowed = first.IsJoinAllowedAtEnd(plan.FirstCornerEnd);
             bool secondJoinWasAllowed = second.IsJoinAllowedAtEnd(plan.SecondCornerEnd);
@@ -1264,11 +1269,11 @@ namespace SAGAStructuralTools.Core.Rail
             RoundedCornerStore.RegisterIfNeeded(
                 document,
                 first,
-                plan.OriginalFirstLine,
+                originalFirstLine,
                 plan.FirstCornerEnd,
                 firstJoinWasAllowed,
                 second,
-                plan.OriginalSecondLine,
+                originalSecondLine,
                 plan.SecondCornerEnd,
                 secondJoinWasAllowed,
                 curved,

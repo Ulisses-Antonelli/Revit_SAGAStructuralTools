@@ -14,6 +14,7 @@
         FontFamily="Segoe UI"
         FontSize="13">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="TextBox">
             <Setter Property="Width" Value="170"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
@@ -146,9 +147,12 @@
                             <TextBox Text="{Binding PlateLengthXmm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="ly (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateLengthY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding PlateLengthYmm, UpdateSourceTrigger=PropertyChanged}"/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Rotação"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateOrientation}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Rotação (graus)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateOrientation}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <ComboBox ItemsSource="{Binding PlateOrientationOptions, Mode=OneWay}"
-                                      SelectedItem="{Binding PlateOrientationDegrees, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                      IsEditable="False"
+                                      IsReadOnly="True"
+                                      SelectedItem="{Binding SelectedPlateOrientationOption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="DisplayName"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="tpl (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.PlateThickness}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <ComboBox ItemsSource="{Binding PlateThicknessOptions, Mode=OneWay}"
                                       SelectedItem="{Binding SelectedPlateThicknessOption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -220,10 +224,14 @@
                                       DisplayMemberPath="DisplayName"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="A2/A1"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteAreaRatio}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
                             <TextBox Text="{Binding ConcreteAreaRatioA2A1, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Dim. concreto X (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteLengthX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
+                            <TextBox Text="{Binding ConcreteLengthXmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Dim. concreto Y (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteLengthY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
+                            <TextBox Text="{Binding ConcreteLengthYmm, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="cx (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteEdgeDistanceX}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding ConcreteEdgeDistanceXmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Text="{Binding ConcreteEdgeDistanceXmm, Mode=OneWay}" IsReadOnly="True" IsTabStop="False" Background="#EEF0F3"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="cy (mm)"/><Border Style="{StaticResource InfoIconStyle}" ToolTip="{x:Static ui:ToolTipTexts.ConcreteEdgeDistanceY}"><TextBlock Text="!" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></StackPanel>
-                            <TextBox Text="{Binding ConcreteEdgeDistanceYmm, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Text="{Binding ConcreteEdgeDistanceYmm, Mode=OneWay}" IsReadOnly="True" IsTabStop="False" Background="#EEF0F3"/>
                         </UniformGrid>
                     </Expander>
 
@@ -326,10 +334,23 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <Border Grid.Row="0" Padding="10" Margin="0,0,0,8" Background="{Binding OverallStatusBackground, Mode=OneWay}">
-                    <TextBlock Text="{Binding OverallStatusText, Mode=OneWay}"
-                               Foreground="{Binding OverallStatusForeground, Mode=OneWay}"
-                               FontWeight="SemiBold"
-                               TextWrapping="Wrap"/>
+                    <StackPanel>
+                        <TextBlock Text="{Binding OverallStatusText, Mode=OneWay}"
+                                   Foreground="{Binding OverallStatusForeground, Mode=OneWay}"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                        <Border Margin="0,8,0,0"
+                                Padding="8"
+                                Background="#FFF4CC"
+                                BorderBrush="#D6A100"
+                                BorderThickness="1"
+                                Visibility="{Binding HasCalculationWarning, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding CalculationWarningText, Mode=OneWay}"
+                                       Foreground="#5F4400"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+                    </StackPanel>
                 </Border>
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding Verifications, Mode=OneWay}"

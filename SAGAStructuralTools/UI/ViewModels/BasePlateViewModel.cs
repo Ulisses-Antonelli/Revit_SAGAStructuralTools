@@ -78,6 +78,7 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _plateLengthXmm;
         private string _plateLengthYmm;
         private string _plateOrientationDegrees;
+        private PlateOrientationOption _selectedPlateOrientationOption;
         private string _plateThicknessMm;
         private PlateThicknessOption _selectedPlateThicknessOption;
         private string _plateFyMpa;
@@ -89,8 +90,12 @@ namespace SAGAStructuralTools.UI.ViewModels
         private string _concreteFckMpa;
         private ConcreteStrengthOption _selectedConcreteStrengthOption;
         private string _concreteAreaRatioA2A1;
+        private string _concreteLengthXmm;
+        private string _concreteLengthYmm;
         private string _concreteEdgeDistanceXmm;
         private string _concreteEdgeDistanceYmm;
+        private string _calculationWarningText;
+        private bool _hasCalculationWarning;
         private string _configurationName;
         private string _selectedConfigurationName;
 
@@ -117,7 +122,11 @@ namespace SAGAStructuralTools.UI.ViewModels
         public IReadOnlyList<HeavyHexNutOption> AnchorDiameterOptions =>
             HeavyHexNutCatalog.Options;
         public IReadOnlyList<int> AnchorCountOptions { get; } = new[] { 2, 3, 4 };
-        public IReadOnlyList<string> PlateOrientationOptions { get; } = new[] { "0º", "90º" };
+        public IReadOnlyList<PlateOrientationOption> PlateOrientationOptions { get; } = new[]
+        {
+            new PlateOrientationOption("0º", 0),
+            new PlateOrientationOption("90º", 90)
+        };
         public IReadOnlyList<PlateThicknessOption> PlateThicknessOptions =>
             PlateThicknessCatalog.Options;
         public IReadOnlyList<ConcreteStrengthOption> ConcreteStrengthOptions =>
@@ -184,8 +193,19 @@ namespace SAGAStructuralTools.UI.ViewModels
             get => _plateOrientationDegrees;
             set
             {
-                if (!Set(ref _plateOrientationDegrees, NormalizePlateOrientation(value))) return;
+                string normalized = NormalizePlateOrientation(value);
+                if (!Set(ref _plateOrientationDegrees, normalized)) return;
+                SelectedPlateOrientationOption = FindPlateOrientationOption(normalized);
                 OnPropertyChanged(nameof(PlateOrientationDegreesValue));
+            }
+        }
+        public PlateOrientationOption SelectedPlateOrientationOption
+        {
+            get => _selectedPlateOrientationOption;
+            set
+            {
+                if (!Set(ref _selectedPlateOrientationOption, value) || value == null) return;
+                PlateOrientationDegrees = value.DisplayName;
             }
         }
         public double PlateOrientationDegreesValue => ReadPlateOrientationDegrees(PlateOrientationDegrees);
@@ -224,8 +244,12 @@ namespace SAGAStructuralTools.UI.ViewModels
             }
         }
         public string ConcreteAreaRatioA2A1 { get => _concreteAreaRatioA2A1; set => Set(ref _concreteAreaRatioA2A1, value); }
+        public string ConcreteLengthXmm { get => _concreteLengthXmm; set => Set(ref _concreteLengthXmm, value); }
+        public string ConcreteLengthYmm { get => _concreteLengthYmm; set => Set(ref _concreteLengthYmm, value); }
         public string ConcreteEdgeDistanceXmm { get => _concreteEdgeDistanceXmm; set => Set(ref _concreteEdgeDistanceXmm, value); }
         public string ConcreteEdgeDistanceYmm { get => _concreteEdgeDistanceYmm; set => Set(ref _concreteEdgeDistanceYmm, value); }
+        public string CalculationWarningText { get => _calculationWarningText; private set => Set(ref _calculationWarningText, value); }
+        public bool HasCalculationWarning { get => _hasCalculationWarning; private set => Set(ref _hasCalculationWarning, value); }
         public string ConfigurationName { get => _configurationName; set => Set(ref _configurationName, value); }
         public string SelectedConfigurationName
         {
@@ -309,8 +333,10 @@ namespace SAGAStructuralTools.UI.ViewModels
             StiffenerHeightMm = "0";
             SelectedConcreteStrengthOption = ConcreteStrengthCatalog.FindByFck(30.0);
             ConcreteAreaRatioA2A1 = "1";
-            ConcreteEdgeDistanceXmm = "300";
-            ConcreteEdgeDistanceYmm = "300";
+            ConcreteLengthXmm = "900";
+            ConcreteLengthYmm = "900";
+            ConcreteEdgeDistanceXmm = "360";
+            ConcreteEdgeDistanceYmm = "295";
             _isUpdating = false;
         }
 
@@ -376,6 +402,8 @@ namespace SAGAStructuralTools.UI.ViewModels
                 CreateField("HasMiddleStiffener", HasMiddleStiffener.ToString(CultureInfo.InvariantCulture)),
                 CreateField("ConcreteFckMpa", ConcreteFckMpa),
                 CreateField("ConcreteAreaRatioA2A1", ConcreteAreaRatioA2A1),
+                CreateField("ConcreteLengthXmm", ConcreteLengthXmm),
+                CreateField("ConcreteLengthYmm", ConcreteLengthYmm),
                 CreateField("ConcreteEdgeDistanceXmm", ConcreteEdgeDistanceXmm),
                 CreateField("ConcreteEdgeDistanceYmm", ConcreteEdgeDistanceYmm)));
 
@@ -444,6 +472,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             ConcreteFckMpa = ReadField(configuration, "ConcreteFckMpa", ConcreteFckMpa);
             SelectedConcreteStrengthOption = ConcreteStrengthCatalog.FindByFck(ParseDoubleOrDefault(ConcreteFckMpa, 30.0));
             ConcreteAreaRatioA2A1 = ReadField(configuration, "ConcreteAreaRatioA2A1", ConcreteAreaRatioA2A1);
+            ConcreteLengthXmm = ReadField(configuration, "ConcreteLengthXmm", ConcreteLengthXmm);
+            ConcreteLengthYmm = ReadField(configuration, "ConcreteLengthYmm", ConcreteLengthYmm);
             ConcreteEdgeDistanceXmm = ReadField(configuration, "ConcreteEdgeDistanceXmm", ConcreteEdgeDistanceXmm);
             ConcreteEdgeDistanceYmm = ReadField(configuration, "ConcreteEdgeDistanceYmm", ConcreteEdgeDistanceYmm);
             _isUpdating = false;
@@ -458,6 +488,8 @@ namespace SAGAStructuralTools.UI.ViewModels
             {
                 UpdateTotalAnchors();
                 BasePlateInput input = ReadInput();
+                ConcreteEdgeDistanceXmm = Format(input.ConcreteEdgeDistanceXmm);
+                ConcreteEdgeDistanceYmm = Format(input.ConcreteEdgeDistanceYmm);
                 BasePlateCalculationResult result = _calculator.Calculate(input);
                 AnchorTensionResult = Format(result.AnchorTensionTf);
                 AnchorShearResult = Format(result.AnchorShearTf);
@@ -475,8 +507,10 @@ namespace SAGAStructuralTools.UI.ViewModels
                 SteelUtilization2Background = GetUtilizationBackground(result.AnchorSteelUtilization2);
                 UpdateSketch(input);
                 AddRows(input, result);
-                CanCreateConnection = Verifications.All(v => v.IsOk);
-                SetOverallStatus(CanCreateConnection);
+                bool calculationsApproved = Verifications.All(v => v.IsOk);
+                CanCreateConnection = true;
+                SetCalculationWarning(calculationsApproved);
+                SetOverallStatus(calculationsApproved);
             }
             catch (Exception ex)
             {
@@ -498,6 +532,7 @@ namespace SAGAStructuralTools.UI.ViewModels
                 BoltPoints.Clear();
                 Verifications.Add(BasePlateVerificationItem.Create("Entrada", false, ex.Message));
                 CanCreateConnection = false;
+                SetCalculationWarning(true);
                 SetOverallStatus(false);
             }
             finally
@@ -576,6 +611,13 @@ namespace SAGAStructuralTools.UI.ViewModels
         {
             double degrees = ParsePlateOrientationOrDefault(value, 0);
             return Math.Abs(degrees - 90.0) < 0.001 ? "90º" : "0º";
+        }
+
+        private PlateOrientationOption FindPlateOrientationOption(string value)
+        {
+            string normalized = NormalizePlateOrientation(value);
+            return PlateOrientationOptions.FirstOrDefault(option => option.DisplayName == normalized) ??
+                PlateOrientationOptions[0];
         }
 
         private static double ReadPlateOrientationDegrees(string value)
@@ -674,6 +716,10 @@ namespace SAGAStructuralTools.UI.ViewModels
             TotalAnchors = totalAnchors.ToString(CultureInfo.GetCultureInfo("pt-BR"));
             return new BasePlateInput
             {
+                PlateLengthXmm = ReadDouble(PlateLengthXmm, "lx"),
+                PlateLengthYmm = ReadDouble(PlateLengthYmm, "ly"),
+                AnchorEdgeDistanceXmm = ReadDouble(AnchorEdgeDistanceXmm, "a1"),
+                AnchorEdgeDistanceYmm = ReadDouble(AnchorEdgeDistanceYmm, "b1"),
                 DepthMm = ReadDouble(DepthMm, "d"),
                 FlangeWidthMm = ReadDouble(FlangeWidthMm, "bf"),
                 WebThicknessMm = ReadDouble(WebThicknessMm, "tw"),
@@ -688,14 +734,20 @@ namespace SAGAStructuralTools.UI.ViewModels
                 PlateFuMpa = ReadDouble(PlateFuMpa, "fu,pl"),
                 ConcreteFckMpa = ReadDouble(ConcreteFckMpa, "fck"),
                 ConcreteAreaRatioA2A1 = ReadDouble(ConcreteAreaRatioA2A1, "A2/A1"),
-                ConcreteEdgeDistanceXmm = ReadDouble(ConcreteEdgeDistanceXmm, "cx"),
-                ConcreteEdgeDistanceYmm = ReadDouble(ConcreteEdgeDistanceYmm, "cy"),
+                ConcreteLengthXmm = ReadDouble(ConcreteLengthXmm, "dimensão X do concreto"),
+                ConcreteLengthYmm = ReadDouble(ConcreteLengthYmm, "dimensão Y do concreto"),
+                ConcreteEdgeDistanceXmm = CalculateConcreteEdgeDistance(
+                    ReadDouble(ConcreteLengthXmm, "dimensão X do concreto"),
+                    ReadDouble(PlateLengthXmm, "lx"),
+                    ReadDouble(AnchorEdgeDistanceXmm, "a1")),
+                ConcreteEdgeDistanceYmm = CalculateConcreteEdgeDistance(
+                    ReadDouble(ConcreteLengthYmm, "dimensão Y do concreto"),
+                    ReadDouble(PlateLengthYmm, "ly"),
+                    ReadDouble(AnchorEdgeDistanceYmm, "b1")),
                 AnchorFyMpa = ReadDouble(AnchorFyMpa, "fy,b"),
                 AnchorFuMpa = ReadDouble(AnchorFuMpa, "fu,b"),
                 ColumnFyMpa = ReadDouble(PlateFyMpa, "fy,pl"),
                 ColumnFuMpa = ReadDouble(PlateFuMpa, "fu,pl"),
-                PlateLengthXmm = ReadDouble(PlateLengthXmm, "lx"),
-                PlateLengthYmm = ReadDouble(PlateLengthYmm, "ly"),
                 PlateThicknessMm = ReadDouble(PlateThicknessMm, "tpl"),
                 AnchorDiameterMm = ReadDouble(AnchorDiameterMm, "db"),
                 AnchorLengthMm = ReadDouble(AnchorLengthMm, "lb"),
@@ -705,8 +757,6 @@ namespace SAGAStructuralTools.UI.ViewModels
                 TotalAnchors = totalAnchors,
                 AnchorsX = anchorsX,
                 AnchorsY = anchorsY,
-                AnchorEdgeDistanceXmm = ReadDouble(AnchorEdgeDistanceXmm, "a1"),
-                AnchorEdgeDistanceYmm = ReadDouble(AnchorEdgeDistanceYmm, "b1"),
                 StiffenerThicknessMm = ReadDouble(StiffenerThicknessMm, "tn"),
                 StiffenerHeightMm = ReadDouble(StiffenerHeightMm, "hn"),
                 HasMiddleStiffener = HasMiddleStiffener
@@ -721,6 +771,15 @@ namespace SAGAStructuralTools.UI.ViewModels
                     .ToString(CultureInfo.GetCultureInfo("pt-BR"));
             else
                 TotalAnchors = "";
+        }
+
+        private static double CalculateConcreteEdgeDistance(
+            double concreteLengthMm,
+            double plateLengthMm,
+            double anchorEdgeDistanceMm)
+        {
+            double plateOverhangInsideConcreteMm = (concreteLengthMm - plateLengthMm) / 2.0;
+            return Math.Max(0, plateOverhangInsideConcreteMm + anchorEdgeDistanceMm);
         }
 
         private void UpdateSketch(BasePlateInput input)
@@ -904,6 +963,18 @@ namespace SAGAStructuralTools.UI.ViewModels
             }
         }
 
+        public sealed class PlateOrientationOption
+        {
+            public PlateOrientationOption(string displayName, double degrees)
+            {
+                DisplayName = displayName;
+                Degrees = degrees;
+            }
+
+            public string DisplayName { get; }
+            public double Degrees { get; }
+        }
+
         private void SetOverallStatus(bool isOk)
         {
             OverallStatusText = isOk
@@ -952,12 +1023,22 @@ namespace SAGAStructuralTools.UI.ViewModels
                 : result.GoverningConcreteShearMechanism;
         }
 
+        private void SetCalculationWarning(bool calculationsApproved)
+        {
+            HasCalculationWarning = !calculationsApproved;
+            CalculationWarningText = calculationsApproved
+                ? ""
+                : "Aviso: a placa de base pode ser criada, porém os cálculos internos não validaram esta configuração. Revise as verificações antes de liberar o detalhamento.";
+        }
+
         private static bool IsOutputProperty(string name)
         {
             return name == nameof(CanCreateConnection) ||
                 name == nameof(OverallStatusText) ||
                 name == nameof(OverallStatusBackground) ||
                 name == nameof(OverallStatusForeground) ||
+                name == nameof(CalculationWarningText) ||
+                name == nameof(HasCalculationWarning) ||
                 name == nameof(AnchorTensionResult) ||
                 name == nameof(AnchorShearResult) ||
                 name == nameof(AnchorConcreteShearResistance) ||
@@ -974,7 +1055,10 @@ namespace SAGAStructuralTools.UI.ViewModels
                 name == nameof(SteelUtilization2Background) ||
                 name == nameof(ConfigurationName) ||
                 name == nameof(SelectedConfigurationName) ||
+                name == nameof(SelectedPlateOrientationOption) ||
                 name == nameof(PlateOrientationDegreesValue) ||
+                name == nameof(ConcreteEdgeDistanceXmm) ||
+                name == nameof(ConcreteEdgeDistanceYmm) ||
                 name == nameof(SketchPlateLengthX) ||
                 name == nameof(SketchPlateLengthY) ||
                 name == nameof(SketchProfileDepth) ||

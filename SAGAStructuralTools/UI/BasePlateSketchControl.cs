@@ -117,15 +117,15 @@ namespace SAGAStructuralTools.UI
             Point center = new Point(plate.Left + plate.Width / 2, plate.Top + plate.Height / 2);
 
             dc.DrawRectangle(null, thin, plate);
-            DrawProfilePlan(dc, center, scale, profilePen, false);
-            DrawBolts(dc, center, scale, thin, false);
+            DrawProfilePlan(dc, center, scale, profilePen, isRotated);
+            DrawBolts(dc, center, scale, thin, isRotated);
             DrawAxes(dc, center, plate, axisPen, red);
 
             DrawHorizontalDimension(dc, plate.Left, plate.Right, plate.Top - 22, isRotated ? "lx" : "ly", dimPen, text);
             DrawVerticalDimension(dc, plate.Left - 24, plate.Top, plate.Bottom, isRotated ? "ly" : "lx", dimPen, text);
 
-            DrawHorizontalBoltChainDimensions(dc, plate, center, scale, plate.Top - 9, dimPen, text, false);
-            DrawVerticalBoltChainDimensions(dc, plate, center, scale, plate.Left - 10, dimPen, text, false);
+            DrawHorizontalBoltChainDimensions(dc, plate, center, scale, plate.Top - 9, dimPen, text, isRotated);
+            DrawVerticalBoltChainDimensions(dc, plate, center, scale, plate.Left - 10, dimPen, text, isRotated);
             DrawPlanSummary(dc, new Point(plate.Left, plate.Bottom + 10), text);
 
             Point calloutStart = new Point(plate.Right - 18, plate.Top + 18);

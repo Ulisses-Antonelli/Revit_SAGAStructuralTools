@@ -18,6 +18,8 @@ namespace SAGAStructuralTools.BasePlate.Domain
         public double PlateFuMpa { get; set; }
         public double ConcreteFckMpa { get; set; }
         public double ConcreteAreaRatioA2A1 { get; set; }
+        public double ConcreteLengthXmm { get; set; }
+        public double ConcreteLengthYmm { get; set; }
         public double ConcreteEdgeDistanceXmm { get; set; }
         public double ConcreteEdgeDistanceYmm { get; set; }
         public double AnchorFyMpa { get; set; }
