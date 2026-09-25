@@ -56,6 +56,17 @@ namespace SAGAStructuralTools
                 });
 
                 TryAddButton(generalPanel, new PushButtonData(
+                    name:         "ImportRobotModel",
+                    text:         "Importar\nModelo do Robot",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.ImportRobotModelCommand")
+                {
+                    ToolTip    = "Lê o arquivo texto exportado do Robot (nós, barras e perfis) e recria o modelo como famílias estruturais nativas do catálogo Gerdau.",
+                    LargeImage = LoadIcon("saga_32.png", 32),
+                    Image      = LoadIcon("saga_16.png", 16)
+                });
+
+                TryAddButton(generalPanel, new PushButtonData(
                     name:         "GenerateStair",
                     text:         "Gerar Escada\nMetálica",
                     assemblyName: assemblyPath,
