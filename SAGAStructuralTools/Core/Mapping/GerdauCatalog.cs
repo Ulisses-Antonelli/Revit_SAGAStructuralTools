@@ -35,6 +35,13 @@ namespace SAGAStructuralTools.Core.Mapping
         public int BeamCount    => _beamIndex.Count;
         public int ColumnCount  => _columnIndex.Count;
 
+        /// <summary>Todas as entradas de viga indexadas (chave normalizada -> caminho/tipo) - usado
+        /// pra busca aproximada/cruzada (ex.: importador do Robot procurando um perfil equivalente
+        /// já publicado na família irmã de pilar).</summary>
+        public IReadOnlyDictionary<string, (string FamilyPath, string TypeName)> BeamEntries => _beamIndex;
+
+        public IReadOnlyDictionary<string, (string FamilyPath, string TypeName)> ColumnEntries => _columnIndex;
+
         public void Load(string directory)
         {
             _beamIndex.Clear();
