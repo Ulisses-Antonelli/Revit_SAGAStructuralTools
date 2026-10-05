@@ -265,7 +265,7 @@ namespace SAGAStructuralTools
                     assemblyName: assemblyPath,
                     className:    "SAGAStructuralTools.Commands.SplitMemberCommand")
                 {
-                    ToolTip    = "Divide uma viga ou pilar reto em dois no ponto de interseção com o eixo de um elemento de referência (viga ou pilar).",
+                    ToolTip    = "Divide vigas ou pilares retos no ponto de interseção com o eixo de um elemento de referência (viga ou pilar). Permite selecionar várias peças de uma vez.",
                     LargeImage = LoadIcon("rail_round_32.png", 32),
                     Image      = LoadIcon("rail_round_16.png", 16)
                 });
