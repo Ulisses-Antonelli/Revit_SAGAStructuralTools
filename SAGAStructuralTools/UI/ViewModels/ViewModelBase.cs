@@ -7,7 +7,7 @@ namespace SAGAStructuralTools.UI.ViewModels
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
         protected bool Set<T>(ref T field, T value, [CallerMemberName] string name = null)

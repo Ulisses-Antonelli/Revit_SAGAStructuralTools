@@ -30,10 +30,12 @@ namespace SAGAStructuralTools
 
                 RibbonPanel generalPanel;
                 RibbonPanel railPanel;
+                RibbonPanel basePlatePanel;
                 try
                 {
                     generalPanel = application.CreateRibbonPanel(tabName, "Ferramentas Estruturais");
                     railPanel = application.CreateRibbonPanel(tabName, "Guarda-Corpos");
+                    basePlatePanel = application.CreateRibbonPanel(tabName, "Placas de Base");
                 }
                 catch (Exception ex)
                 {
@@ -43,6 +45,17 @@ namespace SAGAStructuralTools
 
                 var assemblyPath = Assembly.GetExecutingAssembly().Location;
                 SagaLog.Write($"Assembly: {assemblyPath}");
+
+                TryAddButton(basePlatePanel, new PushButtonData(
+                    name:         "BasePlate",
+                    text:         "Placa de\nBase",
+                    assemblyName: assemblyPath,
+                    className:    "SAGAStructuralTools.Commands.BasePlateCommand")
+                {
+                    ToolTip    = "Abrir ferramenta de dimensionamento de placas de base",
+                    LargeImage = LoadIcon("base_plate_32.png", 32),
+                    Image      = LoadIcon("base_plate_16.png", 16)
+                });
 
                 TryAddButton(generalPanel, new PushButtonData(
                     name:         "ConvertIfc",
@@ -84,8 +97,8 @@ namespace SAGAStructuralTools
                     className:    "SAGAStructuralTools.Commands.GenerateLadderCommand")
                 {
                     ToolTip    = "Gera escadas marinheiro a partir da viga superior: montantes, degraus, suportes, gaiola e prolongamento. Edite com Alt+clique.",
-                    LargeImage = LoadIcon("stairs_32.png", 32),
-                    Image      = LoadIcon("stairs_16.png", 16)
+                    LargeImage = LoadIcon("ladder_32.png", 32),
+                    Image      = LoadIcon("ladder_16.png", 16)
                 });
 
                 TryAddButton(generalPanel, new PushButtonData(

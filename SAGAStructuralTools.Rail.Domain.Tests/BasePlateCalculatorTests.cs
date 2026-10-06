@@ -1,0 +1,225 @@
+using System.Linq;
+using SAGAStructuralTools.BasePlate.Domain;
+using Xunit;
+
+namespace SAGAStructuralTools.Rail.Domain.Tests
+{
+    public class BasePlateCalculatorTests
+    {
+        [Fact]
+        public void ApprovesInitialChecksWhenGeometryIsValid()
+        {
+            var result = new BasePlateCalculator().Calculate(CreateValidInput());
+
+            Assert.True(result.IsApproved);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "lx > bf" &&
+                v.Status == VerificationStatus.Passed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "ly > d" &&
+                v.Status == VerificationStatus.Passed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "Chumbador-borda" &&
+                v.Status == VerificationStatus.Passed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "Chumbador-chumbador" &&
+                v.Status == VerificationStatus.Passed);
+        }
+
+        [Fact]
+        public void FailsWhenPlateDoesNotExceedProfile()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.PlateLengthXmm = input.FlangeWidthMm;
+            input.PlateLengthYmm = input.DepthMm;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.False(result.IsApproved);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "lx > bf" &&
+                v.Status == VerificationStatus.Failed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "ly > d" &&
+                v.Status == VerificationStatus.Failed);
+        }
+
+        [Fact]
+        public void FailsWhenAnchorCountsAreLessThanTwo()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.AnchorsX = 1;
+            input.AnchorsY = 0;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.False(result.IsApproved);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "AnchorsX" &&
+                v.Status == VerificationStatus.Failed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "AnchorsY" &&
+                v.Status == VerificationStatus.Failed);
+        }
+
+        [Fact]
+        public void FailsWhenRequiredPositiveValuesAreInvalid()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.AnchorDiameterMm = 0;
+            input.PlateThicknessMm = -1;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.False(result.IsApproved);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "AnchorDiameterMm" &&
+                v.Status == VerificationStatus.Failed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "PlateThicknessMm" &&
+                v.Status == VerificationStatus.Failed);
+        }
+
+        [Fact]
+        public void ThrowsWhenInputIsNull()
+        {
+            Assert.Throws<System.ArgumentNullException>(() =>
+                new BasePlateCalculator().Calculate(null));
+        }
+
+        [Fact]
+        public void CalculatesTotalAnchorsFromPerimeterLayout()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.AnchorsX = 3;
+            input.AnchorsY = 3;
+            input.TotalAnchors = 99;
+
+            new BasePlateCalculator().Calculate(input);
+
+            Assert.Equal(8, input.TotalAnchors);
+        }
+
+        [Fact]
+        public void DoesNotApproveAnchorChecksWhenTensionExceedsPreliminaryResistance()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.TensionForceTf = -500000;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.False(result.IsApproved);
+            Assert.True(result.AnchorTensionTf > 0);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "Concreto-chumbador" &&
+                v.Status == VerificationStatus.Failed);
+            Assert.Contains(result.Verifications, v =>
+                v.Name == "Aco" &&
+                v.Status == VerificationStatus.Failed);
+        }
+
+        [Fact]
+        public void CalculatesConcreteAndSteelAnchorResistances()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.ShearX_Tf = 2;
+            input.ShearY_Tf = 1;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.True(result.AnchorConcreteShearResistanceTf > 0);
+            Assert.True(result.AnchorConcreteTensionResistanceTf > 0);
+            Assert.True(result.AnchorSteelShearResistanceTf > 0);
+            Assert.True(result.AnchorSteelTensionResistanceTf > 0);
+            Assert.False(string.IsNullOrWhiteSpace(result.GoverningConcreteTensionMechanism));
+            Assert.False(string.IsNullOrWhiteSpace(result.GoverningConcreteShearMechanism));
+            Assert.False(string.IsNullOrWhiteSpace(result.GoverningSteelMechanism));
+            Assert.True(result.AnchorConcreteUtilization < 1);
+            Assert.True(result.AnchorSteelUtilization1 < 1);
+            Assert.True(result.AnchorSteelUtilization2 < 1);
+        }
+
+        [Fact]
+        public void ReducesConcreteAnchorResistanceNearEdges()
+        {
+            BasePlateInput referenceInput = CreateValidInput();
+            referenceInput.ConcreteEdgeDistanceXmm = 700;
+            referenceInput.ConcreteEdgeDistanceYmm = 700;
+
+            BasePlateInput nearEdgeInput = CreateValidInput();
+            nearEdgeInput.ConcreteEdgeDistanceXmm = 60;
+            nearEdgeInput.ConcreteEdgeDistanceYmm = 60;
+
+            var reference = new BasePlateCalculator().Calculate(referenceInput);
+            var nearEdge = new BasePlateCalculator().Calculate(nearEdgeInput);
+
+            Assert.True(nearEdge.AnchorConcreteTensionResistanceTf <
+                reference.AnchorConcreteTensionResistanceTf);
+            Assert.True(nearEdge.AnchorConcreteShearResistanceTf <
+                reference.AnchorConcreteShearResistanceTf);
+        }
+
+        [Fact]
+        public void DoesNotUsePlateHoleEdgeDistanceAsConcreteFreeEdgeDistance()
+        {
+            BasePlateInput input = CreateValidInput();
+            input.MomentX_TfM = 1.5;
+            input.MomentY_TfM = 0.8;
+            input.ShearX_Tf = 2;
+            input.ShearY_Tf = 1;
+            input.AnchorDiameterMm = 25;
+            input.EmbedmentLengthMm = 700;
+            input.AnchorEdgeDistanceXmm = 60;
+            input.AnchorEdgeDistanceYmm = 70;
+            input.ConcreteEdgeDistanceXmm = 700;
+            input.ConcreteEdgeDistanceYmm = 700;
+            input.HasHook = true;
+
+            var result = new BasePlateCalculator().Calculate(input);
+
+            Assert.True(result.AnchorConcreteTensionResistanceTf > result.AnchorTensionTf);
+            Assert.True(result.AnchorConcreteShearResistanceTf > result.AnchorShearTf);
+            Assert.True(result.AnchorConcreteUtilization < 1.0);
+        }
+
+        private static BasePlateInput CreateValidInput()
+        {
+            return new BasePlateInput
+            {
+                DepthMm = 300,
+                FlangeWidthMm = 150,
+                WebThicknessMm = 6.3,
+                FlangeThicknessMm = 9.5,
+                CompressionForceTf = 20,
+                TensionForceTf = 0,
+                MomentX_TfM = 0,
+                MomentY_TfM = 0,
+                ShearX_Tf = 0,
+                ShearY_Tf = 0,
+                PlateFyMpa = 250,
+                PlateFuMpa = 400,
+                ConcreteFckMpa = 30,
+                ConcreteEdgeDistanceXmm = 300,
+                ConcreteEdgeDistanceYmm = 300,
+                AnchorFyMpa = 250,
+                AnchorFuMpa = 400,
+                ColumnFyMpa = 250,
+                ColumnFuMpa = 400,
+                PlateLengthXmm = 300,
+                PlateLengthYmm = 450,
+                PlateThicknessMm = 19,
+                AnchorDiameterMm = 19,
+                EmbedmentLengthMm = 250,
+                HasHook = true,
+                CorrosionAllowanceMm = 0,
+                AnchorsX = 2,
+                AnchorsY = 2,
+                AnchorEdgeDistanceXmm = 60,
+                AnchorEdgeDistanceYmm = 70,
+                StiffenerThicknessMm = 0,
+                StiffenerHeightMm = 0,
+                HasMiddleStiffener = false
+            };
+        }
+    }
+}
