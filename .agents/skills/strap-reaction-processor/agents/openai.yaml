@@ -1,0 +1,15 @@
+interface:
+  display_name: strap reaction processor
+  short_description: Processar tabelas de reações de apoio do STRAP fornecidas como
+    imagem, captura de tela, PDF, DOCX, RTF, TXT, XLSX ou tabela colada; consolidar
+    os esforços por nó para bases de concreto e gerar uma planilha XLSX no padrão
+    Import_Revit.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

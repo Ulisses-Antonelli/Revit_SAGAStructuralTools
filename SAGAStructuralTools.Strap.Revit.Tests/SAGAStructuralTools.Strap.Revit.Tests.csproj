@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <ProjectReference Include="..\SAGAStructuralTools.Strap.Domain\SAGAStructuralTools.Strap.Domain.csproj" />
+    <ProjectReference Include="..\SAGAStructuralTools.Strap.Application\SAGAStructuralTools.Strap.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\SAGAStructuralTools\UI\ViewModels\ViewModelBase.cs" Link="Source\ViewModelBase.cs" />
+    <Compile Include="..\SAGAStructuralTools\UI\ViewModels\RelayCommand.cs" Link="Source\RelayCommand.cs" />
+    <Compile Include="..\SAGAStructuralTools\UI\ViewModels\Strap\*.cs" Link="Source\%(Filename)%(Extension)" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapParameterNames.cs" Link="Source\StrapParameterNames.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetCandidate.cs" Link="Source\StrapTargetCandidate.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetProfile.cs" Link="Source\StrapTargetProfile.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetProfiles.cs" Link="Source\StrapTargetProfiles.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapCandidateCatalog.cs" Link="Source\StrapCandidateCatalog.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\StrapTargetMapping.cs" Link="Source\StrapTargetMapping.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionWriteTargetGuard.cs" Link="Source\ReactionWriteTargetGuard.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionValueSnapshot.cs" Link="Source\ReactionValueSnapshot.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionWritePlan.cs" Link="Source\ReactionWritePlan.cs" />
+    <Compile Include="..\SAGAStructuralTools\Revit\Strap\ReactionWriteResult.cs" Link="Source\ReactionWriteResult.cs" />
+  </ItemGroup>
+</Project>

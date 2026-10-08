@@ -1,13 +1,13 @@
 # Instalação no Revit 2026
 
-## Opção mais simples: pacote ZIP
+## Gerar e instalar o pacote
 
-1. Na branch `feature/rail-transitions`, baixe
-   [`SAGAStructuralTools-Revit2026-feature-rail-transitions.zip`](artifacts/SAGAStructuralTools-Revit2026-feature-rail-transitions.zip).
-2. Extraia todos os arquivos.
-3. Feche o Revit.
-4. Dê dois cliques em `INSTALAR.cmd`.
-5. Abra o Revit 2026.
+1. Na branch `develop`, clone ou atualize o repositório.
+2. Execute `powershell -ExecutionPolicy Bypass -File .\tools\New-Revit2026Package.ps1`.
+3. Extraia `artifacts\packages\SAGAStructuralTools-Revit2026.zip`.
+4. Feche o Revit.
+5. Dê dois cliques em `INSTALAR.cmd`.
+6. Abra o Revit 2026.
 
 O instalador copia o add-in para o diretório do usuário, sem exigir acesso de
 administrador:
@@ -24,24 +24,18 @@ As famílias `.rfa` e os catálogos `.txt` não estão neste repositório. Copie
 biblioteca de famílias separadamente e, na primeira execução, selecione os novos
 caminhos nas configurações do add-in.
 
-## Continuar o desenvolvimento em outro computador
+## Pré-requisitos e compilação manual
 
 Pré-requisitos:
 
 - Autodesk Revit 2026 instalado no caminho padrão;
-- .NET SDK 8 ou mais recente;
+- .NET SDK 10 ou mais recente;
 - Git.
 
 ```powershell
 git clone https://github.com/Ulisses-Antonelli/Revit_SAGAStructuralTools.git
 cd Revit_SAGAStructuralTools
-git switch feature/rail-transitions
+git switch develop
 dotnet build .\SAGAStructuralTools\SAGAStructuralTools.csproj `
-  -c Release -f net8.0-windows -p:DeployToRevit=false
-```
-
-Para gerar novamente o ZIP:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\New-Revit2026Package.ps1
+  -c Release -f net10.0-windows -p:DeployToRevit=false
 ```
